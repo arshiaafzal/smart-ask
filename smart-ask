@@ -52,53 +52,55 @@ def _rc() -> str:
         return random.choice(_GREEN_RAIN) + "$" + R
     return " "
 
-# ── $ rain falls into your logo, filling top → bottom ─────────────────
+# ── Box-art logo crystallises from a $ rain backdrop ─────────────────────
 def _teaser():
-    # Your exact logo — $ = filled, space = empty
     _LOGO = (
-        " $$$  $   $   $$   $$$  $$$      $$    $  $ $  $   $ $   $$   $$    $   $",
-        "$      $$ $$  $ $  $  $   $       $ $   $ $  $ $   $$$  $      $ $   $  $ ",
-        " $$    $ $ $ $   $ $$$    $       $$$   $$   $$     $ $   $$    $ $   $$   ",
-        "   $   $   $ $$$$ $ $    $       $ $   $ $  $ $   $ $     $   $ $   $ $  ",
-        "$ $   $   $ $   $ $  $   $       $ $   $  $ $  $  $ $  $ $   $ $   $  $ ",
-        " $$    $   $ $   $ $   $  $       $ $   $   $$   $ $  $  $$     $$    $   $",
+        "███████╗███╗   ███╗ █████╗ ██████╗ ████████╗      █████╗ ███████╗██╗  ██╗",
+        "██╔════╝████╗ ████║██╔══██╗██╔══██╗╚══██╔══╝     ██╔══██╗██╔════╝██║ ██╔╝",
+        "███████╗██╔████╔██║███████║██████╔╝   ██║        ███████║███████╗█████╔╝ ",
+        "╚════██║██║╚██╔╝██║██╔══██║██╔══██╗   ██║        ██╔══██║╚════██║██╔═██╗ ",
+        "███████║██║ ╚═╝ ██║██║  ██║██║  ██║   ██║        ██║  ██║███████║██║  ██╗",
+        "╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝        ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝",
     )
 
     LOGO_H = len(_LOGO)
     LOGO_W = max(len(line) for line in _LOGO)
 
-    WIDTH      = max(LOGO_W + 10, 60)
-    left       = (WIDTH - LOGO_W) // 2
-    RAIN_ABOVE = 2                          # rows of falling rain above the logo
+    MARGIN     = 2
+    WIDTH      = LOGO_W + 2 * MARGIN
+    left       = MARGIN
+    RAIN_ABOVE = 2
     HEIGHT     = RAIN_ABOVE + LOGO_H + 1
     RAIN_H     = HEIGHT + 2
 
-    # Build mask from logo: True wherever the logo has a '$'
-    mask = [[False] * WIDTH for _ in range(HEIGHT)]
+    # Dark palette so the bright logo pops out of the rain
+    _DARK = ["\033[38;5;22m", "\033[38;5;22m", "\033[38;5;28m",
+             "\033[38;5;28m", "\033[38;5;34m", "\033[38;5;40m"]
+    def _rcc():
+        return random.choice(_DARK) + "$" + R if random.random() < 0.28 else " "
+
+    # logo_chars[row][col] = char to display, or None (rain shows through)
+    logo_chars = [[None] * WIDTH for _ in range(HEIGHT)]
     for r, line in enumerate(_LOGO):
         for c, ch in enumerate(line):
-            if ch == '$':
-                mask[RAIN_ABOVE + r][left + c] = True
+            if ch != ' ':
+                logo_chars[RAIN_ABOVE + r][left + c] = ch
 
-    # Columns that contain at least one logo cell
-    letter_cols = [any(mask[r][c] for r in range(HEIGHT)) for c in range(WIDTH)]
-
-    # Rain buffers — only for logo columns; everything else stays dark
-    rain = {c: [_rc() for _ in range(RAIN_H)]
-            for c in range(WIDTH) if letter_cols[c]}
+    # Full-width rain — runs behind and through empty spaces in the logo
+    rain = {c: [_rcc() for _ in range(RAIN_H)] for c in range(WIDTH)}
 
     def _advance():
         for buf in rain.values():
             buf.pop()
-            buf.insert(0, _rc())
+            buf.insert(0, _rcc())
 
-    BRIGHT = "\033[38;5;46m"    # brightest green — locked cells
-    LETTER = BRIGHT + "$" + R
+    LOGO_C  = "\033[1;38;5;82m"    # bold vivid green — logo glyphs
+    FLASH_C = "\033[1;38;5;118m"   # slightly lighter for the just-revealed row
 
-    RAIN_FRAMES  = 25
-    FILL_FRAMES  = LOGO_H       # one row locked per step, top → bottom
-    TOTAL_FRAMES = RAIN_FRAMES + FILL_FRAMES
-    TOTAL_LINES  = HEIGHT + 1
+    RAIN_FRAMES   = 22
+    REVEAL_FRAMES = LOGO_H          # one row materialises per frame
+    TOTAL_FRAMES  = RAIN_FRAMES + REVEAL_FRAMES
+    TOTAL_LINES   = HEIGHT + 1
 
     animate = sys.stdout.isatty()
     if animate:
@@ -110,23 +112,22 @@ def _teaser():
             if animate and frame > 0:
                 sys.stdout.write(f"\033[{TOTAL_LINES}F")
 
-            fill_step = frame - RAIN_FRAMES
-            # Top-to-bottom fill: rows up to fill_boundary are locked bright
-            fill_boundary = RAIN_ABOVE + fill_step if fill_step >= 0 else -1
+            reveal_step = frame - RAIN_FRAMES   # <0: pure rain; ≥0: rows appear
 
             lines = []
             for row in range(HEIGHT):
                 row_chars = []
+                logo_row  = row - RAIN_ABOVE    # <0 above logo; 0-5 logo rows
+                revealed  = reveal_step >= 0 and 0 <= logo_row <= reveal_step
+                flashing  = logo_row == reveal_step   # the row that just appeared
+
                 for col in range(WIDTH):
-                    if mask[row][col] and row <= fill_boundary:
-                        # Logo cell that has been filled — bright locked $
-                        row_chars.append(LETTER)
-                    elif letter_cols[col] and (fill_step < 0 or row > fill_boundary):
-                        # Rain phase: fall everywhere in logo cols
-                        # Fill phase: only above the current boundary (settled = dark)
-                        row_chars.append(rain[col][row])
+                    lc = logo_chars[row][col]
+                    if lc is not None and revealed:
+                        color = FLASH_C if flashing else LOGO_C
+                        row_chars.append(color + lc + R)
                     else:
-                        row_chars.append(" ")
+                        row_chars.append(rain[col][row])
                 lines.append("\033[2K" + "".join(row_chars))
             lines.append("\033[2K")
 
@@ -135,11 +136,11 @@ def _teaser():
 
             _advance()
             if animate:
-                time.sleep(0.09 if fill_step < 0 else 0.15)
+                time.sleep(0.09 if reveal_step < 0 else 0.20)
 
-        # Hold the final logo for a moment
+        # Hold so the user can read the logo
         if animate:
-            time.sleep(0.8)
+            time.sleep(1.5)
 
     finally:
         if animate:
