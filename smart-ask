@@ -127,11 +127,14 @@ def _teaser():
                 row_chars = []
                 for col in range(WIDTH):
                     if mask[row][col] and row <= fill_boundary:
-                        row_chars.append(LETTER)       # locked logo cell
-                    elif letter_cols[col]:
-                        row_chars.append(rain[col][row])  # rain still falling
+                        # Logo cell that has been filled — bright locked $
+                        row_chars.append(LETTER)
+                    elif letter_cols[col] and (fill_step < 0 or row > fill_boundary):
+                        # Rain phase: fall everywhere in logo cols
+                        # Fill phase: only above the current boundary (settled = dark)
+                        row_chars.append(rain[col][row])
                     else:
-                        row_chars.append(" ")          # dark column
+                        row_chars.append(" ")
                 lines.append("\033[2K" + "".join(row_chars))
             lines.append("\033[2K")
 
@@ -140,7 +143,11 @@ def _teaser():
 
             _advance()
             if animate:
-                time.sleep(0.09 if fill_step < 0 else 0.13)
+                time.sleep(0.09 if fill_step < 0 else 0.15)
+
+        # Hold the final logo for a moment
+        if animate:
+            time.sleep(0.8)
 
     finally:
         if animate:
