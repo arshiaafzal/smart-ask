@@ -98,7 +98,7 @@ def _teaser():
     LOGO_C  = "\033[1;38;5;82m"    # bold vivid green — logo glyphs
     FLASH_C = "\033[1;38;5;118m"   # slightly lighter for the just-revealed row
 
-    RAIN_FRAMES   = 22
+    RAIN_FRAMES   = 8
     REVEAL_FRAMES = LOGO_H          # one row materialises per frame
     TOTAL_FRAMES  = RAIN_FRAMES + REVEAL_FRAMES
     TOTAL_LINES   = HEIGHT + 1
@@ -137,11 +137,11 @@ def _teaser():
 
             _advance()
             if animate:
-                time.sleep(0.09 if reveal_step < 0 else 0.20)
+                time.sleep(0.05 if reveal_step < 0 else 0.10)
 
         # Hold so the user can read the logo
         if animate:
-            time.sleep(1.5)
+            time.sleep(0.8)
 
     finally:
         if animate:
