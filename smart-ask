@@ -369,12 +369,21 @@ def main():
 
     if args.help or (not args.prompt and sys.stdin.isatty()):
         show_welcome()
-        sys.exit(0)
+        if args.help:
+            sys.exit(0)
+        # No task given — prompt for one instead of exiting
+        try:
+            task = input(f"  {CY}What's the task?{R}  ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            sys.exit(0)
+        if not task:
+            sys.exit(0)
+        args.prompt = [task]
 
     prompt = " ".join(args.prompt) if args.prompt else sys.stdin.read().strip()
 
     if not prompt:
-        show_welcome()
         sys.exit(0)
 
     if not OR_KEY:
