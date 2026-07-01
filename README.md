@@ -1,13 +1,13 @@
 # smart-ask
 
-A terminal CLI that routes AI tasks to the cheapest capable model — saving **80–95%** vs always using Claude Opus.
+A terminal CLI that routes AI tasks to the cheapest capable model — saving **98%** vs always using Claude Opus.
 
 ```
 $ ask "explain how TCP handshake works"
-  ▸  gemini-3.5-flash  [easy]  cheap ✓
+  ▸  gemini-2.5-flash-lite  [easy]  cheap ✓
 
 $ ask "design a distributed event-sourcing architecture"
-  ▸  claude-opus-4.8   [hard]  powerful ✓
+  ▸  claude-opus-4.8        [hard]  powerful ✓
 ```
 
 On startup (`ask` with no arguments) you get an animated dollar-rain teaser, then a prompt asking what you want to build.
@@ -23,13 +23,13 @@ On startup (`ask` with no arguments) you get an animated dollar-rain teaser, the
                                          │
                     ┌────────────────────┴───────────────────┐
                     ▼                                         ▼
-          google/gemini-3.5-flash               claude-opus-4.8
-             cheap & fast                         full power
+       google/gemini-2.5-flash-lite            claude-opus-4.8
+          cheap & fast (50x cheaper)              full power
 ```
 
 1. You type `ask "your task"` (or just `ask` to be prompted)
 2. `claude-haiku-4.5` classifies it as **easy** or **hard** (~$0.0001)
-3. **Easy** → `google/gemini-3.5-flash` via OpenRouter (cheap, reliable tool use)
+3. **Easy** → `google/gemini-2.5-flash-lite` via OpenRouter (50x cheaper than Opus)
 4. **Hard** → `claude-opus-4.8` via OpenRouter (maximum capability)
 
 All sessions run interactively inside Hermes — you can watch the agent work, steer mid-task, and approve/deny tool calls.
@@ -133,8 +133,10 @@ echo "explain async/await in JavaScript" | ask
 | Role | Model | Provider | Cost |
 |------|-------|----------|------|
 | Classifier | `anthropic/claude-haiku-4.5` | OpenRouter | ~$0.0001 / call |
-| Easy tasks | `google/gemini-3.5-flash` | OpenRouter | Very cheap |
-| Hard tasks | `anthropic/claude-opus-4.8` | OpenRouter | Full price |
+| Easy tasks | `google/gemini-2.5-flash-lite` | OpenRouter | $0.0001 / 1M in, $0.0004 / 1M out |
+| Hard tasks | `anthropic/claude-opus-4.8` | OpenRouter | $5 / 1M in, $25 / 1M out |
+
+The easy model is **50x cheaper** than Opus per token. On our HumanEval benchmark (164 problems), Gemini cost $0.016 vs $0.82 for Opus — a **98% saving**.
 
 The **classifier threshold** is intentionally conservative — when in doubt it routes to Gemini and lets you override with `--force-hard` if needed.
 

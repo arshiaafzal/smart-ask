@@ -1,0 +1,19 @@
+{
+  "n": 164,
+  "stats": {
+    "gemini-2.5-flash-lite": {
+      "passed": 121,
+      "failed": 43,
+      "errors": 0,
+      "in_tok": 30412,
+      "out_tok": 33365
+    },
+    "claude-opus-4.8": {
+      "passed": 160,
+      "failed": 4,
+      "errors": 0,
+      "in_tok": 41843,
+      "out_tok": 24516
+    }
+  }
+}

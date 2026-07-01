@@ -4,7 +4,7 @@ Measures **pass@1 accuracy** and **cost** for the two smart-ask routes:
 
 | Route | Model |
 |-------|-------|
-| Easy  | `google/gemini-3.5-flash` |
+| Easy  | `google/gemini-2.5-flash-lite` |
 | Hard  | `anthropic/claude-opus-4.8` |
 
 HumanEval is 164 real Python programming problems from OpenAI.
@@ -33,37 +33,38 @@ python run.py
 python run.py --report
 ```
 
-## Example output
+## Results (full run — 164 problems)
 
 ```
   Running 164 HumanEval problems against 2 models...
 
-  ══════════════════════════════════════════════════════════
+  ════════════════════════════════════════════════════════════
   HumanEval Benchmark  —  smart-ask cost comparison
-  ══════════════════════════════════════════════════════════
+  ════════════════════════════════════════════════════════════
 
-  Google Gemini 3.5 Flash  [easy route]
-    pass@1      138/164  (84.1%)
-    total cost  $0.00412
-    cost/solved $0.000030
-    tokens      2,741,320 in  /  83,204 out
+  Google Gemini 2.5 Flash Lite  [easy route]
+    pass@1      121/164  (73.8%)
+    total cost  $0.01639
+    cost/solved $0.000135
+    tokens      30,412 in  /  33,365 out
 
   Anthropic Claude Opus 4.8 [hard route]
-    pass@1      152/164  (92.7%)
-    total cost  $0.01823
-    cost/solved $0.000120
-    tokens      2,741,320 in  /  83,204 out
+    pass@1      160/164  (97.6%)
+    total cost  $0.82212
+    cost/solved $0.005138
+    tokens      41,843 in  /  24,516 out
 
   ────────────────────────────────────────
-  Cost saving   77.4%  (4.4x cheaper)
-  Gemini cost   $0.00412
-  Opus cost     $0.01823
-  Difference    $0.01411 saved per 164 problems
-  ══════════════════════════════════════════════════════════
+  Cost saving   98.0%  (50.2x cheaper)
+  Gemini cost   $0.01639
+  Opus cost     $0.82212
+  Difference    $0.80573 saved per 164 problems
+  ════════════════════════════════════════════════════════════
 ```
 
 ## What it proves
 
-- For **easy coding tasks**, Gemini handles most of them at a fraction of the cost
-- Smart-ask routes easy tasks to Gemini → you only pay Opus prices for tasks that genuinely need it
-- The classifier's job is to identify which tasks are which
+- For **easy coding tasks**, Gemini 2.5 Flash Lite handles ~74% of them correctly at 1/50th the cost of Opus
+- smart-ask routes easy tasks to Gemini → you only pay Opus prices for tasks that genuinely need it
+- Even with Gemini's lower accuracy, the cost-per-correct-solution is **38x cheaper** ($0.000135 vs $0.005138)
+- For tasks where quality matters most, use `--force-hard` to always route to Opus

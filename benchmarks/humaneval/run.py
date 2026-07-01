@@ -9,7 +9,7 @@ Usage:
     python run.py --report   # print last saved results without re-running
 """
 
-import os, sys, json, time, subprocess, tempfile, textwrap, argparse
+import os, sys, json, subprocess, tempfile, argparse
 from pathlib import Path
 from openai import OpenAI
 
@@ -18,11 +18,11 @@ OR_BASE = "https://openrouter.ai/api/v1"
 
 # Prices from OpenRouter API (per token, fetched 2026-07-01)
 MODELS = {
-    "gemini-3.5-flash": {
-        "id":     "google/gemini-3.5-flash",
-        "input":  0.0000015,    # $ per input token
-        "output": 0.000009,     # $ per output token
-        "label":  "Google Gemini 3.5 Flash  [easy route]",
+    "gemini-2.5-flash-lite": {
+        "id":     "google/gemini-2.5-flash-lite",
+        "input":  0.0000001,    # $ per input token
+        "output": 0.0000004,    # $ per output token
+        "label":  "Google Gemini 2.5 Flash Lite  [easy route]",
     },
     "claude-opus-4.8": {
         "id":     "anthropic/claude-opus-4.8",
@@ -41,25 +41,27 @@ def load_humaneval():
         from datasets import load_dataset
     except ImportError:
         sys.exit("Missing dependency — run: pip install -r requirements.txt")
-    ds = load_dataset("openai_humaneval", split="test", trust_remote_code=True)
+    ds = load_dataset("openai/openai_humaneval", split="test")
     return list(ds)
 
 
 # ── Model calls ────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = (
-    "You are a Python expert. Complete the given function. "
-    "Return ONLY the function body (the indented code that goes inside the function). "
-    "Do NOT repeat the function signature. Do NOT add any explanation or markdown fences."
+    "You are an expert Python programmer. "
+    "Complete the given Python function. "
+    "Return ONLY the complete function implementation — starting from the `def` line. "
+    "No explanation, no markdown fences, no extra text."
 )
 
 def complete(client, model_id, prompt, max_tokens=512):
     """Call OpenRouter and return (completion, input_tokens, output_tokens)."""
+    user_msg = f"Complete this Python function:\n\n{prompt}"
     resp = client.chat.completions.create(
         model=model_id,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",   "content": prompt},
+            {"role": "user",   "content": user_msg},
         ],
         max_tokens=max_tokens,
         temperature=0.0,
@@ -76,29 +78,35 @@ def strip_fences(text):
     text = text.strip()
     if text.startswith("```"):
         lines = text.splitlines()
-        # drop first line (``` or ```python) and last line (```)
         inner = lines[1:] if len(lines) > 1 else lines
         if inner and inner[-1].strip() == "```":
             inner = inner[:-1]
         text = "\n".join(inner)
-    return text
+    return text.strip()
 
 def check(prompt, completion, test_code, entry_point, timeout=10):
     """
-    Run prompt + completion + test harness in a subprocess.
+    Run the model's completion against the HumanEval test harness.
     Returns True if all assertions pass.
     """
-    body = strip_fences(completion)
+    code = strip_fences(completion)
 
-    # Reconstruct the full function (signature from prompt + body from model)
-    full = textwrap.dedent(f"""\
-{prompt}
-{body}
+    # If the completion contains the function definition, use it directly.
+    # Otherwise treat it as a function body and prepend the prompt signature.
+    if f"def {entry_point}" in code:
+        impl = code
+    else:
+        impl = prompt + code
 
-{test_code}
+    # Standard HumanEval imports + the implementation + test harness
+    full = (
+        "from typing import List, Tuple, Dict, Optional, Set, Any, Union\n"
+        "import math, re, collections, itertools, functools, heapq, bisect\n\n"
+        + impl + "\n\n"
+        + test_code + "\n\n"
+        + f"check({entry_point})\n"
+    )
 
-check({entry_point})
-""")
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(full)
         fname = f.name
@@ -188,7 +196,7 @@ def print_report(stats, n_problems):
         if s["errors"]:
             print(f"    errors      {s['errors']}")
 
-    gem_cost = costs["gemini-3.5-flash"]
+    gem_cost = costs["gemini-2.5-flash-lite"]
     opu_cost = costs["claude-opus-4.8"]
     if opu_cost > 0 and gem_cost > 0:
         savings_pct = (opu_cost - gem_cost) / opu_cost * 100
