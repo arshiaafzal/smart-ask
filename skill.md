@@ -11,8 +11,10 @@ Use this skill when the user wants to run a task through **smart-ask**, or when 
 
 `ask` is a CLI that:
 1. Sends the task to `claude-haiku-4.5` for classification (~$0.0001)
-2. Routes **easy** tasks to `qwen/qwen3-coder` (480B, cheap)
+2. Routes **easy** tasks to `google/gemini-3.5-flash` (cheap, reliable)
 3. Routes **hard** tasks to `claude-opus-4.8` (powerful)
+
+All sessions run interactively inside Hermes — the agent works in a full PTY session you can steer mid-task.
 
 ## Prerequisites
 
@@ -33,11 +35,11 @@ hermes --version
 
 ```bash
 ask "task description"           # auto-classify and run (recommended)
-ask -i "task"                    # interactive: watch agent, approve tools
 ask --force-hard "complex task"  # skip classifier → Claude Opus directly
-ask --force-easy "simple task"   # skip classifier → Qwen directly
+ask --force-easy "simple task"   # skip classifier → Gemini directly
 ask --dry-run "task"             # classify only, print route, don't run
 ask -v "task"                    # verbose: show raw tool calls
+ask                              # animated teaser → prompt for task
 ```
 
 ## When to use which flag
@@ -48,11 +50,10 @@ ask -v "task"                    # verbose: show raw tool calls
 | Multi-step refactor, system design, research | `--force-hard` |
 | Quick scripts, formatting, simple Q&A | `--force-easy` |
 | Just want to know which model would be used | `--dry-run` |
-| Need to approve each tool call before it runs | `-i` |
 
 ## Routing heuristic (what the classifier uses)
 
-**Easy** (→ Qwen): Q&A, explain concepts, simple scripts, debug a single function, reformat code, write tests for existing code, shell one-liners.
+**Easy** (→ Gemini 3.5 Flash): Q&A, explain concepts, simple scripts, debug a single function, reformat code, write tests for existing code, shell one-liners.
 
 **Hard** (→ Claude Opus): Complex architecture design, multi-system integration, novel algorithms, security analysis, large-scale refactoring, advanced research synthesis.
 
@@ -74,7 +75,7 @@ ask --dry-run "explain the CAP theorem"
 ## Output interpretation
 
 ```
-  ▸  qwen/qwen3-coder  [easy]  cheap ✓     → routed to Qwen
+  ▸  gemini-3.5-flash  [easy]  cheap ✓     → routed to Gemini
   ▸  claude-opus-4.8   [hard]  powerful ✓  → routed to Claude Opus
 ```
 
@@ -84,8 +85,8 @@ ask --dry-run "explain the CAP theorem"
 |-------|-----|
 | `OPENROUTER_API_KEY not set` | `export OPENROUTER_API_KEY="sk-or-..."` in your shell |
 | `hermes: command not found` | Add `~/hermes-agent/.venv/bin` to PATH or reinstall Hermes |
+| `HTTP 402` credit error | Top up at https://openrouter.ai/settings/credits |
 | Classifier always returns "easy" | Check your OpenRouter key has credits; classifier falls back to "easy" on error |
-| PTY mode hangs (`-i`) | Press `Ctrl-C` to abort; check Hermes config at `~/.hermes/config.yaml` |
 
 ## Installation (for new collaborators)
 

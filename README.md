@@ -4,13 +4,13 @@ A terminal CLI that routes AI tasks to the cheapest capable model — saving **8
 
 ```
 $ ask "explain how TCP handshake works"
-  ▸  qwen/qwen3-coder  [easy]  cheap ✓
+  ▸  gemini-3.5-flash  [easy]  cheap ✓
 
 $ ask "design a distributed event-sourcing architecture"
   ▸  claude-opus-4.8   [hard]  powerful ✓
 ```
 
-On startup (`ask` with no arguments) you get an animated dollar-rain teaser with the word **ask** crystallising from the storm.
+On startup (`ask` with no arguments) you get an animated dollar-rain teaser, then a prompt asking what you want to build.
 
 ---
 
@@ -23,14 +23,16 @@ On startup (`ask` with no arguments) you get an animated dollar-rain teaser with
                                          │
                     ┌────────────────────┴───────────────────┐
                     ▼                                         ▼
-          qwen/qwen3-coder (480B)               claude-opus-4.8
+          google/gemini-3.5-flash               claude-opus-4.8
              cheap & fast                         full power
 ```
 
-1. You type `ask "your task"`
-2. `claude-haiku-4.5` classifies it as **easy** or **hard** (one API call, ~$0.0001)
-3. **Easy** → `qwen/qwen3-coder` via Hermes (cheap 480B MoE model)
+1. You type `ask "your task"` (or just `ask` to be prompted)
+2. `claude-haiku-4.5` classifies it as **easy** or **hard** (~$0.0001)
+3. **Easy** → `google/gemini-3.5-flash` via OpenRouter (cheap, reliable tool use)
 4. **Hard** → `claude-opus-4.8` via OpenRouter (maximum capability)
+
+All sessions run interactively inside Hermes — you can watch the agent work, steer mid-task, and approve/deny tool calls.
 
 ---
 
@@ -90,7 +92,7 @@ source ~/.zshrc   # reload
 ### 6. Verify
 
 ```bash
-ask                        # shows animated teaser + help
+ask                        # shows animated teaser, then prompts for task
 ask --dry-run "hello"      # classify only, no model run
 ```
 
@@ -99,26 +101,26 @@ ask --dry-run "hello"      # classify only, no model run
 ## Usage
 
 ```
-ask "task"               auto-route + run
-ask -i "task"            interactive — see agent work, approve tool calls
+ask                      animated teaser → prompt for task → run
+ask "task"               auto-route + run directly
 ask --force-hard "..."   always Claude Opus 4.8
-ask --force-easy "..."   always Qwen
+ask --force-easy "..."   always Gemini 3.5 Flash
 ask --dry-run "..."      classify only, skip run
 ask -v "..."             verbose tool output
-ask                      show help screen
+ask --help               show help screen
 ```
 
 ### Examples
 
 ```bash
-# Simple coding task → routed to Qwen (cheap)
+# Simple coding task → routed to Gemini (cheap)
 ask "write a Python function to parse a CSV file"
 
 # Architecture question → routed to Claude Opus
 ask "design a fault-tolerant microservices system with CQRS"
 
-# Interactive session — watch the agent, steer mid-task
-ask -i "refactor my auth module to use JWT"
+# No argument — shows teaser then asks what you want to build
+ask
 
 # Pipe a task from stdin
 echo "explain async/await in JavaScript" | ask
@@ -131,16 +133,16 @@ echo "explain async/await in JavaScript" | ask
 | Role | Model | Provider | Cost |
 |------|-------|----------|------|
 | Classifier | `anthropic/claude-haiku-4.5` | OpenRouter | ~$0.0001 / call |
-| Easy tasks | `qwen/qwen3-coder` | OpenRouter → Hermes | Very cheap |
+| Easy tasks | `google/gemini-3.5-flash` | OpenRouter | Very cheap |
 | Hard tasks | `anthropic/claude-opus-4.8` | OpenRouter | Full price |
 
-The **classifier threshold** is intentionally conservative — when in doubt it routes to Qwen and lets you override with `--force-hard` if needed.
+The **classifier threshold** is intentionally conservative — when in doubt it routes to Gemini and lets you override with `--force-hard` if needed.
 
 ---
 
-## Interactive mode (`-i`)
+## Interactive sessions
 
-`ask -i "task"` opens a full PTY session inside Hermes. Your prompt is auto-injected after Hermes boots (~2.5 s delay). You can:
+Every session runs inside a full PTY session in Hermes. You can:
 
 - Watch the agent reason and use tools in real time
 - Approve or reject tool calls
@@ -155,7 +157,7 @@ The **classifier threshold** is intentionally conservative — when in doubt it 
 |----------|----------|-------------|
 | `OPENROUTER_API_KEY` | Yes | Your OpenRouter API key (`sk-or-...`) |
 
-All three models (haiku classifier, Qwen, Opus) are accessed through OpenRouter — one key covers everything.
+All three models (haiku classifier, Gemini, Opus) are accessed through OpenRouter — one key covers everything.
 
 ---
 
