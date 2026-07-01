@@ -52,77 +52,125 @@ def _rc() -> str:
         return random.choice(_GREEN_RAIN) + "$" + R
     return " "
 
-# ── $ rain teaser — rain fills "ask" from bottom to top ───────────────
+# ── $ rain falls only into "ASK SMART", filling bottom → top ──────────
 def _teaser():
     WIDTH  = 65
     HEIGHT = 13
     RAIN_H = HEIGHT + 2
 
-    # Pixel maps for 'a', 's', 'k' — 7 cols × 9 rows, '#' = filled
+    # Pixel maps — 5 cols × 9 rows, '#' = filled cell
     _PX = {
-        'a': [
-            ".......",
-            "..####.",
-            ".#....#",
-            ".#....#",
-            ".######",
-            ".#....#",
-            ".#....#",
-            "..####.",
-            ".......",
+        'A': [
+            ".....",
+            "..#..",
+            ".#.#.",
+            "#...#",
+            "#####",
+            "#...#",
+            "#...#",
+            "#...#",
+            ".....",
         ],
-        's': [
-            ".......",
-            "..####.",
-            ".#.....",
-            ".#.....",
-            "..####.",
-            "......#",
-            "......#",
-            ".#####.",
-            ".......",
+        'S': [
+            ".....",
+            ".####",
+            "#....",
+            "#....",
+            ".###.",
+            "....#",
+            "....#",
+            "####.",
+            ".....",
         ],
-        'k': [
-            ".......",
-            ".#....#",
-            ".#...#.",
-            ".#..#..",
-            ".###...",
-            ".#..#..",
-            ".#...#.",
-            ".#....#",
-            ".......",
+        'K': [
+            ".....",
+            "#...#",
+            "#..#.",
+            "#.#..",
+            "###..",
+            "#.#..",
+            "#..#.",
+            "#...#",
+            ".....",
+        ],
+        'M': [
+            ".....",
+            "#...#",
+            "##.##",
+            "#.#.#",
+            "#...#",
+            "#...#",
+            "#...#",
+            "#...#",
+            ".....",
+        ],
+        'R': [
+            ".....",
+            "####.",
+            "#...#",
+            "#...#",
+            "####.",
+            "#.#..",
+            "#..#.",
+            "#...#",
+            ".....",
+        ],
+        'T': [
+            ".....",
+            "#####",
+            "..#..",
+            "..#..",
+            "..#..",
+            "..#..",
+            "..#..",
+            "..#..",
+            ".....",
         ],
     }
 
     LETTER_H = 9
-    LETTER_W = 7
-    GAP      = 2
-    text_col = (WIDTH - (3 * LETTER_W + 2 * GAP)) // 2   # left margin = 20
-    text_row = (HEIGHT - LETTER_H) // 2                   # top margin  = 2
+    LETTER_W = 5
+    GAP      = 1    # cols between adjacent letters
+    SPACE    = 3    # cols between words (ASK · SMART)
 
-    # Boolean mask: mask[row][col] = True if inside a letter
+    # "ASK SMART" — (letter, trailing gap) pairs
+    _WORD = [
+        ('A', GAP), ('S', GAP), ('K', SPACE),
+        ('S', GAP), ('M', GAP), ('A', GAP), ('R', GAP), ('T', 0),
+    ]
+
+    # Total text width: 8 letters × 5 + 6 inter-letter gaps + 1 word gap × 3 = 49
+    total_w  = 8 * LETTER_W + 6 * GAP + SPACE
+    text_col = (WIDTH - total_w) // 2          # = 8
+    text_row = (HEIGHT - LETTER_H) // 2        # = 2
+
+    # Build boolean mask
     mask = [[False] * WIDTH for _ in range(HEIGHT)]
-    for li, ch in enumerate('ask'):
-        col0 = text_col + li * (LETTER_W + GAP)
-        for r, row_str in enumerate(_PX[ch]):
+    col_pos = text_col
+    for letter, spacing in _WORD:
+        for r, row_str in enumerate(_PX[letter]):
             for c, px in enumerate(row_str):
                 if px == '#':
-                    mask[text_row + r][col0 + c] = True
+                    mask[text_row + r][col_pos + c] = True
+        col_pos += LETTER_W + spacing
 
-    # Rain columns
-    cols = [[_rc() for _ in range(RAIN_H)] for _ in range(WIDTH)]
+    # Which screen columns contain at least one letter cell
+    letter_cols = [any(mask[r][c] for r in range(HEIGHT)) for c in range(WIDTH)]
+
+    # Rain buffers only for letter columns — everything else stays dark
+    rain = {c: [_rc() for _ in range(RAIN_H)]
+            for c in range(WIDTH) if letter_cols[c]}
 
     def _advance():
-        for col in cols:
-            col.pop()
-            col.insert(0, _rc())
+        for buf in rain.values():
+            buf.pop()
+            buf.insert(0, _rc())
 
-    BRIGHT = "\033[38;5;46m"          # brightest green — locked letter cells
+    BRIGHT = "\033[38;5;46m"    # brightest green — locked letter cells
     LETTER = BRIGHT + "$" + R
 
     RAIN_FRAMES  = 25
-    FILL_FRAMES  = LETTER_H           # one row revealed per step, bottom → top
+    FILL_FRAMES  = LETTER_H     # 9 steps, one row locked per step, bottom → top
     TOTAL_FRAMES = RAIN_FRAMES + FILL_FRAMES
     TOTAL_LINES  = HEIGHT + 1
 
@@ -136,8 +184,8 @@ def _teaser():
             if animate and frame > 0:
                 sys.stdout.write(f"\033[{TOTAL_LINES}F")
 
-            fill_step = frame - RAIN_FRAMES   # <0 during rain phase
-            # rows >= fill_boundary that are in the mask are locked bright
+            fill_step = frame - RAIN_FRAMES
+            # fill_boundary: letter cells at row >= this are locked bright
             fill_boundary = (
                 text_row + LETTER_H - 1 - fill_step
                 if fill_step >= 0 else HEIGHT
@@ -148,9 +196,14 @@ def _teaser():
                 row_chars = []
                 for col in range(WIDTH):
                     if mask[row][col] and row >= fill_boundary:
+                        # locked letter cell — bright $
                         row_chars.append(LETTER)
+                    elif letter_cols[col]:
+                        # rain falling in a letter column
+                        row_chars.append(rain[col][row])
                     else:
-                        row_chars.append(cols[col][row])
+                        # non-letter column — dark
+                        row_chars.append(" ")
                 lines.append("\033[2K" + "".join(row_chars))
             lines.append("\033[2K")
 
