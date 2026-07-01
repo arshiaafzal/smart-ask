@@ -373,7 +373,7 @@ def main():
             sys.exit(0)
         # No task given — prompt for one instead of exiting
         try:
-            task = input(f"  {CY}What's the task?{R}  ").strip()
+            task = input(f"  {GR}What do you want to build today?{R}  ").strip()
         except (EOFError, KeyboardInterrupt):
             print()
             sys.exit(0)
