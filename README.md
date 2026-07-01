@@ -165,8 +165,14 @@ All three models (haiku classifier, Gemini, Opus) are accessed through OpenRoute
 
 ```
 smart-ask/
-├── smart-ask      # the CLI script (Python, no extra deps beyond openai)
-├── skill.md       # Claude Code skill — lets your agent invoke smart-ask
+├── smart-ask                        # CLI executable — copy to ~/.local/bin/
+├── benchmarks/
+│   └── humaneval/
+│       ├── run.py                   # HumanEval cost benchmark
+│       ├── requirements.txt
+│       └── README.md
+├── skills/
+│   └── smart-ask.md                 # Claude Code skill file
 └── README.md
 ```
 
