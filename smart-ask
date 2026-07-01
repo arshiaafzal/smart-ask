@@ -405,10 +405,7 @@ def main():
     model    = HARD_MODEL if difficulty == "hard" else ""
     provider = "openrouter" if difficulty == "hard" else ""
 
-    if args.interactive:
-        run_interactive(prompt, model=model, provider=provider, verbose=args.verbose)
-    else:
-        run_oneshot(prompt, model=model, provider=provider, verbose=args.verbose)
+    run_interactive(prompt, model=model, provider=provider, verbose=args.verbose)
 
 if __name__ == "__main__":
     main()
