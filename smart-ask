@@ -38,7 +38,7 @@ def _pad(s: str, width: int) -> str:
 OR_KEY           = os.environ.get("OPENROUTER_API_KEY", "")
 OR_BASE          = "https://openrouter.ai/api/v1"
 CLASSIFIER_MODEL = "anthropic/claude-haiku-4.5"
-EASY_MODEL       = "google/gemini-flash-latest"
+EASY_MODEL       = "google/gemini-3.5-flash"
 HARD_MODEL       = "anthropic/claude-opus-4.8"
 
 # ── Rain palette ──────────────────────────────────────────────────────
@@ -173,7 +173,7 @@ def show_welcome():
         f"   {GY}Routes tasks to the cheapest capable model{R}",  # 46
         None,
         f"  {O}>{R} {WH}Classifier:{R}  {GY}claude-haiku-4.5{R}  {DM}($0.0001/call){R}",  # 50
-        f"  {BL}>{R} {WH}Easy  :{R}      {CY}gemini-flash-latest{R}  {DM}(cheap, reliable){R}",  # 48
+        f"  {BL}>{R} {WH}Easy  :{R}      {CY}gemini-3.5-flash{R}   {DM}(cheap, reliable){R}",  # 48
         f"  {O}>{R} {WH}Hard  :{R}      {O}claude-opus-4.8{R}   {DM}(powerful){R}",       # 44
         f"  {GR}>{R} {WH}Saves :{R}      {GR}~80-95%{R} {GY}vs always using Claude Opus{R}",# 50
         None,
