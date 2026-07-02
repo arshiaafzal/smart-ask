@@ -1,0 +1,1919 @@
+{
+  "n": 128,
+  "passed": 87,
+  "results": [
+    {
+      "question_id": "65369f81842e0735d0dd6619a120d5760217c9b8ac481de89cc20983ea555953",
+      "title": "atcoder_Bad Juice",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 1,
+      "pass_all": false
+    },
+    {
+      "question_id": "6a84becb148316106cde53436e3c0b4033d7957dc1e2e3e2d7d30e712a49ecbf",
+      "title": "atcoder_Cheating Gomoku Narabe",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 4,
+      "total": 4,
+      "pass_all": true
+    },
+    {
+      "question_id": "3de555bbcef9919a92a742dd969301eaea38baee624b4c4851e6a495cc83b3cf",
+      "title": "atcoder_Christmas Color Grid 1",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "df2028f3f71248ce456f02f00f5e542660904738e6cd45061a0c7c5662c3d2b4",
+      "title": "atcoder_Count xxx",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "176daded29d196e2697bff1351ef4a77c31ffad3757b20405a6c7a346af31ddb",
+      "title": "atcoder_Diversity of Scores",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "388e39eefc4d3950ad99966e9c8dfbf64b59991d7e6cc2d9fb0a617f4025475e",
+      "title": "atcoder_Erase Leaves",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "f62daa0a810a70c8048484566eb0dcfb331b5299ce2a104f71cbbed4a98ed2b1",
+      "title": "atcoder_Even Digits",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "042b958543e9a61fd083dfd6067a91845b8e272295a282512ec9b527cff2e113",
+      "title": "atcoder_Foreign Exchange",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "67a7d1cc72639935a09a3256d5a1aec2e55403972912391e7f5f079e69ee1cc7",
+      "title": "atcoder_Island Tour",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "d5213885ecf30ec0d5b6fa5e53af31eb5ed207d3257b2ae8843b1eed735ac7a5",
+      "title": "atcoder_Langton's Takahashi",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "cf932b62f91764e164fa14f8b4f50ad8346b1b653765fb9fdec13d372b10be73",
+      "title": "atcoder_Last Train",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "507f6dbb4e7d52e6f645b33aa73096e076769e196010810eeca84820375d4211",
+      "title": "atcoder_Lining Up 2",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "e1e226d29b9ab59fc2de2d719a0e7117572f7bd9dc375709a92a673987c1b29d",
+      "title": "atcoder_Loong Tracking",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 1,
+      "pass_all": false
+    },
+    {
+      "question_id": "992a18bff05e5db69cfeadf0d02b6dfd2808c0997c86e3cc1abb5a4fbd550c70",
+      "title": "atcoder_Mancala 2",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "3d2aec36cd900b962211c24ae69daf2692f7200fe06d34c7a236d531d0a3c17f",
+      "title": "atcoder_Mex and Update",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 1,
+      "total": 1,
+      "pass_all": true
+    },
+    {
+      "question_id": "55893da1c59947e4e7469ad4b0683142b475556a6368135400c20a3d8f43def8",
+      "title": "atcoder_Negative Traveling Salesman",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "f78df88e6755702752e1c216f9734cbf1803a006546503128acb8747aee1a738",
+      "title": "atcoder_Number Place",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "39d2dcf38a69f076f8cd3af146650328044014addb6c2f6abd7ae51d56c56869",
+      "title": "atcoder_Pyramid",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "d191855119f72c53a37db900f0fbf8d177bb12c255da8284af51335e57272f83",
+      "title": "atcoder_Set Meal",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "588bc5f2d796806fc8d50bb1746f5bdf495dce0f1a752ea2dc5fe89d3e1b5f60",
+      "title": "atcoder_Sum of Numbers Greater Than Me",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "306525ba191d9f60529c2b5a3b3fb659106ca56db058b66b4181904705a84aab",
+      "title": "atcoder_T",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "2cb17950d950274fe6858fb7157bc44e160006e47657e9ca7d3b669ec9a0ff07",
+      "title": "atcoder_Takahashi Quest",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "368b91cf69b159b1a3ef4740009cb201b46ea95478c9c5fc17df884b825ccacb",
+      "title": "leetcode_alice-and-bob-playing-flower-game",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "09c0c67ed82f00989b1c9c48646e2c31c89b81dd2afc922cf241ba082afef18b",
+      "title": "leetcode_apply-operations-to-make-string-empty",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "23132a8725620697e72843b28d711947911252925ddaec701e17d85564165c4f",
+      "title": "leetcode_apply-operations-to-maximize-frequency-score",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "a902525e385453571494ab18eaac931c67b171c8106286ba55221bbc89aa1d3b",
+      "title": "leetcode_apply-operations-to-maximize-frequency-score",
+      "task": "coding_completion",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "b8637ee53e144cd0f68a891e7962df2b44c1949cbbdf46670c49b92f29b8bf46",
+      "title": "leetcode_count-beautiful-substrings-i",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "4952a5d420fa195e7b041251e85bce64c87b95e8f1cec05d7e16ce149e88c967",
+      "title": "leetcode_count-prefix-and-suffix-pairs-i",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "e1553e31f9f0e93848a8e06d452fa0d6b8c4bf21580def1d98237dbac399baca",
+      "title": "leetcode_count-subarrays-where-max-element-appears-at-least-k-times",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "7ac5182f5b8a86a644e912d6146da1290f785382a6c178512d8348a055e0a976",
+      "title": "leetcode_count-tested-devices-after-test-operations",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "298828230337781810c328f815976e74c6c89c7b14b22beea1cb3d0dc1a7bcae",
+      "title": "leetcode_count-the-number-of-good-partitions",
+      "task": "coding_completion",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "7f4101a7131ddc370238e7180e5a6b07a534141417b01a5b83a9ab33ea26b0d6",
+      "title": "leetcode_count-the-number-of-good-partitions",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "556eb10bbb584e5dc57d787eede0ca725d3d509ff39849a89b568e4ca9f2dc8e",
+      "title": "leetcode_count-the-number-of-infection-sequences",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "ab88e681245c5c93976393e5ee7f61a122aa12f9f5d970701d874335bf5a6362",
+      "title": "leetcode_count-the-number-of-powerful-integers",
+      "task": "coding_completion",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "6cb0c2d9892875f79d632e273efd7ae3fa4ccb324fbce753673b8314aa80c737",
+      "title": "leetcode_divide-an-array-into-subarrays-with-minimum-cost-i",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "d414f7768eb066f524236800aa2dbb8a4554f2e4abc22a99ef88fe30cbcc308e",
+      "title": "leetcode_double-modular-exponentiation",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "a326807520b5d18b9a6fa534c086ba3ba53ec6481d9a30222b1b09a6b6699483",
+      "title": "leetcode_earliest-second-to-mark-indices-i",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "945b77d39f64bc7e9076de58b48806c99c26ca7a45f94737fa80f0702625969c",
+      "title": "leetcode_find-beautiful-indices-in-the-given-array-i",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "ffdb71c563e5f8e936ab2649a069bfbdbebcde991c6ae11a2e83ec18c0d8e50d",
+      "title": "leetcode_find-if-array-can-be-sorted",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "c675d9db6b456f793da486f16102468ed1e241bbb7846039608b2c0f9c5d1012",
+      "title": "leetcode_find-longest-special-substring-that-occurs-thrice-i",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "26aa1d9bdee3ca21ecb30b18871b017f5013da90f96af113e433e9172f600342",
+      "title": "leetcode_find-longest-special-substring-that-occurs-thrice-i",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "832eb791ff0dae774b2f1d75ba01356d9f49fead0dacaa466d83fb1e59a8dd78",
+      "title": "leetcode_find-maximum-non-decreasing-array-length",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "7439c76752648b2b25924c0810d91f130b7bea2192c80a2603d5662b0685391a",
+      "title": "leetcode_find-polygon-with-the-largest-perimeter",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "030471ea2fc50a29f82560555033ceaec6b127c9ad0f68d34565ba221279d54b",
+      "title": "leetcode_find-polygon-with-the-largest-perimeter",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "af9c90d1566582311697d76693eb2be23401bc8fbb7e8b0e595a4080a53e3fa6",
+      "title": "leetcode_find-the-length-of-the-longest-common-prefix",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "88d41d97990a9e7f990eb8eb71440d007fd194758ce2c3fe00b77e186fd65c3d",
+      "title": "leetcode_find-the-maximum-number-of-elements-in-subset",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "45d51d0927f37783772c554d860a9c17db83a3e8e31dd02abeb93150acdaba55",
+      "title": "leetcode_find-the-maximum-number-of-elements-in-subset",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "109469ec1296f25ee25bc3a09e4265a5df823816b438d97cb3d2ba15717626b5",
+      "title": "leetcode_length-of-longest-subarray-with-at-most-k-frequency",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "fe6312c9e8cb798517e3695c245cbbfbf4fd6dc737903628abc4a2b55c3f4af5",
+      "title": "leetcode_make-lexicographically-smallest-array-by-swapping-elements",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "9e895f817a6a867671d8735578f058a34a19dde837957b1a9c9347d7e13a8e38",
+      "title": "leetcode_maximize-consecutive-elements-in-an-array-after-modification",
+      "task": "coding_completion",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "d9c8393373b3a80ed8f75ad3fbfbe74740f1799b3f2ae7a12486ec41a14aca53",
+      "title": "leetcode_maximize-consecutive-elements-in-an-array-after-modification",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "ef2c6b4ab2f09b2f310eff0a1e7c7e22e9ed12a554aa667dc9d7162fdb123f50",
+      "title": "leetcode_maximize-the-number-of-partitions-after-operations",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "5ced71fafeb7058ec2edec54fe4022058381689584152f36fba4aec109081931",
+      "title": "leetcode_maximum-good-subarray-sum",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "cd2f643fc3de0dbcb738ea9f8ca03f738a76bea2110d7dd97ccf0d8e418a8694",
+      "title": "leetcode_maximum-palindromes-after-operations",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "e4386373494a3b0a70dc5acb7d3a21eb4dc8dc53d4afafcc2d057d16fb68a0a1",
+      "title": "leetcode_maximum-size-of-a-set-after-removals",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "01c73e7f5bd7b486915f97829994aca9b95d6116c510d9f3781b5399dea066bd",
+      "title": "leetcode_maximum-strong-pair-xor-i",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "3375d42f6db384f62b159eb89a85d715736790fd1abb380760ffbd12339fd4d5",
+      "title": "leetcode_maximum-xor-product",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "7ae9d085e0923cd5063163ca2628c4b9ecdf0a7ca192f3806bbaf16c735d4946",
+      "title": "leetcode_maximum-xor-product",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "eecef5ebcd4b0224ec2404b15759eae2703c32db82dc7fd711af23c0dffc888a",
+      "title": "leetcode_minimize-length-of-array-using-operations",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "15b97089ff238df02cdec621f3bd0d14e0b096e4d26d463e2bcb66a0fcb57a9c",
+      "title": "leetcode_minimize-length-of-array-using-operations",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "a762c0ca6500a33a975869105641d3d4fbaf897051bacc2d6fbe83bc3de23bd9",
+      "title": "leetcode_minimum-cost-to-convert-string-i",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "b6a1eeb2bf7e0899432085c68d3f2a5e2395cb6adf1334495db344b742950c6c",
+      "title": "leetcode_minimum-number-of-coins-for-fruits",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "eae492105162057ac07f4920749d2125f86b5a335557c61d328d49f198af3343",
+      "title": "leetcode_minimum-number-of-coins-to-be-added",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "5afb74e155e6538cd76e64fc9df21bd78073b280f0b95b675cbb86aa877b2a59",
+      "title": "leetcode_minimum-number-of-operations-to-make-array-xor-equal-to-k",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "2a0f52cd0d54e167a9d1b9bcb7fcb76d565f37019a19971b7377297c5835cec1",
+      "title": "leetcode_minimum-number-of-operations-to-make-x-and-y-equal",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "ebde77f9af990a37740871b38788987a907d4ab08556978324a42c3293bb68a9",
+      "title": "leetcode_minimum-operations-to-maximize-last-elements-in-arrays",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "3e0ba617402710c701decb2edec4b14fb15a84d74dd02510fd932f3902be1827",
+      "title": "leetcode_number-of-subarrays-that-match-a-pattern-i",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "db5240d8bb9da989f3ffea465538592857f8fa5b7d4293579356c8456253e721",
+      "title": "leetcode_palindrome-rearrangement-queries",
+      "task": "LCB_generation",
+      "difficulty": "hard",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "7c1f49314f2c261404fdd7c795620c2fc92d4545bdccc3fc59a15cf3193dba0b",
+      "title": "leetcode_remove-adjacent-almost-equal-characters",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "gate1": "hard",
+      "escalated": false,
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "63a5960e3858d9b8ca8f734d21ac4828a9d96f67596da0b29f7b3c6b1298aee2",
+      "title": "leetcode_minimum-operations-to-exceed-threshold-value-i",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "0c1688303f94019295a1fe3d5d691494e6226647d863fbaf7205cd12573d1dd5",
+      "title": "leetcode_split-the-array",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "412707cd401e505990ba7dcc4fae0938537212b798cafd0cabd0ec75220baecf",
+      "title": "atcoder_Extended ABC",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 4,
+      "total": 4,
+      "pass_all": true
+    },
+    {
+      "question_id": "0664f46bd7bf6217d229be6762834af2aa642e7b97b14469f478c93a382ee520",
+      "title": "leetcode_count-elements-with-maximum-frequency",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "75a3057122fddbd336b3e9a664d6254556cc1854312b07188cb719b9636a0acc",
+      "title": "atcoder_Minimize Abs 1",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "8b720a5b61bea0e6a0dcfba224824fff2f48c1d21ef3ae9695d3ec9c84f621d1",
+      "title": "atcoder_Wrong Answer",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 1,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "5a126374e3885ec262a06ef4f7eaafd34477f3bc68ba8e6b04123c2c32e7352d",
+      "title": "leetcode_number-of-changing-keys",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "6afe4974569ffea0733fb153fa9bc6ea75c6ada73e3095b7a3efb65fabbfae06",
+      "title": "atcoder_Online Shopping",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "27c31c63ff778ef9594589756be22b75959369914a5b4fae17fa3255927e1dc4",
+      "title": "atcoder_Long Loong",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "89101e97bd95e50c1d5d9db784d73f2894a20e4c2ed3e67cf124c7959f8ab4dd",
+      "title": "leetcode_count-prefix-and-suffix-pairs-i",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "2ac5a0878eb181cefc6922338f7b043368fa897d089955b97eb0b6210f94f3e9",
+      "title": "leetcode_count-elements-with-maximum-frequency",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "e882b58cb776d5ecbd45f20da44a2628df326ee12c927f4ebb751222629601b1",
+      "title": "leetcode_find-the-peaks",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "5a17ebccc62403424aaaa96b3fe4b93604c49ef84c15556490d7e86b10b5126f",
+      "title": "atcoder_Spread",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "1693afc152bb5f955ac7298d7381160294b7a32c0844c02817d7a66a0e028750",
+      "title": "leetcode_smallest-missing-integer-greater-than-sequential-prefix-sum",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "89cad09d866391980ddbdbe8208870d1792916fc0e7862f2f27744153ccf9eea",
+      "title": "leetcode_ant-on-the-boundary",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "6755f738cebb3ae683e9dcd2e56007bfac992a804648cc315cd88d8dc13a17e7",
+      "title": "leetcode_check-if-bitwise-or-has-trailing-zeros",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "317b199a6aeaec75555a76bac287b3f795cc968930677de0fea1d039b055e90e",
+      "title": "leetcode_maximum-area-of-longest-diagonal-rectangle",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "5c9d7ade302709f4bdcf6e3b64127d1e67a3a3078b3a03ef241329547cf320c6",
+      "title": "leetcode_ant-on-the-boundary",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "5f7ac157843831b50cc45eb8991c1659e0196805ea75d99202624fa06cd61342",
+      "title": "leetcode_number-of-changing-keys",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "795dd501310981efaa1cfe050e20d249d845dbc90df7e7c9b07bd1b1925b5263",
+      "title": "leetcode_divide-an-array-into-subarrays-with-minimum-cost-i",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "7ad613404830cbc9bd478f52fb74f5c73a2c55405938406316a2409e744783c8",
+      "title": "leetcode_maximum-number-of-operations-with-the-same-score-i",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "b8e56097d9b5740294ef468314833c875b1ffe610edae1c1c79b91f7c09b5ece",
+      "title": "leetcode_distribute-elements-into-two-arrays-i",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "0119bdbf9e79f05e988b6d3408e2fdc0b7e4bc11e81ff9f24bed96268c503801",
+      "title": "leetcode_minimum-operations-to-exceed-threshold-value-i",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "03741bcada4e970eedeb7f28fdf45c496779b98f3df8e513f992a51cf072f67c",
+      "title": "atcoder_Christmas Present",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "d5ecf69bb5d8e62278ed3d129812cdc0e9bfb90d8b6ca369847e6ed19edffffb",
+      "title": "leetcode_split-the-array",
+      "task": "coding_completion",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "ccf40d3ba5eed106abc518f7c58a4a72b5c1f732ec33cad5e0617b54ff46fa22",
+      "title": "leetcode_minimum-number-game",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "e4ee35e76ddb5c90ccea3e6aa41f00de01b44122d4d602dd4a0da6892757e3af",
+      "title": "atcoder_Three Threes",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "5a87f768962bad5e67430639470f03835d0f2abf3fb39f38cf96145ce768f485",
+      "title": "atcoder_Print 341",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "d761bf4d5741e128fca776f16db3dd1d6265291dc5dbe0831033d5918188ada0",
+      "title": "atcoder_Next",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "df00a4688e96b001f32ffd39913ae151bfa14034bdca636193c96974529f7cf9",
+      "title": "atcoder_Many Replacement",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "89ca002eeeb0c60dbdd4ba3c8129b1d38672338a0375643ac3f942eca79bc7cc",
+      "title": "atcoder_11/11",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "232d3a9537df2b3af811ae7ba1baac43ebf6a1971c98c7bf0ea84d73eba4c506",
+      "title": "atcoder_Scoreboard",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "9026b23d1094bb0072bae31bd66f9a8cc7220e3951dc520c53a2f21c4e8a472c",
+      "title": "leetcode_find-words-containing-character",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "87871f3ecdda8c4583b2834741bb312a3917c9035cd21d151902b9eae123e17c",
+      "title": "leetcode_maximum-area-of-longest-diagonal-rectangle",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "b122f7e6e1fa155665d3553c4cddf946c021fe467225f39dbd4dec56b813db1d",
+      "title": "leetcode_find-maximum-non-decreasing-array-length",
+      "task": "coding_completion",
+      "difficulty": "hard",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "59c63e484f7d21595c2122342662bfc1b0c57f63f168f96fc45a27dc7bbc0a07",
+      "title": "leetcode_count-complete-substrings",
+      "task": "coding_completion",
+      "difficulty": "hard",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "049ed4055f772aa9bccfda47ae425ee8a3c16d2c74330818d0397890795ea7fb",
+      "title": "leetcode_palindrome-rearrangement-queries",
+      "task": "coding_completion",
+      "difficulty": "hard",
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "59811e99700ace9d7a98d352e7970f6cd244e25344d349c12e96b18067777d54",
+      "title": "leetcode_separate-black-and-white-balls",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "16503edeb04a3a1af42e446248632951a149ca0cb3253c2e4fc91716ad53b5c7",
+      "title": "leetcode_minimize-or-of-remaining-elements-using-operations",
+      "task": "coding_completion",
+      "difficulty": "hard",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "009f4f7e8275c73de2eae601d76ff7163f613880788d870c1484b1c2a1383fbd",
+      "title": "leetcode_maximize-the-number-of-partitions-after-operations",
+      "task": "coding_completion",
+      "difficulty": "hard",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "9ccb5f2d887b739bf9fa290e9b3098ed5c86da0de11b50b8128de0f8a7ff8e42",
+      "title": "leetcode_remove-adjacent-almost-equal-characters",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "786432ddcf555d879432b906560955b9d464831f713946ce0210dcba478becd2",
+      "title": "leetcode_length-of-longest-subarray-with-at-most-k-frequency",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "37a9bdb633709429b87eae7e703feaf3ea5a8bd9ea41a33cb23c4c657d918768",
+      "title": "leetcode_maximum-size-of-a-set-after-removals",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "6f128ce8389efae085f84f835f4678a214c45ca94cf7933178b07562789bc4d7",
+      "title": "leetcode_number-of-strings-which-can-be-rearranged-to-contain-substring",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "541fd30fbc3ff5b8845fdef7e228778a903adab9d122280003aa2e8596aa2c63",
+      "title": "leetcode_double-modular-exponentiation",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 0,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "4b6062ff2bb0859fc70acfbdca5f67617a5d5e631cb2fc650b8f641c237acb44",
+      "title": "leetcode_minimum-number-of-operations-to-make-x-and-y-equal",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "a62c56a25fd1a6fb193268c07d5fa714d8fe8ef25aa8884d4f910e3f58dd51fe",
+      "title": "leetcode_maximum-number-that-sum-of-the-prices-is-less-than-or-equal-to-k",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 1,
+      "total": 2,
+      "pass_all": false
+    },
+    {
+      "question_id": "7795fc4543dfb60b56345359d525454c6ec3af02be98fe13f98b34af41356500",
+      "title": "leetcode_minimum-number-of-operations-to-make-array-xor-equal-to-k",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "e25750fd4c8fae19856e77a875093ab90a6333a680ccbd45dbabdaddb205bf2a",
+      "title": "leetcode_count-beautiful-substrings-i",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "3cd8c16a338ab1b2d081add09e47c05cd4bad6c4ddd20c12356d911502fc54a0",
+      "title": "leetcode_earliest-second-to-mark-indices-i",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "7878539e8dd4fe1d4bc66a440e16c102d66f158fed7828a84f3765505ba8f1d3",
+      "title": "leetcode_find-if-array-can-be-sorted",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 0,
+      "total": 3,
+      "pass_all": false
+    },
+    {
+      "question_id": "447b358040b99c91a12a17ec5e81ee3bdc257155200b3cec64c115166f7e12a9",
+      "title": "leetcode_apply-operations-to-make-string-empty",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "e2ee8ea63cf9d79d7695c7e310de966d5cf7f96f103b706faa930557991fc816",
+      "title": "leetcode_minimum-time-to-revert-word-to-initial-state-i",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "5d2c5a95687741962e9fa5f3a5c8ca8cda81c66617f61c3ce119349914f9f1d4",
+      "title": "atcoder_Arithmetic Progression",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "73642dac6679890d1c7303e79ee6dbc93b28c3943fd8733371bcf9e73cb06948",
+      "title": "leetcode_maximum-palindromes-after-operations",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "100c6ce0a28db0672fc9a23207f72ad7decfc90c81f03baf2ecdbb30297993a3",
+      "title": "leetcode_find-the-length-of-the-longest-common-prefix",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 2,
+      "total": 2,
+      "pass_all": true
+    },
+    {
+      "question_id": "640e8e5a789f35ff19127fc822b980499f8db1eb0127e0ad642f0f01c425e463",
+      "title": "atcoder_Counting Passes",
+      "task": "LCB_generation",
+      "difficulty": "easy",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "30cd4633ff2a6f4acc868ddd9dcc076c4a8eae5a7a18c736c9c7504c1e55a516",
+      "title": "atcoder_Election Quick Report",
+      "task": "LCB_generation",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    },
+    {
+      "question_id": "4f4e5b4d83cbc334fc40c3702b6abaaaa5c87ddf73d3103a8e0ef6c8002ecb01",
+      "title": "leetcode_minimum-cost-to-convert-string-i",
+      "task": "coding_completion",
+      "difficulty": "medium",
+      "model": "opus",
+      "passed": 3,
+      "total": 3,
+      "pass_all": true
+    }
+  ],
+  "token_log": {
+    "total_cost_usd": 0.382545,
+    "n_calls": 59,
+    "by_model": {
+      "anthropic/claude-opus-4.8": {
+        "calls": 59,
+        "prompt_tokens": 51399,
+        "completion_tokens": 5022,
+        "total_tokens": 56421,
+        "cost_usd": 0.38254500000000013
+      }
+    },
+    "by_role": {
+      "writer": {
+        "calls": 59,
+        "prompt_tokens": 51399,
+        "completion_tokens": 5022,
+        "cost_usd": 0.38254500000000013
+      }
+    },
+    "calls": [
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 696,
+        "completion_tokens": 55,
+        "cost_usd": 0.004855000000000001,
+        "task_id": "63a5960e3858d9b8"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 544,
+        "completion_tokens": 73,
+        "cost_usd": 0.004545,
+        "task_id": "0c1688303f940192"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 926,
+        "completion_tokens": 45,
+        "cost_usd": 0.005755000000000001,
+        "task_id": "412707cd401e5059"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 494,
+        "completion_tokens": 93,
+        "cost_usd": 0.004795000000000001,
+        "task_id": "0664f46bd7bf6217"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 643,
+        "completion_tokens": 135,
+        "cost_usd": 0.00659,
+        "task_id": "75a3057122fddbd3"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 504,
+        "completion_tokens": 40,
+        "cost_usd": 0.00352,
+        "task_id": "8b720a5b61bea0e6"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 672,
+        "completion_tokens": 71,
+        "cost_usd": 0.005135000000000001,
+        "task_id": "5a126374e3885ec2"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 909,
+        "completion_tokens": 72,
+        "cost_usd": 0.006345000000000001,
+        "task_id": "6afe4974569ffea0"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 451,
+        "completion_tokens": 29,
+        "cost_usd": 0.00298,
+        "task_id": "27c31c63ff778ef9"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 927,
+        "completion_tokens": 122,
+        "cost_usd": 0.007685000000000001,
+        "task_id": "89101e97bd95e50c"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 598,
+        "completion_tokens": 55,
+        "cost_usd": 0.004365,
+        "task_id": "2ac5a0878eb181ce"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 610,
+        "completion_tokens": 99,
+        "cost_usd": 0.005525,
+        "task_id": "e882b58cb776d5ec"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 464,
+        "completion_tokens": 15,
+        "cost_usd": 0.002695,
+        "task_id": "5a17ebccc6240342"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 727,
+        "completion_tokens": 90,
+        "cost_usd": 0.0058850000000000005,
+        "task_id": "1693afc152bb5f95"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 743,
+        "completion_tokens": 92,
+        "cost_usd": 0.006015,
+        "task_id": "89cad09d86639198"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 844,
+        "completion_tokens": 33,
+        "cost_usd": 0.005045000000000001,
+        "task_id": "6755f738cebb3ae6"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 771,
+        "completion_tokens": 98,
+        "cost_usd": 0.006305,
+        "task_id": "317b199a6aeaec75"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 836,
+        "completion_tokens": 52,
+        "cost_usd": 0.0054800000000000005,
+        "task_id": "5c9d7ade302709f4"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 765,
+        "completion_tokens": 47,
+        "cost_usd": 0.005,
+        "task_id": "5f7ac157843831b5"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1051,
+        "completion_tokens": 179,
+        "cost_usd": 0.009729999999999999,
+        "task_id": "795dd501310981ef"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 733,
+        "completion_tokens": 89,
+        "cost_usd": 0.00589,
+        "task_id": "7ad613404830cbc9"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1039,
+        "completion_tokens": 59,
+        "cost_usd": 0.006670000000000001,
+        "task_id": "b8e56097d9b57402"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 799,
+        "completion_tokens": 24,
+        "cost_usd": 0.004595,
+        "task_id": "0119bdbf9e79f05e"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 509,
+        "completion_tokens": 36,
+        "cost_usd": 0.0034450000000000006,
+        "task_id": "03741bcada4e970e"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 633,
+        "completion_tokens": 44,
+        "cost_usd": 0.0042650000000000006,
+        "task_id": "d5ecf69bb5d8e622"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 663,
+        "completion_tokens": 105,
+        "cost_usd": 0.005940000000000001,
+        "task_id": "ccf40d3ba5eed106"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 386,
+        "completion_tokens": 23,
+        "cost_usd": 0.0025050000000000003,
+        "task_id": "e4ee35e76ddb5c90"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 410,
+        "completion_tokens": 24,
+        "cost_usd": 0.0026500000000000004,
+        "task_id": "5a87f768962bad5e"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 553,
+        "completion_tokens": 49,
+        "cost_usd": 0.0039900000000000005,
+        "task_id": "d761bf4d5741e128"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 861,
+        "completion_tokens": 205,
+        "cost_usd": 0.009430000000000001,
+        "task_id": "df00a4688e96b001"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 752,
+        "completion_tokens": 134,
+        "cost_usd": 0.00711,
+        "task_id": "89ca002eeeb0c60d"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 744,
+        "completion_tokens": 84,
+        "cost_usd": 0.0058200000000000005,
+        "task_id": "232d3a9537df2b3a"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 567,
+        "completion_tokens": 70,
+        "cost_usd": 0.0045850000000000005,
+        "task_id": "9026b23d1094bb00"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 684,
+        "completion_tokens": 149,
+        "cost_usd": 0.007145,
+        "task_id": "87871f3ecdda8c45"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 987,
+        "completion_tokens": 47,
+        "cost_usd": 0.00611,
+        "task_id": "b122f7e6e1fa1556"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1021,
+        "completion_tokens": 96,
+        "cost_usd": 0.007505,
+        "task_id": "59c63e484f7d2159"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 2224,
+        "completion_tokens": 265,
+        "cost_usd": 0.017745000000000004,
+        "task_id": "049ed4055f772aa9"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 755,
+        "completion_tokens": 16,
+        "cost_usd": 0.004175,
+        "task_id": "59811e99700ace9d"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1277,
+        "completion_tokens": 34,
+        "cost_usd": 0.007235000000000001,
+        "task_id": "16503edeb04a3a1a"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1958,
+        "completion_tokens": 191,
+        "cost_usd": 0.014565000000000002,
+        "task_id": "009f4f7e8275c73d"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 846,
+        "completion_tokens": 16,
+        "cost_usd": 0.0046300000000000004,
+        "task_id": "9ccb5f2d887b739b"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 963,
+        "completion_tokens": 31,
+        "cost_usd": 0.005590000000000001,
+        "task_id": "786432ddcf555d87"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1078,
+        "completion_tokens": 91,
+        "cost_usd": 0.007665000000000001,
+        "task_id": "37a9bdb633709429"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 783,
+        "completion_tokens": 214,
+        "cost_usd": 0.009265,
+        "task_id": "6f128ce8389efae0"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 870,
+        "completion_tokens": 69,
+        "cost_usd": 0.0060750000000000005,
+        "task_id": "541fd30fbc3ff5b8"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 951,
+        "completion_tokens": 23,
+        "cost_usd": 0.0053300000000000005,
+        "task_id": "4b6062ff2bb0859f"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1404,
+        "completion_tokens": 51,
+        "cost_usd": 0.008295,
+        "task_id": "a62c56a25fd1a6fb"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 912,
+        "completion_tokens": 46,
+        "cost_usd": 0.005710000000000001,
+        "task_id": "7795fc4543dfb60b"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1274,
+        "completion_tokens": 497,
+        "cost_usd": 0.018795,
+        "task_id": "e25750fd4c8fae19"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1713,
+        "completion_tokens": 53,
+        "cost_usd": 0.009890000000000001,
+        "task_id": "3cd8c16a338ab1b2"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1061,
+        "completion_tokens": 40,
+        "cost_usd": 0.006305000000000001,
+        "task_id": "7878539e8dd4fe1d"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 791,
+        "completion_tokens": 50,
+        "cost_usd": 0.005205,
+        "task_id": "447b358040b99c91"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1162,
+        "completion_tokens": 90,
+        "cost_usd": 0.008060000000000001,
+        "task_id": "e2ee8ea63cf9d79d"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 533,
+        "completion_tokens": 35,
+        "cost_usd": 0.00354,
+        "task_id": "5d2c5a9568774196"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1108,
+        "completion_tokens": 26,
+        "cost_usd": 0.006190000000000001,
+        "task_id": "73642dac6679890d"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1030,
+        "completion_tokens": 27,
+        "cost_usd": 0.005825,
+        "task_id": "100c6ce0a28db067"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 642,
+        "completion_tokens": 51,
+        "cost_usd": 0.004485,
+        "task_id": "640e8e5a789f35ff"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 997,
+        "completion_tokens": 210,
+        "cost_usd": 0.010235000000000001,
+        "task_id": "30cd4633ff2a6f4a"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1551,
+        "completion_tokens": 163,
+        "cost_usd": 0.01183,
+        "task_id": "4f4e5b4d83cbc334"
+      }
+    ]
+  }
+}
