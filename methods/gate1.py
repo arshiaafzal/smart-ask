@@ -24,7 +24,6 @@ Accuracy on HumanEval (164 problems)
 """
 
 import json
-from openai import OpenAI
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
@@ -54,18 +53,23 @@ Task:\n"""
 
 # ── Gate 1 function ───────────────────────────────────────────────────────────
 
-def gate1_classify(prompt: str, api_key: str):
+def gate1_classify(prompt: str, client):
     """
     Classify prompt as 'easy' or 'hard' using CLASSIFIER_MODEL.
 
+    Parameters
+    ----------
+    client : openai.OpenAI
+        Shared client — create once with OpenAI(base_url=OR_BASE, api_key=key)
+        and reuse across calls (thread-safe, avoids redundant client construction).
+
     Returns (difficulty: str, usage: object | None).
-    `usage` is the raw OpenAI CompletionUsage object — pass it to
-    cost.realtime.SessionCost.record_gate1() for exact cost tracking.
+    `usage` is the raw OpenAI CompletionUsage object — pass it directly to
+    TokenTracker.record() for exact cost tracking.
 
     Never raises: on any error defaults to 'easy' with usage=None.
     """
     try:
-        client = OpenAI(base_url=OR_BASE, api_key=api_key)
         r = client.chat.completions.create(
             model=CLASSIFIER_MODEL,
             messages=[{"role": "user", "content": CLASSIFY_PROMPT + prompt[:1200]}],

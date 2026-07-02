@@ -8,21 +8,16 @@ No contamination — questions postdate most model training cuts.
 Two task types
 --------------
   LCB_generation   (78)  Generate a complete Python Solution class.
-                          LeetCode-style: method called with parsed args.
   coding_completion (50)  Complete a partial solution snippet.
-                          Same execution harness; partial + completion stitched first.
 
 Two test harnesses
 ------------------
   functional  Solution().method(*args)  compared to expected return value
   stdin       code reads sys.stdin      stdout compared to expected
 
-Gate routing
-------------
-  Same logic as run_product.py / smart-ask CLI:
-    Gate 1  Gemini classifier  → easy / hard
-    Gate 2  Gemini self-check  → ESCALATE_NOW if answer is insufficient
-    Opus    hard (G1) or escalated (G2) tasks
+This benchmark contains ONLY evaluation logic.
+All gate and model code is imported from methods/.
+All cost tracking is imported from cost/.
 
 Usage
 -----
@@ -34,6 +29,7 @@ Usage
 import os, sys, json, ast, re, subprocess, tempfile, argparse, threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from openai import OpenAI
 
 _REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO))
@@ -41,25 +37,12 @@ sys.path.insert(0, str(_REPO))
 from cost import TokenTracker
 from methods.cascade import (
     OR_BASE, CLASSIFIER_MODEL, EASY_MODEL, HARD_MODEL,
-    CLASSIFY_PROMPT, SELF_CHECK_SUFFIX, ESCALATE_MARKER,
+    gate1_classify, call_easy, call_hard,
 )
-from openai import OpenAI
 
 OR_KEY       = os.environ.get("OPENROUTER_API_KEY", "")
 RESULTS_FILE = Path(__file__).parent / "results_product.json"
 WORKERS      = 6
-
-# ── System prompts ─────────────────────────────────────────────────────────────
-
-CODE_SYSTEM = (
-    "You are an expert competitive programmer. "
-    "Return ONLY the Python code — no explanation, no markdown fences, no extra text."
-)
-OPUS_SYSTEM = (
-    "You are an expert competitive programmer. "
-    "Write correct, complete Python code. "
-    "Return ONLY the code — no explanation, no markdown fences, no extra text."
-)
 
 
 # ── Dataset ────────────────────────────────────────────────────────────────────
@@ -79,29 +62,16 @@ def load_livebench():
         if isinstance(tcs, str):
             tcs = json.loads(tcs)
         problems.append({
-            "question_id":    ex["question_id"],
-            "task":           ex["task"],
-            "title":          ex["question_title"],
-            "prompt":         ex["turns"][0],           # full prompt for model
-            "starter_code":   orig.get("starter_code", ""),
-            "partial":        ex.get("partial_solution", ""),
-            "test_cases":     tcs,
-            "difficulty":     orig.get("difficulty", "?"),
+            "question_id":  ex["question_id"],
+            "task":         ex["task"],
+            "title":        ex["question_title"],
+            "prompt":       ex["turns"][0],
+            "starter_code": orig.get("starter_code", ""),
+            "partial":      ex.get("partial_solution", ""),
+            "test_cases":   tcs,
+            "difficulty":   orig.get("difficulty", "?"),
         })
     return problems
-
-
-# ── Code extraction ────────────────────────────────────────────────────────────
-
-def strip_fences(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        lines = text.splitlines()
-        inner = lines[1:] if len(lines) > 1 else lines
-        if inner and inner[-1].strip() == "```":
-            inner = inner[:-1]
-        text = "\n".join(inner)
-    return text.rstrip()  # rstrip only — preserves leading indent for completion stitching
 
 
 # ── Execution harnesses ────────────────────────────────────────────────────────
@@ -113,7 +83,6 @@ _STDLIB = (
 )
 
 def _parse_val(s: str):
-    """Parse a string value to Python object; return str on failure."""
     s = s.strip()
     try:
         return ast.literal_eval(s)
@@ -121,7 +90,6 @@ def _parse_val(s: str):
         return s
 
 def _normalize(v) -> str:
-    """Normalize a value to a canonical string for comparison."""
     if isinstance(v, bool):
         return str(v)
     if isinstance(v, list):
@@ -130,38 +98,23 @@ def _normalize(v) -> str:
 
 
 def run_functional(code: str, starter_code: str, tc: dict, timeout: int = 10) -> bool:
-    """
-    Execute a LeetCode-style test case.
-    Instantiates Solution(), calls the method with parsed args, compares result.
-    """
-    # Extract method name from starter_code
+    """Execute a LeetCode-style test case via Solution().method(*args)."""
     m = re.search(r"def (\w+)\(self", starter_code)
     if not m:
         return False
     fn_name = m.group(1)
-
-    # Parse input — newline-separated args
     raw_inp = tc["input"].strip()
     lines   = [l.strip() for l in raw_inp.splitlines() if l.strip()]
     args    = [_parse_val(l) for l in lines]
-    args_r  = repr(args[0]) if len(args) == 1 else repr(tuple(args))
-    if len(args) == 1:
-        call = f"_s.{fn_name}({repr(args[0])})"
-    else:
-        call = f"_s.{fn_name}(*{repr(tuple(args))})"
-
-    expected_raw = tc["output"].strip()
-    expected     = _parse_val(expected_raw)
-
+    call    = (f"_s.{fn_name}({repr(args[0])})" if len(args) == 1
+               else f"_s.{fn_name}(*{repr(tuple(args))})")
+    expected = _parse_val(tc["output"].strip())
     script = (
-        _STDLIB
-        + "\n"
-        + code
+        _STDLIB + "\n" + code
         + f"\n\n_s = Solution()\n_r = {call}\nprint(repr(_r))\n"
     )
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write(script)
-        fname = f.name
+        f.write(script); fname = f.name
     try:
         res = subprocess.run(
             [sys.executable, fname], capture_output=True, text=True, timeout=timeout
@@ -177,18 +130,14 @@ def run_functional(code: str, starter_code: str, tc: dict, timeout: int = 10) ->
 
 
 def run_stdin(code: str, tc: dict, timeout: int = 10) -> bool:
-    """
-    Execute an AtCoder-style test case (stdin → stdout comparison).
-    """
+    """Execute an AtCoder-style test case (stdin → stdout comparison)."""
     script = _STDLIB + "\n" + code
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write(script)
-        fname = f.name
+        f.write(script); fname = f.name
     try:
         res = subprocess.run(
             [sys.executable, fname],
-            input=tc["input"],
-            capture_output=True, text=True, timeout=timeout,
+            input=tc["input"], capture_output=True, text=True, timeout=timeout,
         )
         if res.returncode != 0:
             return False
@@ -200,18 +149,13 @@ def run_stdin(code: str, tc: dict, timeout: int = 10) -> bool:
 
 
 def run_tests(code: str, starter_code: str, test_cases: list, timeout: int = 10) -> tuple:
-    """
-    Run all public test cases. Returns (passed, total).
-    Picks functional or stdin harness based on testtype.
-    """
+    """Run all public test cases. Returns (passed, total)."""
     passed = 0
     for tc in test_cases:
         ttype = tc.get("testtype", "functional")
         try:
-            if ttype == "functional":
-                ok = run_functional(code, starter_code, tc, timeout)
-            else:
-                ok = run_stdin(code, tc, timeout)
+            ok = (run_functional(code, starter_code, tc, timeout)
+                  if ttype == "functional" else run_stdin(code, tc, timeout))
         except Exception:
             ok = False
         if ok:
@@ -219,82 +163,14 @@ def run_tests(code: str, starter_code: str, test_cases: list, timeout: int = 10)
     return passed, len(test_cases)
 
 
-# ── Gate 1 ─────────────────────────────────────────────────────────────────────
-
-def gate1_classify(client, prompt: str, tracker, task_id: str) -> str:
-    r = client.chat.completions.create(
-        model=CLASSIFIER_MODEL,
-        messages=[{"role": "user", "content": CLASSIFY_PROMPT + prompt[:1200]}],
-        max_tokens=20, temperature=0,
-    )
-    tracker.record(CLASSIFIER_MODEL, "classifier", r.usage, task_id)
-    raw = (r.choices[0].message.content or "").strip().strip("`")
-    if raw.startswith("json"):
-        raw = raw[4:].strip()
-    try:
-        return json.loads(raw).get("d", "easy")
-    except Exception:
-        return "easy"
-
-
-# ── Gemini with self-check ─────────────────────────────────────────────────────
-
-def gemini_generate(client, prompt: str, tracker, task_id: str):
-    """
-    Send prompt + SELF_CHECK_SUFFIX to Gemini.
-    Returns (code: str, escalated: bool).
-    """
-    full = prompt + SELF_CHECK_SUFFIX
-    r = client.chat.completions.create(
-        model=EASY_MODEL,
-        messages=[
-            {"role": "system", "content": CODE_SYSTEM},
-            {"role": "user",   "content": full},
-        ],
-        max_tokens=1024, temperature=0.0,
-    )
-    tracker.record(EASY_MODEL, "generator", r.usage, task_id)
-    raw = r.choices[0].message.content or ""
-
-    escalated = bool(re.search(
-        rf'^\s*{re.escape(ESCALATE_MARKER)}\s*$', raw, re.MULTILINE
-    ))
-    code_part = raw.split(ESCALATE_MARKER)[0].strip() if escalated else raw
-    return strip_fences(code_part), escalated
-
-
-# ── Opus ───────────────────────────────────────────────────────────────────────
-
-def run_opus(client, prompt: str, tracker, task_id: str, escalated: bool = False) -> str:
-    if escalated:
-        user_msg = (
-            "A previous attempt at this task was flagged as insufficient. "
-            "Please solve this correctly and completely:\n\n" + prompt
-        )
-        role = "fixer"
-    else:
-        user_msg = prompt
-        role = "writer"
-    r = client.chat.completions.create(
-        model=HARD_MODEL,
-        messages=[
-            {"role": "system", "content": OPUS_SYSTEM},
-            {"role": "user",   "content": user_msg},
-        ],
-        max_tokens=1024, temperature=0.0,
-    )
-    tracker.record(HARD_MODEL, role, r.usage, task_id)
-    return strip_fences(r.choices[0].message.content or "")
-
-
 # ── Per-problem runner ─────────────────────────────────────────────────────────
 
 def run_problem(client, prob: dict, tracker: TokenTracker) -> dict:
-    qid      = prob["question_id"][:16]   # short ID for display
-    prompt   = prob["prompt"]
-    partial  = prob["partial"]
-    starter  = prob["starter_code"]
-    tcs      = prob["test_cases"]
+    qid     = prob["question_id"][:16]
+    prompt  = prob["prompt"]
+    partial = prob["partial"]
+    starter = prob["starter_code"]
+    tcs     = prob["test_cases"]
 
     rec = {
         "question_id": prob["question_id"],
@@ -309,36 +185,37 @@ def run_problem(client, prob: dict, tracker: TokenTracker) -> dict:
         "pass_all":    False,
     }
 
-    # Gate 1
-    difficulty    = gate1_classify(client, prompt, tracker, qid)
-    rec["gate1"]  = difficulty
+    # Gate 1 — classify
+    difficulty, g1_usage = gate1_classify(prompt, client)
+    tracker.record(CLASSIFIER_MODEL, "classifier", g1_usage, qid)
+    rec["gate1"] = difficulty
 
     if difficulty == "hard":
-        code          = run_opus(client, prompt, tracker, qid, escalated=False)
-        rec["model"]  = "opus-G1"
+        code, usage = call_hard(prompt, client)
+        tracker.record(HARD_MODEL, "writer", usage, qid)
+        rec["model"] = "opus-G1"
     else:
-        code, escalated = gemini_generate(client, prompt, tracker, qid)
+        code, usage, escalated = call_easy(prompt, client)
+        tracker.record(EASY_MODEL, "generator", usage, qid)
         rec["escalated"] = escalated
         if escalated:
-            code         = run_opus(client, prompt, tracker, qid, escalated=True)
+            code, usage = call_hard(prompt, client, escalated=True)
+            tracker.record(HARD_MODEL, "fixer", usage, qid)
             rec["model"] = "opus-esc"
         else:
             rec["model"] = "gemini"
 
-    # For coding_completion: stitch partial + completion
-    # If model re-output the full class (with "class Solution"), use it directly.
+    # For coding_completion: stitch partial + completion.
+    # If model re-output the full class, use it directly.
     if prob["task"] == "coding_completion" and partial:
-        if "class Solution" in code:
-            full_code = code
-        else:
-            full_code = partial + "\n" + code
+        full_code = code if "class Solution" in code else partial + "\n" + code
     else:
         full_code = code
 
-    passed, total     = run_tests(full_code, starter, tcs)
-    rec["passed"]     = passed
-    rec["total"]      = total
-    rec["pass_all"]   = passed == total and total > 0
+    passed, total   = run_tests(full_code, starter, tcs)
+    rec["passed"]   = passed
+    rec["total"]    = total
+    rec["pass_all"] = passed == total and total > 0
     return rec
 
 
@@ -367,15 +244,13 @@ def run(problems: list, n: int = None):
             p = futs[fut]
             try:
                 r = fut.result()
-            except Exception as e:
+            except Exception:
                 r = {
-                    "question_id": p["question_id"],
-                    "title":       p["title"],
-                    "task":        p["task"],
-                    "difficulty":  p["difficulty"],
-                    "gate1":       "?", "escalated": False,
-                    "model":       "error", "passed": 0,
-                    "total":       len(p["test_cases"]), "pass_all": False,
+                    "question_id": p["question_id"], "title": p["title"],
+                    "task": p["task"], "difficulty": p["difficulty"],
+                    "gate1": "?", "escalated": False,
+                    "model": "error", "passed": 0,
+                    "total": len(p["test_cases"]), "pass_all": False,
                 }
             with lock:
                 results.append(r)
@@ -383,10 +258,9 @@ def run(problems: list, n: int = None):
                 esc_sym  = "↗" if r.get("escalated") else " "
                 pass_sym = "✓" if r["pass_all"] else "✗"
                 tc_str   = f"{r['passed']}/{r['total']}"
-                title    = r["title"][:38]
                 print(
                     f"  {done_n[0]:>5}  {r['gate1']:>6}  {r['model']:<12}  "
-                    f"{esc_sym:>4}  {pass_sym} {tc_str:<6}  {title}"
+                    f"{esc_sym:>4}  {pass_sym} {tc_str:<6}  {r['title'][:38]}"
                 )
 
     results.sort(key=lambda x: x["title"])
@@ -409,32 +283,21 @@ def print_report(results: list, tracker):
     gemini_n  = sum(1 for r in results if r.get("model") == "gemini")
     gemini_ok = sum(1 for r in results if r.get("model") == "gemini" and r["pass_all"])
     esc_ok    = sum(1 for r in results if r.get("model") == "opus-esc" and r["pass_all"])
-    g1h_ok    = sum(1 for r in results if r.get("model") == "opus-G1" and r["pass_all"])
-
-    # By LeetCode difficulty
-    for diff in ("easy", "medium", "hard"):
-        n = sum(1 for r in results if r.get("difficulty") == diff)
-        ok= sum(1 for r in results if r.get("difficulty") == diff and r["pass_all"])
-        if n:
-            print(f"    {diff:<8}  {ok}/{n}  ({ok/n*100:.0f}%)")
-
-    cost = tracker.total_cost() if tracker else None
-    W    = 72
+    g1h_ok    = sum(1 for r in results if r.get("model") == "opus-G1"  and r["pass_all"])
+    cost      = tracker.total_cost() if tracker else None
+    W         = 72
 
     print("\n" + "=" * W)
     print("  smart-ask Product Benchmark — LiveBench Coding")
     print("=" * W)
-
     print(f"\n  Routing breakdown  ({total} problems)")
     print(f"    G1 easy   → Gemini            {g1_easy:>4}  ({g1_easy/total*100:.0f}%)")
     print(f"    G1 hard   → Opus direct       {g1_hard:>4}  ({g1_hard/total*100:.0f}%)")
     print(f"    Escalated → Opus via ESCALATE {escalated:>4}  ({escalated/total*100:.0f}%)")
-
     print(f"\n  {'─'*70}")
     print(f"  {'pass@1 (all public tests)':38}  {passed}/{total} ({passed/total*100:.1f}%)")
     if cost is not None:
-        print(f"  {'total cost':38}  ${cost:.5f}")
-
+        print(f"  {'total cost':38}  ${cost:.6f}")
     print(f"\n  Per-path accuracy")
     if gemini_n:
         print(f"    Gemini (no escalation)       {gemini_ok}/{gemini_n}  ({gemini_ok/gemini_n*100:.1f}%)")
@@ -442,17 +305,14 @@ def print_report(results: list, tracker):
         print(f"    Opus after ESCALATE          {esc_ok}/{escalated}  ({esc_ok/escalated*100:.1f}%)")
     if g1_hard:
         print(f"    Opus via G1-hard             {g1h_ok}/{g1_hard}  ({g1h_ok/g1_hard*100:.1f}%)")
-
     print(f"\n  By LeetCode difficulty")
     for diff in ("easy", "medium", "hard"):
         n  = sum(1 for r in results if r.get("difficulty") == diff)
         ok = sum(1 for r in results if r.get("difficulty") == diff and r["pass_all"])
         if n:
             print(f"    {diff:<8}  {ok}/{n}  ({ok/n*100:.0f}%)")
-
     if tracker:
         tracker.report("Token & cost breakdown")
-
     print("=" * W + "\n")
 
 
@@ -482,7 +342,6 @@ def main():
     print(f"  Loaded {len(problems)} problems  "
           f"({sum(1 for p in problems if p['task']=='LCB_generation')} LCB_generation, "
           f"{sum(1 for p in problems if p['task']=='coding_completion')} coding_completion)\n")
-
     results, tracker = run(problems, n=args.n)
     print_report(results, tracker)
 

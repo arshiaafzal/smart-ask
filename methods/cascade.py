@@ -25,3 +25,10 @@ from .gate2 import (
     ESCALATE_MARKER,
     gate2_preflight,
 )
+
+from .models import (
+    DEFAULT_EASY_SYSTEM,
+    DEFAULT_HARD_SYSTEM,
+    call_easy,
+    call_hard,
+)

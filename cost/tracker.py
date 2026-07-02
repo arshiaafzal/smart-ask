@@ -68,18 +68,22 @@ class TokenTracker:
         self,
         model:   str,
         role:    str,
-        usage,                      # openai CompletionUsage object
+        usage,                      # openai CompletionUsage object, or None on API error
         task_id: str = None,
     ) -> float:
         """
         Record one API call from its response.usage.
         Returns the exact cost in USD for this single call.
+        If usage is None (API call failed), returns 0.0 and records nothing.
         """
+        if usage is None:
+            return 0.0
+
         prices = MODEL_PRICES.get(model)
         if prices is None:
             raise ValueError(
                 f"Unknown model '{model}'. "
-                f"Add it to tracker/token_tracker.py MODEL_PRICES."
+                f"Add it to cost/tracker.py MODEL_PRICES."
             )
 
         prompt_tok     = usage.prompt_tokens

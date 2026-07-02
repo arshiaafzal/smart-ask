@@ -15,7 +15,10 @@ import os, sys, subprocess, tempfile
 
 
 def strip_fences(text: str) -> str:
-    """Remove markdown code fences (``` or ```python) from model output."""
+    """
+    Remove markdown code fences (``` or ```python) from model output.
+    Uses rstrip only — preserves leading indentation needed for completion stitching.
+    """
     text = text.strip()
     if text.startswith("```"):
         lines = text.splitlines()
@@ -23,7 +26,7 @@ def strip_fences(text: str) -> str:
         if inner and inner[-1].strip() == "```":
             inner = inner[:-1]
         text = "\n".join(inner)
-    return text.strip()
+    return text.rstrip()
 
 
 def run_tests(

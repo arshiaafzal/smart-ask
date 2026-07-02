@@ -5,3 +5,6 @@ from .gate1 import (
 from .gate2 import (
     SELF_CHECK_SUFFIX, ESCALATE_MARKER, gate2_preflight,
 )
+from .models import (
+    DEFAULT_EASY_SYSTEM, DEFAULT_HARD_SYSTEM, call_easy, call_hard,
+)
