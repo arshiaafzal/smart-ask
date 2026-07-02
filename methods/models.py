@@ -36,7 +36,7 @@ DEFAULT_HARD_SYSTEM = (
 )
 
 
-def call_easy(prompt: str, client, system_prompt: str = None):
+def call_easy(prompt: str, client, system_prompt: str = None, max_tokens: int = 1024):
     """
     Call EASY_MODEL (Gemini) with SELF_CHECK_SUFFIX appended.
 
@@ -53,7 +53,7 @@ def call_easy(prompt: str, client, system_prompt: str = None):
             {"role": "system", "content": system_prompt or DEFAULT_EASY_SYSTEM},
             {"role": "user",   "content": full},
         ],
-        max_tokens=1024, temperature=0.0,
+        max_tokens=max_tokens, temperature=0.0,
     )
     raw = r.choices[0].message.content or ""
     escalated = bool(re.search(
@@ -63,7 +63,7 @@ def call_easy(prompt: str, client, system_prompt: str = None):
     return _strip_fences(code_part), r.usage, escalated
 
 
-def call_hard(prompt: str, client, system_prompt: str = None, escalated: bool = False):
+def call_hard(prompt: str, client, system_prompt: str = None, escalated: bool = False, max_tokens: int = 1024):
     """
     Call HARD_MODEL (Opus).
 
@@ -85,9 +85,48 @@ def call_hard(prompt: str, client, system_prompt: str = None, escalated: bool = 
             {"role": "system", "content": system_prompt or DEFAULT_HARD_SYSTEM},
             {"role": "user",   "content": user_msg},
         ],
-        max_tokens=1024, temperature=0.0,
+        max_tokens=max_tokens, temperature=0.0,
     )
     return _strip_fences(r.choices[0].message.content or ""), r.usage
+
+
+def call_hard_stream(prompt: str, client, system_prompt: str = None, escalated: bool = False, max_tokens: int = 4096):
+    """
+    Stream HARD_MODEL (Opus). Returns (generator, get_usage).
+
+    generator  — yields str chunks as they arrive
+    get_usage  — callable; returns CompletionUsage after generator is exhausted
+                 (returns None if usage was not included in stream)
+
+    escalated=True prepends a failure hint so Opus knows a prior attempt failed.
+    max_tokens defaults to 4096 (larger than call_hard's 1024 — streaming is
+    used from the CLI where real coding tasks need longer outputs).
+    """
+    user_msg = (
+        "A previous attempt at this task was flagged as insufficient. "
+        "Please solve this correctly and completely:\n\n" + prompt
+        if escalated else prompt
+    )
+    usage_box = [None]
+
+    def _gen():
+        r = client.chat.completions.create(
+            model=HARD_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt or DEFAULT_HARD_SYSTEM},
+                {"role": "user",   "content": user_msg},
+            ],
+            max_tokens=max_tokens, temperature=0.0,
+            stream=True,
+            stream_options={"include_usage": True},
+        )
+        for chunk in r:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+            if chunk.usage:
+                usage_box[0] = chunk.usage
+
+    return _gen(), lambda: usage_box[0]
 
 
 def _strip_fences(text: str) -> str:

@@ -1,108 +1,47 @@
 #!/Users/arshia.afzal/hermes-agent/.venv/bin/python3
 """
-smart-ask: AI task router with v3 cascade gates
+smart-ask: classify → route → spawn Hermes
 
   Gate 1  Gemini classifier — easy/hard structural check
-  Gate 2  Quick Gemini draft — code smell check on actual output
-  Gate 3  Visible doctest check — run >>> examples from prompt
 
-  easy (all gates pass) → gemini-2.5-flash-lite via Hermes
-  hard (any gate fails) → claude-opus-4.8       via Hermes
+  easy → gemini-2.5-flash-lite   passed to Hermes
+  hard → claude-opus-4.8         passed to Hermes
 
-Saves ~53% cost vs always-Opus with <3pp accuracy loss.
+Smart-ask only decides the model. Hermes handles generation,
+tools, streaming, and multi-turn within its own session.
 """
 
-import os, sys, json, subprocess, argparse, pty, select, termios, tty, random
-import struct, fcntl, signal, time, threading, re, tempfile
+import os, sys, argparse, threading, time, re, random, subprocess
 from pathlib import Path
 from openai import OpenAI
 
-# ── Shared repo modules (methods/, cost/) ─────────────────────────────
-# When smart-ask runs from the repo root these import cleanly.
-# When deployed as a standalone script (e.g. ~/.local/bin/) the except
-# branch is used and constants fall through to the embedded copies below.
+# ── Repo path ─────────────────────────────────────────────────────────
 _REPO = Path(__file__).resolve().parent
-try:
-    sys.path.insert(0, str(_REPO))
-    from methods.cascade import (          # noqa: E402
-        OR_BASE          as _M_OR_BASE,
-        CLASSIFIER_MODEL as _M_CLS,
-        EASY_MODEL       as _M_EASY,
-        HARD_MODEL       as _M_HARD,
-        CLASSIFY_PROMPT  as _M_CLASSIFY_PROMPT,
-        SELF_CHECK_SUFFIX as _M_SELF_CHECK_SUFFIX,
-        ESCALATE_MARKER  as _M_ESCALATE_MARKER,
-    )
-    from cost.realtime import SessionCost
-    _MODULES_OK = True
-except ImportError:
-    _MODULES_OK = False
-    SessionCost = None
+sys.path.insert(0, str(_REPO))
+
+from methods.gate1 import OR_BASE, CLASSIFIER_MODEL, EASY_MODEL, HARD_MODEL, gate1_classify
+from cost.tracker import TokenTracker
 
 # ── ANSI palette ──────────────────────────────────────────────────────
 R  = "\033[0m"
 BD = "\033[1m"
 DM = "\033[2m"
-O  = "\033[38;5;208m"   # orange  — Claude
-G  = "\033[38;5;220m"   # gold
-BL = "\033[38;5;39m"    # blue    — Qwen
-CY = "\033[38;5;87m"    # cyan
-YL = "\033[38;5;226m"   # yellow  — money
-GR = "\033[38;5;82m"    # green
-PR = "\033[38;5;135m"   # purple
-WH = "\033[97m"         # white
-GY = "\033[38;5;245m"   # gray
-RD = "\033[38;5;196m"   # red
-BR = "\033[38;5;130m"   # brown   — Qwen bear body
-LB = "\033[38;5;223m"   # light tan — Qwen bear snout
+O  = "\033[38;5;208m"
+G  = "\033[38;5;220m"
+BL = "\033[38;5;39m"
+CY = "\033[38;5;87m"
+YL = "\033[38;5;226m"
+GR = "\033[38;5;82m"
+PR = "\033[38;5;135m"
+WH = "\033[97m"
+GY = "\033[38;5;245m"
+RD = "\033[38;5;196m"
 
 def _strip(s: str) -> str:
     return re.sub(r"\033\[[0-9;]*m", "", s)
 
-def _pad(s: str, width: int) -> str:
-    return s + " " * max(0, width - len(_strip(s)))
-
 # ── Config ────────────────────────────────────────────────────────────
 OR_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-
-# Constants come from methods/cascade.py when running in repo; else embedded here.
-if _MODULES_OK:
-    OR_BASE          = _M_OR_BASE
-    CLASSIFIER_MODEL = _M_CLS
-    EASY_MODEL       = _M_EASY
-    HARD_MODEL       = _M_HARD
-    _CLASSIFY_PROMPT    = _M_CLASSIFY_PROMPT
-    _SELF_CHECK_SUFFIX  = _M_SELF_CHECK_SUFFIX
-    _ESCALATE_MARKER    = _M_ESCALATE_MARKER
-else:
-    # Standalone fallback — keep in sync with methods/cascade.py manually
-    OR_BASE          = "https://openrouter.ai/api/v1"
-    CLASSIFIER_MODEL = "google/gemini-2.5-flash-lite"
-    EASY_MODEL       = "google/gemini-2.5-flash-lite"
-    HARD_MODEL       = "anthropic/claude-opus-4.8"
-    _CLASSIFY_PROMPT = """\
-You are routing a coding/AI task to either a cheap model (easy) or an expert model (hard).
-Label "hard" if ANY of these are true:
-- Requires dynamic programming, graph traversal, or non-obvious algorithm
-- Has subtle edge cases a junior programmer would likely miss
-- Needs number theory, combinatorics, or careful mathematical reasoning
-- Complex multi-system design or advanced architecture decisions
-Label "easy" if:
-- Solvable with basic loops, string ops, or simple math
-- Straightforward Q&A, explanation, debug, or format task
-- Edge cases are obvious and minimal
-Reply ONLY with JSON: {"d":"easy"} or {"d":"hard"}
-Task:\n"""
-    _SELF_CHECK_SUFFIX = (
-        "\n\n---\n[SMART-ASK SELF-CHECK]\n"
-        "After your answer, check:\n"
-        "1. Does your code have stubs (NotImplementedError / pass as placeholder / # TODO)?\n"
-        "2. If the task has visible >>> examples, does your code pass them?\n"
-        "3. Is your answer only a high-level outline with no working code?\n"
-        "If YES to any of the above: output the token ESCALATE_NOW alone on its own line.\n"
-        "If your answer is complete and correct: no action needed, output nothing extra."
-    )
-    _ESCALATE_MARKER = "ESCALATE_NOW"
 
 # ── Rain palette ──────────────────────────────────────────────────────
 _GREEN_RAIN = [
@@ -110,13 +49,7 @@ _GREEN_RAIN = [
     "\033[38;5;46m", "\033[38;5;82m", "\033[38;5;118m", "\033[38;5;154m",
 ]
 
-def _rc() -> str:
-    """One rain char: $ in random green shade, or space."""
-    if random.random() < 0.38:
-        return random.choice(_GREEN_RAIN) + "$" + R
-    return " "
-
-# ── Box-art logo crystallises from a $ rain backdrop ─────────────────────
+# ── Box-art logo ──────────────────────────────────────────────────────
 def _teaser():
     _LOGO = (
         "███████╗███╗   ███╗ █████╗ ██████╗ ████████╗      █████╗ ███████╗██╗  ██╗",
@@ -126,94 +59,65 @@ def _teaser():
         "███████║██║ ╚═╝ ██║██║  ██║██║  ██║   ██║        ██║  ██║███████║██║  ██╗",
         "╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝        ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝",
     )
-
     LOGO_H = len(_LOGO)
     LOGO_W = max(len(line) for line in _LOGO)
+    MARGIN = 2; WIDTH = LOGO_W + 2 * MARGIN; left = MARGIN
+    RAIN_ABOVE = 2; HEIGHT = RAIN_ABOVE + LOGO_H + 1; RAIN_H = HEIGHT + 2
 
-    MARGIN     = 2
-    WIDTH      = LOGO_W + 2 * MARGIN
-    left       = MARGIN
-    RAIN_ABOVE = 2
-    HEIGHT     = RAIN_ABOVE + LOGO_H + 1
-    RAIN_H     = HEIGHT + 2
-
-    # Dark palette so the bright logo pops out of the rain
     _DARK = ["\033[38;5;22m", "\033[38;5;22m", "\033[38;5;28m",
              "\033[38;5;28m", "\033[38;5;34m", "\033[38;5;40m"]
     def _rcc():
         return random.choice(_DARK) + "$" + R if random.random() < 0.28 else " "
 
-    # logo_chars[row][col] = char to display, or None (rain shows through)
     logo_chars = [[None] * WIDTH for _ in range(HEIGHT)]
     for r, line in enumerate(_LOGO):
         for c, ch in enumerate(line):
             if ch != ' ':
                 logo_chars[RAIN_ABOVE + r][left + c] = ch
 
-    # Full-width rain — runs behind and through empty spaces in the logo
     rain = {c: [_rcc() for _ in range(RAIN_H)] for c in range(WIDTH)}
-
     def _advance():
         for buf in rain.values():
-            buf.pop()
-            buf.insert(0, _rcc())
+            buf.pop(); buf.insert(0, _rcc())
 
-    LOGO_C  = "\033[1;38;5;82m"    # bold vivid green — logo glyphs
-    FLASH_C = "\033[1;38;5;118m"   # slightly lighter for the just-revealed row
-
-    RAIN_FRAMES   = 8
-    REVEAL_FRAMES = LOGO_H          # one row materialises per frame
-    TOTAL_FRAMES  = RAIN_FRAMES + REVEAL_FRAMES
-    TOTAL_LINES   = HEIGHT + 1
+    LOGO_C = "\033[1;38;5;82m"; FLASH_C = "\033[1;38;5;118m"
+    RAIN_FRAMES = 8; REVEAL_FRAMES = LOGO_H
+    TOTAL_FRAMES = RAIN_FRAMES + REVEAL_FRAMES; TOTAL_LINES = HEIGHT + 1
 
     animate = sys.stdout.isatty()
     if animate:
-        sys.stdout.write("\033[?25l")
-        sys.stdout.flush()
-
+        sys.stdout.write("\033[?25l"); sys.stdout.flush()
     try:
         for frame in range(TOTAL_FRAMES if animate else 1):
             if animate and frame > 0:
                 sys.stdout.write(f"\033[{TOTAL_LINES}F")
-
-            reveal_step = frame - RAIN_FRAMES   # <0: pure rain; ≥0: rows appear
-
+            reveal_step = frame - RAIN_FRAMES
             lines = []
             for row in range(HEIGHT):
                 row_chars = []
-                logo_row  = row - RAIN_ABOVE    # <0 above logo; 0-5 logo rows
-                revealed  = reveal_step >= 0 and 0 <= logo_row <= reveal_step
-                flashing  = logo_row == reveal_step   # the row that just appeared
-
+                logo_row = row - RAIN_ABOVE
+                revealed = reveal_step >= 0 and 0 <= logo_row <= reveal_step
+                flashing = logo_row == reveal_step
                 for col in range(WIDTH):
                     lc = logo_chars[row][col]
                     if lc is not None and revealed:
-                        color = FLASH_C if flashing else LOGO_C
-                        row_chars.append(color + lc + R)
+                        row_chars.append((FLASH_C if flashing else LOGO_C) + lc + R)
                     else:
                         row_chars.append(rain[col][row])
                 lines.append("\033[2K" + "".join(row_chars))
             lines.append("\033[2K")
-
-            sys.stdout.write("\n".join(lines) + "\n")
-            sys.stdout.flush()
-
+            sys.stdout.write("\n".join(lines) + "\n"); sys.stdout.flush()
             _advance()
             if animate:
                 time.sleep(0.05 if reveal_step < 0 else 0.10)
-
-        # Hold so the user can read the logo
         if animate:
             time.sleep(0.8)
-
     finally:
         if animate:
-            sys.stdout.write("\033[?25h")
-            sys.stdout.flush()
+            sys.stdout.write("\033[?25h"); sys.stdout.flush()
 
 
 def _box(rows: list, inner_w: int = 52) -> None:
-    """Draw a box. Rows are plain strings — no emoji, ANSI ok."""
     top = f"  {WH}{BD}╔{'═'*inner_w}╗{R}"
     bot = f"  {WH}╚{'═'*inner_w}╝{R}"
     sep = f"  {WH}╠{'═'*inner_w}╣{R}"
@@ -222,41 +126,34 @@ def _box(rows: list, inner_w: int = 52) -> None:
         if row is None:
             print(sep)
         else:
-            visible = len(_strip(row))
-            pad     = max(0, inner_w - visible)
+            pad = max(0, inner_w - len(_strip(row)))
             print(f"  {WH}║{R}{row}{' ' * pad}{WH}║{R}")
     print(bot)
 
 def show_welcome():
     _teaser()
-    # All visible content lines must be <= inner_w chars when ANSI stripped.
-    # inner_w = 55. Verified line by line below.
     _box([
         f"   {WH}{BD}SMART ASK  --  v3 Cascade Router{R}",
-        f"   {GY}3-gate quality check before routing{R}",
+        f"   {GY}classifies your task · hands off to Hermes{R}",
         None,
         f"  {GR}>{R} {WH}Gate 1:{R}  {CY}Gemini classifier{R}     {DM}easy/hard?{R}",
-        f"  {GR}>{R} {WH}Gate 2:{R}  {CY}Gemini quick draft{R}    {DM}code smell?{R}",
-        f"  {GR}>{R} {WH}Gate 3:{R}  {CY}visible doctest{R}       {DM}examples pass?{R}",
         None,
-        f"  {BL}>{R} {WH}Easy  :{R}  {CY}gemini-2.5-flash-lite{R}  {DM}(cheap){R}",
-        f"  {O}>{R} {WH}Hard  :{R}  {O}claude-opus-4.8{R}       {DM}(powerful){R}",
-        f"  {GR}>{R} {WH}Saves :{R}  {GR}~53%{R} {GY}cost vs always-Opus  (89% acc){R}",
+        f"  {BL}>{R} {WH}Easy  :{R}  {CY}gemini-2.5-flash-lite{R}  {DM}→ Hermes{R}",
+        f"  {O}>{R} {WH}Hard  :{R}  {O}claude-opus-4.8{R}       {DM}→ Hermes{R}",
         None,
         f"  {CY}{BD}Usage{R}",
-        f"  {GY}ask \"task\"{R}             cascade route + run",
-        f"  {GY}ask --force-hard \"...\"{R}  always Claude Opus 4.8",
-        f"  {GY}ask --force-easy \"...\"{R}  always Gemini",
-        f"  {GY}ask --dry-run \"...\"{R}     gates only, skip run",
-        f"  {GY}ask -v \"...\"{R}            verbose tool output",
+        f"  {GY}ask \"task\"{R}              classify → Hermes",
+        f"  {GY}ask -f file.py \"...\"{R}   include file context",
+        f"  {GY}ask --force-hard \"...\"{R}  force Opus → Hermes",
+        f"  {GY}ask --force-easy \"...\"{R}  force Gemini → Hermes",
+        f"  {GY}ask --dry-run \"...\"{R}     classify only, skip Hermes",
+        f"  {GY}Ctrl-D or /exit{R}          end session",
     ], inner_w=56)
     print()
 
-# ── Animated spinner ──────────────────────────────────────────────────
+# ── Spinner ───────────────────────────────────────────────────────────
 _FRAMES = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
 _COLS   = [O, G, YL, GR, CY, BL, PR, WH, O, G]
-
-# Shared label — written from main thread, read by spinner thread (GIL-safe for CPython)
 _spinner_label = ["Analyzing..."]
 
 def _set_label(s: str) -> None:
@@ -271,274 +168,157 @@ def _spinner(stop: threading.Event) -> None:
         dots  = "·" * ((i // 5) % 4) + " " * (3 - (i // 5) % 4)
         bar_n = (i // 3) % 13
         bar   = f"{GR}{'█' * bar_n}{GY}{'░' * (12 - bar_n)}{R}"
-        line  = f"\r  {color}{BD}{frame}{R}  {WH}{label}{R}{GY}{dots}{R}  {bar}  "
-        sys.stdout.write(line)
+        sys.stdout.write(f"\r  {color}{BD}{frame}{R}  {WH}{label}{R}{GY}{dots}{R}  {bar}  ")
         sys.stdout.flush()
-        i += 1
-        time.sleep(0.07)
-    sys.stdout.write("\r" + " " * 72 + "\r")
-    sys.stdout.flush()
-
-# ── Gate 1: classify ──────────────────────────────────────────────────
-
-def _gate1_classify(client, prompt: str) -> str:
-    """Returns 'easy' or 'hard' via Gemini classifier."""
-    try:
-        r = client.chat.completions.create(
-            model=CLASSIFIER_MODEL,
-            messages=[{"role": "user", "content": _CLASSIFY_PROMPT + prompt[:1200]}],
-            max_tokens=20, temperature=0,
-        )
-        raw = (r.choices[0].message.content or "").strip().strip("`")
-        if raw.startswith("json"):
-            raw = raw[4:].strip()
-        return json.loads(raw).get("d", "easy")
-    except Exception:
-        return "easy"
-
-
-def classify(prompt: str) -> tuple:
-    """
-    Gate 1 only — classify the task and decide the starting model.
-    Gates 2 & 3 run LIVE inside the Hermes session via _SELF_CHECK_SUFFIX.
-
-    Returns (model_id, tag).
-    """
-    _set_label("Gate 1  classifying task")
-    stop = threading.Event()
-    t    = threading.Thread(target=_spinner, args=(stop,), daemon=True)
-    t.start()
-    try:
-        client     = OpenAI(base_url=OR_BASE, api_key=OR_KEY)
-        difficulty = _gate1_classify(client, prompt)
-    finally:
-        stop.set()
-        t.join()
-
-    if difficulty == "hard":
-        return HARD_MODEL, "G1-hard"
-    return EASY_MODEL, "G1-easy"
-
-
-def _gate2_preflight(prompt: str, provider: str) -> bool:
-    """
-    Gate 2: run hermes non-interactively (-q) with the self-check suffix.
-    Gemini generates a full answer, self-evaluates (can use terminal tool to
-    run its own code), and outputs ESCALATE_NOW alone on its own line if not confident.
-
-    Returns True if escalation was triggered.
-    """
-    cmd = [
-        "hermes", "chat", "-q",
-        prompt + _SELF_CHECK_SUFFIX,
-        "-m", EASY_MODEL,
-        "--provider", provider,
-    ]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        output = result.stdout + result.stderr
-        # Match only when ESCALATE_NOW appears alone on its own line — not when
-        # the model merely mentions the token in prose (false positive prevention).
-        return bool(re.search(r'^\s*ESCALATE_NOW\s*$', output, re.MULTILINE))
-    except Exception:
-        return False   # on error, don't escalate — give benefit of doubt
-
+        i += 1; time.sleep(0.07)
+    sys.stdout.write("\r" + " " * 72 + "\r"); sys.stdout.flush()
 
 # ── Route label ───────────────────────────────────────────────────────
 def print_route(model_id: str, tag: str = "") -> None:
     if model_id == EASY_MODEL:
-        print(
-            f"\n  {BL}{BD}▸{R}  {CY}{BD}gemini-2.5-flash-lite{R}  "
-            f"{GY}[easy]{R}  {GR}cheap ✓{R}  {GY}{tag}{R}\n"
-        )
+        print(f"\n  {BL}{BD}▸{R}  {CY}{BD}gemini-2.5-flash-lite{R}  "
+              f"{GY}[easy]{R}  {GR}cheap ✓{R}  {GY}{tag}{R}")
     else:
-        if tag == "G2-escalated":
-            gate_info = f"{RD}↗ G2-escalated{R}  {GY}Gemini flagged insufficient — Opus takes over{R}"
-        elif tag.startswith("G1"):
-            gate_info = f"{YL}{tag}{R}"
-        else:
-            gate_info = f"{GY}{tag}{R}"
-        print(
-            f"\n  {O}{BD}▸{R}  {O}{BD}claude-opus-4.8{R}   "
-            f"{YL}[hard]{R}  {O}powerful ✓{R}  {gate_info}\n"
-        )
+        gate_info = f"{YL}{tag}{R}" if tag.startswith("G1") else f"{GY}{tag}{R}"
+        print(f"\n  {O}{BD}▸{R}  {O}{BD}claude-opus-4.8{R}   "
+              f"{YL}[hard]{R}  {O}powerful ✓{R}  {gate_info}")
+    print(f"  {PR}↳  Hermes{R}\n")
 
-# ── Runners ───────────────────────────────────────────────────────────
-def run_oneshot(prompt: str, model: str = "", provider: str = "", verbose: bool = False):
-    cmd = ["hermes", "chat", "-q", prompt]
-    if model:    cmd += ["-m", model]
-    if provider: cmd += ["--provider", provider]
-    if verbose:  cmd.append("-v")
-    subprocess.run(cmd)
-
-def run_interactive(prompt: str, model: str = "", provider: str = "", verbose: bool = False):
-    """Full interactive PTY session — injects prompt after Hermes boots."""
-    cmd = ["hermes", "chat"]
-    if model:    cmd += ["-m", model]
-    if provider: cmd += ["--provider", provider]
-    if verbose:  cmd.append("-v")
-
-    try:
-        cols, rows = os.get_terminal_size()
-    except OSError:
-        cols, rows = 80, 24
-    winsize = struct.pack("HHHH", rows, cols, 0, 0)
-
-    stdin_fd = sys.stdin.fileno()
-    old_tty  = termios.tcgetattr(stdin_fd)
-    master_fd, slave_fd = pty.openpty()
-    fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, winsize)
-
-    pid = os.fork()
-    if pid == 0:
-        os.close(master_fd)
-        os.setsid()
-        fcntl.ioctl(slave_fd, termios.TIOCSCTTY, 0)
-        for fd in (0, 1, 2):
-            os.dup2(slave_fd, fd)
-        if slave_fd > 2:
-            os.close(slave_fd)
-        os.execvp(cmd[0], cmd)
-        os._exit(1)
-
-    os.close(slave_fd)
-
-    def _resize(sig, frame):
+# ── File context ──────────────────────────────────────────────────────
+def _build_file_context(files: list[str]) -> str:
+    parts = []
+    for path in files:
         try:
-            nc, nr = os.get_terminal_size()
-            fcntl.ioctl(master_fd, termios.TIOCSWINSZ, struct.pack("HHHH", nr, nc, 0, 0))
-            os.kill(pid, signal.SIGWINCH)
-        except OSError:
-            pass
-    signal.signal(signal.SIGWINCH, _resize)
+            content = Path(path).read_text()
+            parts.append(f"--- file: {path} ---\n{content}\n---\n")
+        except Exception as e:
+            print(f"  {RD}Warning:{R} could not read {path}: {e}", file=sys.stderr)
+    return "\n".join(parts) + "\n" if parts else ""
 
-    injected  = False
-    inject_at = time.monotonic() + 3.5   # wait for Hermes to fully boot
+# ── Cost (gate1 only — Hermes tracks its own) ─────────────────────────
+def _print_gate_cost(tracker: TokenTracker, turn_n: int, session_cost: float) -> None:
+    calls = tracker._snapshot()
+    if not calls:
+        return
+    turn_cost = tracker.total_cost()
+    W = 49
+    print(f"  {GY}{'─' * W}{R}")
+    for c in calls:
+        print(f"  {GY}{c.model.split('/')[-1]:<24}  {c.role:<12}  {YL}${c.cost_usd:.6f}{R}")
+    print(f"  {GY}{'─' * W}{R}")
+    print(f"  {WH}{BD}Turn {turn_n:<4}{R}  {YL}${turn_cost:.6f}{R}"
+          f"   {GY}│{R}  Session gates  {YL}${session_cost:.6f}{R}")
+    print()
 
-    try:
-        tty.setraw(stdin_fd)
-        while True:
-            try:
-                r, _, _ = select.select([master_fd, stdin_fd], [], [], 0.1)
-            except (ValueError, OSError):
-                break
-
-            if master_fd in r:
-                try:
-                    data = os.read(master_fd, 4096)
-                    if not data:
-                        break
-                    os.write(sys.stdout.fileno(), data)
-                    sys.stdout.flush()
-                except OSError:
-                    break
-
-            if not injected and time.monotonic() >= inject_at:
-                try:
-                    os.write(master_fd, (prompt + "\n").encode())
-                except OSError:
-                    break
-                injected = True
-
-            if stdin_fd in r:
-                try:
-                    data = os.read(stdin_fd, 4096)
-                    if not data:
-                        break
-                    os.write(master_fd, data)
-                except OSError:
-                    break
-    except Exception:
-        pass
-    finally:
-        try:
-            termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_tty)
-        except Exception:
-            pass
-
-    try:
-        os.waitpid(pid, 0)
-    except ChildProcessError:
-        pass
+# ── Hermes spawn ──────────────────────────────────────────────────────
+def _spawn_hermes(prompt: str, model: str) -> None:
+    """Hand off to Hermes. Inherits terminal — fully interactive."""
+    subprocess.run([
+        "hermes", "chat", "-q", prompt,
+        "-m", model, "--provider", "openrouter",
+    ])
 
 # ── Main ──────────────────────────────────────────────────────────────
 def main():
     p = argparse.ArgumentParser(
-        description="Smart AI router: qwen (easy) or Claude Opus 4.8 (hard)",
+        description="Smart AI router: classify → Hermes",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
     )
-    p.add_argument("prompt",         nargs="*")
-    p.add_argument("--force-easy",   action="store_true")
-    p.add_argument("--force-hard",   action="store_true")
-    p.add_argument("--dry-run",      action="store_true")
-    p.add_argument("-v","--verbose",     action="store_true")
-    p.add_argument("-i","--interactive", action="store_true")
-    p.add_argument("-h","--help",        action="store_true")
+    p.add_argument("prompt",           nargs="*")
+    p.add_argument("-f", "--file",     action="append", dest="files", metavar="FILE")
+    p.add_argument("--force-easy",     action="store_true")
+    p.add_argument("--force-hard",     action="store_true")
+    p.add_argument("--dry-run",        action="store_true")
+    p.add_argument("-h", "--help",     action="store_true")
     args = p.parse_args()
 
-    if args.help or (not args.prompt and sys.stdin.isatty()):
+    # ── Welcome ────────────────────────────────────────────────────────
+    if args.help or (not args.prompt and sys.stdin.isatty() and not args.files):
         show_welcome()
         if args.help:
             sys.exit(0)
-        # No task given — prompt for one instead of exiting
         try:
             task = input(f"  {GR}What do you want to build today?{R}  ").strip()
         except (EOFError, KeyboardInterrupt):
-            print()
-            sys.exit(0)
+            print(); sys.exit(0)
         if not task:
             sys.exit(0)
         args.prompt = [task]
 
-    prompt = " ".join(args.prompt) if args.prompt else sys.stdin.read().strip()
+    # ── Build initial prompt ───────────────────────────────────────────
+    file_context = _build_file_context(args.files or [])
 
-    if not prompt:
+    if args.prompt:
+        initial_prompt = " ".join(args.prompt)
+    elif not sys.stdin.isatty():
+        initial_prompt = sys.stdin.read().strip()
+    else:
+        initial_prompt = ""
+
+    if not initial_prompt and not file_context:
         sys.exit(0)
 
     if not OR_KEY:
         sys.exit(f"{RD}ERROR:{R} OPENROUTER_API_KEY not set in environment")
 
-    provider = "openrouter"
+    client          = OpenAI(base_url=OR_BASE, api_key=OR_KEY)
+    session_tracker = TokenTracker()
+    turn_n          = 0
+    pending         = (file_context + initial_prompt).strip()
 
-    if args.force_hard:
-        model, tag = HARD_MODEL, "(forced)"
-    elif args.force_easy:
-        model, tag = EASY_MODEL, "(forced)"
-    else:
-        # ── Gate 1: classify ──────────────────────────────────────────
-        model, tag = classify(prompt)
+    # ── REPL loop ──────────────────────────────────────────────────────
+    while True:
+        if pending is not None:
+            user_input = pending
+            pending    = None
+        else:
+            try:
+                print()
+                user_input = input(f"  {GR}>{R} ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print(); break
+            if not user_input:
+                continue
 
-        # ── Gate 2: preflight quality check (easy tasks only) ─────────
-        if model == EASY_MODEL:
-            _set_label("Gate 2  Gemini preflight check")
+        if not user_input:
+            continue
+        if user_input in ("/exit", "/quit"):
+            break
+
+        turn_n      += 1
+        turn_tracker = TokenTracker()
+
+        # ── Gate 1 ─────────────────────────────────────────────────────
+        if args.force_hard:
+            model, tag = HARD_MODEL, "(forced)"
+        elif args.force_easy:
+            model, tag = EASY_MODEL, "(forced)"
+        else:
+            _set_label("Gate 1  classifying task")
             stop = threading.Event()
             t    = threading.Thread(target=_spinner, args=(stop,), daemon=True)
             t.start()
             try:
-                escalated = _gate2_preflight(prompt, provider)
+                difficulty, cls_usage = gate1_classify(user_input, client)
             finally:
-                stop.set()
-                t.join()
-            if escalated:
-                model, tag = HARD_MODEL, "G2-escalated"
+                stop.set(); t.join()
+            if cls_usage:
+                turn_tracker.record(CLASSIFIER_MODEL, "classifier", cls_usage)
+                session_tracker.record(CLASSIFIER_MODEL, "classifier", cls_usage)
+            model = HARD_MODEL if difficulty == "hard" else EASY_MODEL
+            tag   = "G1-hard"  if difficulty == "hard" else "G1-easy"
 
-    print_route(model, tag)
+        print_route(model, tag)
 
-    if args.dry_run:
-        sys.exit(0)
+        _print_gate_cost(turn_tracker, turn_n, session_tracker.total_cost())
 
-    # For G2-escalated: give Opus context about why it's being used
-    if tag == "G2-escalated":
-        effective_prompt = (
-            f"A previous quick attempt at this task by a cheaper model was flagged as "
-            f"insufficient (stub code, failed examples, or high-level outline only).\n\n"
-            f"Please solve this completely and correctly:\n\n{prompt}"
-        )
-    else:
-        effective_prompt = prompt
+        if args.dry_run:
+            continue
 
-    run_interactive(effective_prompt, model=model, provider=provider, verbose=args.verbose)
+        # ── Hand off to Hermes ─────────────────────────────────────────
+        _spawn_hermes(user_input, model)
+
 
 if __name__ == "__main__":
     main()
