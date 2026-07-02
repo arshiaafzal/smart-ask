@@ -14,7 +14,30 @@ Saves ~53% cost vs always-Opus with <3pp accuracy loss.
 
 import os, sys, json, subprocess, argparse, pty, select, termios, tty, random
 import struct, fcntl, signal, time, threading, re, tempfile
+from pathlib import Path
 from openai import OpenAI
+
+# ── Shared repo modules (methods/, cost/) ─────────────────────────────
+# When smart-ask runs from the repo root these import cleanly.
+# When deployed as a standalone script (e.g. ~/.local/bin/) the except
+# branch is used and constants fall through to the embedded copies below.
+_REPO = Path(__file__).resolve().parent
+try:
+    sys.path.insert(0, str(_REPO))
+    from methods.cascade import (          # noqa: E402
+        OR_BASE          as _M_OR_BASE,
+        CLASSIFIER_MODEL as _M_CLS,
+        EASY_MODEL       as _M_EASY,
+        HARD_MODEL       as _M_HARD,
+        CLASSIFY_PROMPT  as _M_CLASSIFY_PROMPT,
+        SELF_CHECK_SUFFIX as _M_SELF_CHECK_SUFFIX,
+        ESCALATE_MARKER  as _M_ESCALATE_MARKER,
+    )
+    from cost.realtime import SessionCost
+    _MODULES_OK = True
+except ImportError:
+    _MODULES_OK = False
+    SessionCost = None
 
 # ── ANSI palette ──────────────────────────────────────────────────────
 R  = "\033[0m"
@@ -40,14 +63,24 @@ def _pad(s: str, width: int) -> str:
     return s + " " * max(0, width - len(_strip(s)))
 
 # ── Config ────────────────────────────────────────────────────────────
-OR_KEY           = os.environ.get("OPENROUTER_API_KEY", "")
-OR_BASE          = "https://openrouter.ai/api/v1"
-CLASSIFIER_MODEL = "google/gemini-2.5-flash-lite"   # same model as EASY
-EASY_MODEL       = "google/gemini-2.5-flash-lite"
-HARD_MODEL       = "anthropic/claude-opus-4.8"
+OR_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
-# ── Cascade prompts ───────────────────────────────────────────────────
-_CLASSIFY_PROMPT = """\
+# Constants come from methods/cascade.py when running in repo; else embedded here.
+if _MODULES_OK:
+    OR_BASE          = _M_OR_BASE
+    CLASSIFIER_MODEL = _M_CLS
+    EASY_MODEL       = _M_EASY
+    HARD_MODEL       = _M_HARD
+    _CLASSIFY_PROMPT    = _M_CLASSIFY_PROMPT
+    _SELF_CHECK_SUFFIX  = _M_SELF_CHECK_SUFFIX
+    _ESCALATE_MARKER    = _M_ESCALATE_MARKER
+else:
+    # Standalone fallback — keep in sync with methods/cascade.py manually
+    OR_BASE          = "https://openrouter.ai/api/v1"
+    CLASSIFIER_MODEL = "google/gemini-2.5-flash-lite"
+    EASY_MODEL       = "google/gemini-2.5-flash-lite"
+    HARD_MODEL       = "anthropic/claude-opus-4.8"
+    _CLASSIFY_PROMPT = """\
 You are routing a coding/AI task to either a cheap model (easy) or an expert model (hard).
 Label "hard" if ANY of these are true:
 - Requires dynamic programming, graph traversal, or non-obvious algorithm
@@ -60,20 +93,16 @@ Label "easy" if:
 - Edge cases are obvious and minimal
 Reply ONLY with JSON: {"d":"easy"} or {"d":"hard"}
 Task:\n"""
-
-# Appended to prompt in the Gate 2 non-interactive hermes -q preflight call.
-# No PTY injection — the -q flag sends it as one atomic request.
-_SELF_CHECK_SUFFIX = (
-    "\n\n---\n[SMART-ASK SELF-CHECK]\n"
-    "After your answer, check:\n"
-    "1. Does your code have stubs (NotImplementedError / pass as placeholder / # TODO)?\n"
-    "2. If the task has visible >>> examples, does your code pass them?\n"
-    "3. Is your answer only a high-level outline with no working code?\n"
-    "If YES to any of the above: output the token ESCALATE_NOW alone on its own line.\n"
-    "If your answer is complete and correct: no action needed, output nothing extra."
-)
-
-_ESCALATE_MARKER = "ESCALATE_NOW"  # distinct token — marker text not repeated in instructions
+    _SELF_CHECK_SUFFIX = (
+        "\n\n---\n[SMART-ASK SELF-CHECK]\n"
+        "After your answer, check:\n"
+        "1. Does your code have stubs (NotImplementedError / pass as placeholder / # TODO)?\n"
+        "2. If the task has visible >>> examples, does your code pass them?\n"
+        "3. Is your answer only a high-level outline with no working code?\n"
+        "If YES to any of the above: output the token ESCALATE_NOW alone on its own line.\n"
+        "If your answer is complete and correct: no action needed, output nothing extra."
+    )
+    _ESCALATE_MARKER = "ESCALATE_NOW"
 
 # ── Rain palette ──────────────────────────────────────────────────────
 _GREEN_RAIN = [

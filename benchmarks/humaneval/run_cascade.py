@@ -36,9 +36,10 @@ import os, sys, json, subprocess, tempfile, argparse, re, threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-# ── Add benchmarks/ to path so tracker package is importable ──────────────
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from tracker import TokenTracker
+# ── Repo root on sys.path so shared modules are importable ────────────────
+_REPO = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(_REPO))
+from cost import TokenTracker
 
 from openai import OpenAI
 

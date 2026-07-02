@@ -21,50 +21,27 @@ Usage
     python run_product.py --report
 """
 
-import os, sys, json, subprocess, tempfile, argparse, re, threading
+import os, sys, json, subprocess, argparse, re, threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from tracker import TokenTracker
+# ── Repo root on sys.path so shared modules are importable ────────────
+_REPO = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(_REPO))
+
+from cost import TokenTracker
+from harness import strip_fences, run_tests
+from methods.cascade import (
+    OR_BASE, CLASSIFIER_MODEL, EASY_MODEL, HARD_MODEL,
+    CLASSIFY_PROMPT, SELF_CHECK_SUFFIX, ESCALATE_MARKER,
+)
 
 from openai import OpenAI
 
-OR_KEY  = os.environ.get("OPENROUTER_API_KEY", "")
-OR_BASE = "https://openrouter.ai/api/v1"
-
-CLASSIFIER_MODEL = "google/gemini-2.5-flash-lite"
-EASY_MODEL       = "google/gemini-2.5-flash-lite"
-HARD_MODEL       = "anthropic/claude-opus-4.8"
+OR_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
 RESULTS_FILE = Path(__file__).parent / "results_product.json"
 WORKERS      = 8
-
-# ── Must match smart-ask exactly ──────────────────────────────────────
-
-CLASSIFY_PROMPT = """\
-You are routing a coding/AI task to either a cheap model (easy) or an expert model (hard).
-Label "hard" if ANY of these are true:
-- Requires dynamic programming, graph traversal, or non-obvious algorithm
-- Has subtle edge cases a junior programmer would likely miss
-- Needs number theory, combinatorics, or careful mathematical reasoning
-- Complex multi-system design or advanced architecture decisions
-Label "easy" if:
-- Solvable with basic loops, string ops, or simple math
-- Straightforward Q&A, explanation, debug, or format task
-- Edge cases are obvious and minimal
-Reply ONLY with JSON: {"d":"easy"} or {"d":"hard"}
-Task:\n"""
-
-SELF_CHECK_SUFFIX = """
-
----
-[SMART-ASK SELF-CHECK]
-After completing your answer, verify:
-1. Does your code have stubs? (raise NotImplementedError / pass as placeholder / # TODO) → output [[SMART-ASK-ESCALATE]] on its own line
-2. If the task shows visible >>> examples, does your code produce the correct output? → if not, output [[SMART-ASK-ESCALATE]] on its own line
-3. Is your answer a high-level outline when actual working code was requested? → output [[SMART-ASK-ESCALATE]] on its own line
-If everything looks correct: no action needed."""
 
 CODE_SYSTEM = (
     "You are an expert Python programmer. "
@@ -90,41 +67,7 @@ def load_humaneval():
     return list(load_dataset("openai/openai_humaneval", split="test"))
 
 
-# ── Helpers ───────────────────────────────────────────────────────────
-
-def strip_fences(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        lines = text.splitlines()
-        inner = lines[1:] if len(lines) > 1 else lines
-        if inner and inner[-1].strip() == "```":
-            inner = inner[:-1]
-        text = "\n".join(inner)
-    return text.strip()
-
-def run_tests(prompt, code, test_code, entry_point, timeout=10) -> bool:
-    code = strip_fences(code)
-    impl = code if f"def {entry_point}" in code else prompt + code
-    full = (
-        "from typing import List, Tuple, Dict, Optional, Set, Any, Union\n"
-        "import math, re, collections, itertools, functools, heapq, bisect\n\n"
-        + impl + "\n\n"
-        + test_code + "\n\n"
-        + f"check({entry_point})\n"
-    )
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write(full)
-        fname = f.name
-    try:
-        result = subprocess.run(
-            [sys.executable, fname], capture_output=True, timeout=timeout
-        )
-        return result.returncode == 0
-    except subprocess.TimeoutExpired:
-        return False
-    finally:
-        os.unlink(fname)
-
+# strip_fences and run_tests are imported from harness/
 
 # ── Gate 1 ────────────────────────────────────────────────────────────
 
@@ -164,11 +107,13 @@ def gemini_selfcheck(client, prompt, tracker, task_id):
     tracker.record(EASY_MODEL, "generator", r.usage, task_id)
     raw = r.choices[0].message.content or ""
 
-    escalated = "[[SMART-ASK-ESCALATE]]" in raw
+    escalated = bool(re.search(
+        rf'^\s*{re.escape(ESCALATE_MARKER)}\s*$', raw, re.MULTILINE
+    ))
 
     # Extract code portion (before the marker if present)
     if escalated:
-        code_part = raw.split("[[SMART-ASK-ESCALATE]]")[0].strip()
+        code_part = raw.split(ESCALATE_MARKER)[0].strip()
     else:
         code_part = raw
 
