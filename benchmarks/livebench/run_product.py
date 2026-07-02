@@ -35,10 +35,7 @@ _REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO))
 
 from cost import TokenTracker
-from methods.cascade import (
-    OR_BASE, CLASSIFIER_MODEL, EASY_MODEL, HARD_MODEL,
-    gate1_classify, call_easy, call_hard,
-)
+from methods.cascade import OR_BASE, cascade_solve
 
 OR_KEY       = os.environ.get("OPENROUTER_API_KEY", "")
 RESULTS_FILE = Path(__file__).parent / "results_product.json"
@@ -172,38 +169,11 @@ def run_problem(client, prob: dict, tracker: TokenTracker) -> dict:
     starter = prob["starter_code"]
     tcs     = prob["test_cases"]
 
-    rec = {
-        "question_id": prob["question_id"],
-        "title":       prob["title"],
-        "task":        prob["task"],
-        "difficulty":  prob["difficulty"],
-        "gate1":       None,
-        "escalated":   False,
-        "model":       None,
-        "passed":      0,
-        "total":       len(tcs),
-        "pass_all":    False,
-    }
+    result = cascade_solve(prompt, client)
+    for model_id, role, usage in result["usages"]:
+        tracker.record(model_id, role, usage, qid)
 
-    # Gate 1 — classify
-    difficulty, g1_usage = gate1_classify(prompt, client)
-    tracker.record(CLASSIFIER_MODEL, "classifier", g1_usage, qid)
-    rec["gate1"] = difficulty
-
-    if difficulty == "hard":
-        code, usage = call_hard(prompt, client)
-        tracker.record(HARD_MODEL, "writer", usage, qid)
-        rec["model"] = "opus-G1"
-    else:
-        code, usage, escalated = call_easy(prompt, client)
-        tracker.record(EASY_MODEL, "generator", usage, qid)
-        rec["escalated"] = escalated
-        if escalated:
-            code, usage = call_hard(prompt, client, escalated=True)
-            tracker.record(HARD_MODEL, "fixer", usage, qid)
-            rec["model"] = "opus-esc"
-        else:
-            rec["model"] = "gemini"
+    code = result["code"]
 
     # For coding_completion: stitch partial + completion.
     # If model re-output the full class, use it directly.
@@ -211,6 +181,19 @@ def run_problem(client, prob: dict, tracker: TokenTracker) -> dict:
         full_code = code if "class Solution" in code else partial + "\n" + code
     else:
         full_code = code
+
+    rec = {
+        "question_id": prob["question_id"],
+        "title":       prob["title"],
+        "task":        prob["task"],
+        "difficulty":  prob["difficulty"],
+        "gate1":       result["gate1"],
+        "escalated":   result["escalated"],
+        "model":       result["model"],
+        "passed":      0,
+        "total":       len(tcs),
+        "pass_all":    False,
+    }
 
     passed, total   = run_tests(full_code, starter, tcs)
     rec["passed"]   = passed

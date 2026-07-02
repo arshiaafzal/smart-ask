@@ -8,3 +8,4 @@ from .gate2 import (
 from .models import (
     DEFAULT_EASY_SYSTEM, DEFAULT_HARD_SYSTEM, call_easy, call_hard,
 )
+from .cascade import cascade_solve

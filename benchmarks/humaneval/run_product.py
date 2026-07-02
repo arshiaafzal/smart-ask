@@ -2,15 +2,13 @@
 """
 smart-ask product benchmark — HumanEval.
 
-Tests the EXACT logic the smart-ask CLI uses in real sessions:
-  Gate 1   Gemini classifier  (pre-flight, same as CLI)
-  Gemini   Generates answer + appended self-check instruction
-  Escalate If model outputs ESCALATE → re-run with Opus + failure hint
-  Opus     Hard tasks (G1) or escalated tasks (self-check triggered)
+Tests the EXACT cascade pipeline the smart-ask CLI uses:
+  Gate 1  Gemini classifier  → easy / hard
+  Gate 2  Gemini self-check  → ESCALATE_NOW triggers Opus
+  Opus    hard (G1) or escalated (G2) tasks
 
 This benchmark contains ONLY evaluation logic.
-All gate and model code is imported from methods/.
-All cost tracking is imported from cost/.
+Gates are imported from methods/. Cost tracking from cost/.
 
 Usage
 -----
@@ -28,17 +26,14 @@ _REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO))
 
 from cost import TokenTracker
-from harness import strip_fences, run_tests
-from methods.cascade import (
-    OR_BASE, CLASSIFIER_MODEL, EASY_MODEL, HARD_MODEL,
-    gate1_classify, call_easy, call_hard,
-)
+from harness import run_tests
+from methods.cascade import OR_BASE, cascade_solve
 
 OR_KEY       = os.environ.get("OPENROUTER_API_KEY", "")
 RESULTS_FILE = Path(__file__).parent / "results_product.json"
 WORKERS      = 8
 
-# HumanEval-specific system prompts (task completion, not generation from scratch)
+# HumanEval-specific system prompts (function completion, not scratch generation)
 EASY_SYSTEM = (
     "You are an expert Python programmer. "
     "Complete the given Python function. "
@@ -66,41 +61,21 @@ def load_humaneval():
 # ── Per-problem runner ────────────────────────────────────────────────
 
 def run_problem(client, prob, tracker: TokenTracker) -> dict:
-    prompt    = f"Complete this Python function:\n\n{prob['prompt']}"
-    test_code = prob["test"]
-    entry     = prob["entry_point"]
-    task_id   = prob["task_id"]
+    prompt  = f"Complete this Python function:\n\n{prob['prompt']}"
+    task_id = prob["task_id"]
 
-    rec = {
+    result = cascade_solve(prompt, client, easy_system=EASY_SYSTEM, hard_system=HARD_SYSTEM)
+    for model_id, role, usage in result["usages"]:
+        tracker.record(model_id, role, usage, task_id)
+
+    passed = run_tests(prob["prompt"], result["code"], prob["test"], prob["entry_point"])
+    return {
         "task_id":    task_id,
-        "difficulty": None,
-        "escalated":  False,
-        "model":      None,
-        "passed":     False,
+        "difficulty": result["gate1"],
+        "escalated":  result["escalated"],
+        "model":      result["model"],
+        "passed":     passed,
     }
-
-    # Gate 1 — classify
-    difficulty, g1_usage = gate1_classify(prompt, client)
-    tracker.record(CLASSIFIER_MODEL, "classifier", g1_usage, task_id)
-    rec["difficulty"] = difficulty
-
-    if difficulty == "hard":
-        code, usage = call_hard(prompt, client, system_prompt=HARD_SYSTEM)
-        tracker.record(HARD_MODEL, "writer", usage, task_id)
-        rec["model"] = "opus-G1"
-    else:
-        code, usage, escalated = call_easy(prompt, client, system_prompt=EASY_SYSTEM)
-        tracker.record(EASY_MODEL, "generator", usage, task_id)
-        rec["escalated"] = escalated
-        if escalated:
-            code, usage = call_hard(prompt, client, system_prompt=HARD_SYSTEM, escalated=True)
-            tracker.record(HARD_MODEL, "fixer", usage, task_id)
-            rec["model"] = "opus-esc"
-        else:
-            rec["model"] = "gemini"
-
-    rec["passed"] = run_tests(prob["prompt"], code, test_code, entry)
-    return rec
 
 
 # ── Benchmark runner ──────────────────────────────────────────────────
@@ -162,9 +137,8 @@ def print_report(results, tracker):
     gemini_ok = sum(1 for r in results if r.get("model") == "gemini" and r["passed"])
     esc_ok    = sum(1 for r in results if r.get("model") == "opus-esc" and r["passed"])
     g1h_ok    = sum(1 for r in results if r.get("model") == "opus-G1"  and r["passed"])
-
-    W    = 68
-    cost = tracker.total_cost() if tracker else None
+    W         = 68
+    cost      = tracker.total_cost() if tracker else None
 
     print("\n" + "=" * W)
     print("  smart-ask Product Benchmark — HumanEval")
