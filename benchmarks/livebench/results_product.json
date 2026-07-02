@@ -129,9 +129,9 @@
       "gate1": "hard",
       "escalated": false,
       "model": "opus-G1",
-      "passed": 3,
+      "passed": 0,
       "total": 3,
-      "pass_all": true
+      "pass_all": false
     },
     {
       "question_id": "f62daa0a810a70c8048484566eb0dcfb331b5299ce2a104f71cbbed4a98ed2b1",
@@ -249,9 +249,9 @@
       "gate1": "hard",
       "escalated": false,
       "model": "opus-G1",
-      "passed": 3,
+      "passed": 0,
       "total": 3,
-      "pass_all": true
+      "pass_all": false
     },
     {
       "question_id": "df00a4688e96b001f32ffd39913ae151bfa14034bdca636193c96974529f7cf9",
@@ -273,9 +273,9 @@
       "gate1": "hard",
       "escalated": false,
       "model": "opus-G1",
-      "passed": 0,
+      "passed": 1,
       "total": 1,
-      "pass_all": false
+      "pass_all": true
     },
     {
       "question_id": "75a3057122fddbd336b3e9a664d6254556cc1854312b07188cb719b9636a0acc",
@@ -462,9 +462,9 @@
       "title": "leetcode_alice-and-bob-playing-flower-game",
       "task": "coding_completion",
       "difficulty": "medium",
-      "gate1": "easy",
+      "gate1": "hard",
       "escalated": false,
-      "model": "gemini",
+      "model": "opus-G1",
       "passed": 0,
       "total": 2,
       "pass_all": false
@@ -486,9 +486,9 @@
       "title": "leetcode_ant-on-the-boundary",
       "task": "coding_completion",
       "difficulty": "easy",
-      "gate1": "hard",
+      "gate1": "easy",
       "escalated": false,
-      "model": "opus-G1",
+      "model": "gemini",
       "passed": 0,
       "total": 2,
       "pass_all": false
@@ -525,9 +525,9 @@
       "gate1": "hard",
       "escalated": false,
       "model": "opus-G1",
-      "passed": 0,
+      "passed": 2,
       "total": 2,
-      "pass_all": false
+      "pass_all": true
     },
     {
       "question_id": "a902525e385453571494ab18eaac931c67b171c8106286ba55221bbc89aa1d3b",
@@ -573,7 +573,7 @@
       "gate1": "easy",
       "escalated": false,
       "model": "gemini",
-      "passed": 2,
+      "passed": 0,
       "total": 3,
       "pass_all": false
     },
@@ -582,12 +582,12 @@
       "title": "leetcode_count-complete-substrings",
       "task": "coding_completion",
       "difficulty": "hard",
-      "gate1": "hard",
+      "gate1": "easy",
       "escalated": false,
-      "model": "opus-G1",
-      "passed": 2,
+      "model": "gemini",
+      "passed": 0,
       "total": 2,
-      "pass_all": true
+      "pass_all": false
     },
     {
       "question_id": "0664f46bd7bf6217d229be6762834af2aa642e7b97b14469f478c93a382ee520",
@@ -705,9 +705,9 @@
       "gate1": "hard",
       "escalated": false,
       "model": "opus-G1",
-      "passed": 3,
+      "passed": 2,
       "total": 3,
-      "pass_all": true
+      "pass_all": false
     },
     {
       "question_id": "b8e56097d9b5740294ef468314833c875b1ffe610edae1c1c79b91f7c09b5ece",
@@ -786,9 +786,9 @@
       "title": "leetcode_earliest-second-to-mark-indices-i",
       "task": "coding_completion",
       "difficulty": "medium",
-      "gate1": "hard",
+      "gate1": "easy",
       "escalated": false,
-      "model": "opus-G1",
+      "model": "gemini",
       "passed": 3,
       "total": 3,
       "pass_all": true
@@ -1041,9 +1041,9 @@
       "gate1": "hard",
       "escalated": false,
       "model": "opus-G1",
-      "passed": 2,
+      "passed": 3,
       "total": 3,
-      "pass_all": false
+      "pass_all": true
     },
     {
       "question_id": "009f4f7e8275c73de2eae601d76ff7163f613880788d870c1484b1c2a1383fbd",
@@ -1185,7 +1185,7 @@
       "gate1": "hard",
       "escalated": false,
       "model": "opus-G1",
-      "passed": 1,
+      "passed": 0,
       "total": 3,
       "pass_all": false
     },
@@ -1290,9 +1290,9 @@
       "title": "leetcode_minimum-number-of-coins-to-be-added",
       "task": "coding_completion",
       "difficulty": "medium",
-      "gate1": "easy",
+      "gate1": "hard",
       "escalated": false,
-      "model": "gemini",
+      "model": "opus-G1",
       "passed": 3,
       "total": 3,
       "pass_all": true
@@ -1389,9 +1389,9 @@
       "gate1": "easy",
       "escalated": false,
       "model": "gemini",
-      "passed": 3,
+      "passed": 1,
       "total": 3,
-      "pass_all": true
+      "pass_all": false
     },
     {
       "question_id": "5a126374e3885ec262a06ef4f7eaafd34477f3bc68ba8e6b04123c2c32e7352d",
@@ -1494,9 +1494,9 @@
       "title": "leetcode_separate-black-and-white-balls",
       "task": "coding_completion",
       "difficulty": "medium",
-      "gate1": "easy",
+      "gate1": "hard",
       "escalated": false,
-      "model": "gemini",
+      "model": "opus-G1",
       "passed": 3,
       "total": 3,
       "pass_all": true
@@ -1506,9 +1506,9 @@
       "title": "leetcode_smallest-missing-integer-greater-than-sequential-prefix-sum",
       "task": "coding_completion",
       "difficulty": "easy",
-      "gate1": "hard",
+      "gate1": "easy",
       "escalated": false,
-      "model": "opus-G1",
+      "model": "gemini",
       "passed": 0,
       "total": 2,
       "pass_all": false
@@ -1539,60 +1539,52 @@
     }
   ],
   "token_log": {
-    "total_cost_usd": 0.8900836000000001,
-    "n_calls": 256,
+    "total_cost_usd": 0.8843161,
+    "n_calls": 234,
     "by_model": {
       "google/gemini-2.5-flash-lite": {
-        "calls": 182,
-        "prompt_tokens": 100384,
-        "completion_tokens": 6713,
-        "total_tokens": 107097,
-        "cost_usd": 0.012723599999999993
+        "calls": 161,
+        "prompt_tokens": 91681,
+        "completion_tokens": 5820,
+        "total_tokens": 97501,
+        "cost_usd": 0.011496099999999997
       },
       "anthropic/claude-opus-4.8": {
-        "calls": 74,
-        "prompt_tokens": 74587,
-        "completion_tokens": 20177,
-        "total_tokens": 94764,
-        "cost_usd": 0.8773599999999998
+        "calls": 73,
+        "prompt_tokens": 72844,
+        "completion_tokens": 20344,
+        "total_tokens": 93188,
+        "cost_usd": 0.8728200000000002
       }
     },
     "by_role": {
       "classifier": {
-        "calls": 128,
-        "prompt_tokens": 61105,
-        "completion_tokens": 1076,
-        "cost_usd": 0.006540900000000002
+        "calls": 106,
+        "prompt_tokens": 51067,
+        "completion_tokens": 671,
+        "cost_usd": 0.0053751000000000024
       },
       "generator": {
-        "calls": 54,
-        "prompt_tokens": 39279,
-        "completion_tokens": 5637,
-        "cost_usd": 0.006182700000000001
+        "calls": 55,
+        "prompt_tokens": 40614,
+        "completion_tokens": 5149,
+        "cost_usd": 0.0061210000000000014
       },
       "writer": {
-        "calls": 74,
-        "prompt_tokens": 74587,
-        "completion_tokens": 20177,
-        "cost_usd": 0.8773599999999998
+        "calls": 73,
+        "prompt_tokens": 72844,
+        "completion_tokens": 20344,
+        "cost_usd": 0.8728200000000002
       }
     },
     "calls": [
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 512,
+        "prompt_tokens": 452,
         "completion_tokens": 5,
-        "cost_usd": 5.32e-05,
-        "task_id": "f62daa0a810a70c8"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 548,
-        "completion_tokens": 5,
-        "cost_usd": 5.68e-05,
-        "task_id": "6cb0c2d9892875f7"
+        "cost_usd": 4.72e-05,
+        "task_id": "0664f46bd7bf6217"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1605,6 +1597,22 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
+        "prompt_tokens": 396,
+        "completion_tokens": 5,
+        "cost_usd": 4.16e-05,
+        "task_id": "65369f81842e0735"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 548,
+        "completion_tokens": 5,
+        "cost_usd": 5.68e-05,
+        "task_id": "6cb0c2d9892875f7"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
         "prompt_tokens": 475,
         "completion_tokens": 5,
         "cost_usd": 4.95e-05,
@@ -1613,18 +1621,10 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 452,
+        "prompt_tokens": 512,
         "completion_tokens": 5,
-        "cost_usd": 4.72e-05,
-        "task_id": "0664f46bd7bf6217"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 396,
-        "completion_tokens": 5,
-        "cost_usd": 4.16e-05,
-        "task_id": "65369f81842e0735"
+        "cost_usd": 5.32e-05,
+        "task_id": "f62daa0a810a70c8"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1635,14 +1635,6 @@
         "task_id": "0664f46bd7bf6217"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 733,
-        "completion_tokens": 76,
-        "cost_usd": 0.0055650000000000005,
-        "task_id": "6cb0c2d9892875f7"
-      },
-      {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 514,
@@ -1651,12 +1643,20 @@
         "task_id": "507f6dbb4e7d52e6"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 442,
-        "completion_tokens": 5,
-        "cost_usd": 4.62e-05,
-        "task_id": "7ac5182f5b8a86a6"
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 733,
+        "completion_tokens": 76,
+        "cost_usd": 0.0055650000000000005,
+        "task_id": "6cb0c2d9892875f7"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1313,
+        "completion_tokens": 103,
+        "cost_usd": 0.00914,
+        "task_id": "eecef5ebcd4b0224"
       },
       {
         "model": "anthropic/claude-opus-4.8",
@@ -1675,19 +1675,19 @@
         "task_id": "412707cd401e5059"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1313,
-        "completion_tokens": 103,
-        "cost_usd": 0.00914,
-        "task_id": "eecef5ebcd4b0224"
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 442,
+        "completion_tokens": 5,
+        "cost_usd": 4.62e-05,
+        "task_id": "7ac5182f5b8a86a6"
       },
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 1563,
-        "completion_tokens": 216,
-        "cost_usd": 0.013215000000000001,
+        "completion_tokens": 215,
+        "cost_usd": 0.01319,
         "task_id": "65369f81842e0735"
       },
       {
@@ -1716,11 +1716,27 @@
       },
       {
         "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 482,
+        "completion_tokens": 5,
+        "cost_usd": 5.02e-05,
+        "task_id": "63a5960e3858d9b8"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
         "prompt_tokens": 608,
         "completion_tokens": 112,
         "cost_usd": 0.00010559999999999999,
         "task_id": "75a3057122fddbd3"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 667,
+        "completion_tokens": 314,
+        "cost_usd": 0.011185,
+        "task_id": "88d41d97990a9e7f"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1733,18 +1749,18 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 482,
-        "completion_tokens": 5,
-        "cost_usd": 5.02e-05,
-        "task_id": "63a5960e3858d9b8"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
         "prompt_tokens": 483,
         "completion_tokens": 5,
         "cost_usd": 5.0299999999999996e-05,
         "task_id": "0c1688303f940192"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1024,
+        "completion_tokens": 191,
+        "cost_usd": 0.009895000000000001,
+        "task_id": "507f6dbb4e7d52e6"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1764,30 +1780,6 @@
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 506,
-        "completion_tokens": 82,
-        "cost_usd": 8.34e-05,
-        "task_id": "0c1688303f940192"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1024,
-        "completion_tokens": 199,
-        "cost_usd": 0.010095,
-        "task_id": "507f6dbb4e7d52e6"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 990,
-        "completion_tokens": 87,
-        "cost_usd": 0.007125000000000001,
-        "task_id": "7ac5182f5b8a86a6"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 461,
         "completion_tokens": 10,
@@ -1795,12 +1787,12 @@
         "task_id": "832eb791ff0dae77"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 667,
-        "completion_tokens": 293,
-        "cost_usd": 0.010660000000000001,
-        "task_id": "88d41d97990a9e7f"
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 438,
+        "completion_tokens": 5,
+        "cost_usd": 4.58e-05,
+        "task_id": "a762c0ca6500a33a"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1812,11 +1804,19 @@
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 438,
-        "completion_tokens": 5,
-        "cost_usd": 4.58e-05,
-        "task_id": "a762c0ca6500a33a"
+        "role": "generator",
+        "prompt_tokens": 506,
+        "completion_tokens": 82,
+        "cost_usd": 8.34e-05,
+        "task_id": "0c1688303f940192"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 990,
+        "completion_tokens": 87,
+        "cost_usd": 0.007125000000000001,
+        "task_id": "7ac5182f5b8a86a6"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1838,17 +1838,17 @@
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 830,
-        "completion_tokens": 252,
-        "cost_usd": 0.010450000000000001,
+        "completion_tokens": 236,
+        "cost_usd": 0.01005,
         "task_id": "3e0ba617402710c7"
       },
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 758,
-        "completion_tokens": 161,
-        "cost_usd": 0.007815,
-        "task_id": "109469ec1296f25e"
+        "prompt_tokens": 584,
+        "completion_tokens": 159,
+        "cost_usd": 0.006895,
+        "task_id": "09c0c67ed82f0098"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1857,22 +1857,6 @@
         "completion_tokens": 5,
         "cost_usd": 4.7499999999999996e-05,
         "task_id": "89cad09d86639198"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 584,
-        "completion_tokens": 147,
-        "cost_usd": 0.006595,
-        "task_id": "09c0c67ed82f0098"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 490,
-        "completion_tokens": 5,
-        "cost_usd": 5.1e-05,
-        "task_id": "8b720a5b61bea0e6"
       },
       {
         "model": "anthropic/claude-opus-4.8",
@@ -1884,11 +1868,27 @@
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 666,
-        "completion_tokens": 81,
-        "cost_usd": 9.9e-05,
-        "task_id": "89cad09d86639198"
+        "role": "classifier",
+        "prompt_tokens": 490,
+        "completion_tokens": 5,
+        "cost_usd": 5.1e-05,
+        "task_id": "8b720a5b61bea0e6"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 455,
+        "completion_tokens": 5,
+        "cost_usd": 4.7499999999999996e-05,
+        "task_id": "e1e226d29b9ab59f"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 758,
+        "completion_tokens": 165,
+        "cost_usd": 0.007915,
+        "task_id": "109469ec1296f25e"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1900,11 +1900,11 @@
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 455,
-        "completion_tokens": 5,
-        "cost_usd": 4.7499999999999996e-05,
-        "task_id": "e1e226d29b9ab59f"
+        "role": "generator",
+        "prompt_tokens": 666,
+        "completion_tokens": 86,
+        "cost_usd": 0.00010099999999999999,
+        "task_id": "89cad09d86639198"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1918,17 +1918,9 @@
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 606,
-        "completion_tokens": 5,
-        "cost_usd": 6.259999999999999e-05,
+        "completion_tokens": 10,
+        "cost_usd": 6.46e-05,
         "task_id": "d414f7768eb066f5"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 521,
-        "completion_tokens": 5,
-        "cost_usd": 5.41e-05,
-        "task_id": "6afe4974569ffea0"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1941,18 +1933,26 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 416,
+        "prompt_tokens": 521,
         "completion_tokens": 5,
-        "cost_usd": 4.3599999999999996e-05,
-        "task_id": "ef2c6b4ab2f09b2f"
+        "cost_usd": 5.41e-05,
+        "task_id": "6afe4974569ffea0"
       },
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 727,
-        "completion_tokens": 520,
-        "cost_usd": 0.016635,
+        "completion_tokens": 415,
+        "cost_usd": 0.014010000000000002,
         "task_id": "832eb791ff0dae77"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 416,
+        "completion_tokens": 5,
+        "cost_usd": 4.3599999999999996e-05,
+        "task_id": "ef2c6b4ab2f09b2f"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -1965,25 +1965,25 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 477,
-        "completion_tokens": 5,
-        "cost_usd": 4.97e-05,
-        "task_id": "23132a8725620697"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
         "prompt_tokens": 531,
         "completion_tokens": 5,
         "cost_usd": 5.51e-05,
         "task_id": "01c73e7f5bd7b486"
       },
       {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 477,
+        "completion_tokens": 5,
+        "cost_usd": 4.97e-05,
+        "task_id": "23132a8725620697"
+      },
+      {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 752,
-        "completion_tokens": 109,
-        "cost_usd": 0.006485,
+        "completion_tokens": 114,
+        "cost_usd": 0.00661,
         "task_id": "d414f7768eb066f5"
       },
       {
@@ -1995,36 +1995,20 @@
         "task_id": "27c31c63ff778ef9"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 425,
-        "completion_tokens": 26,
-        "cost_usd": 5.29e-05,
-        "task_id": "27c31c63ff778ef9"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 497,
-        "completion_tokens": 5,
-        "cost_usd": 5.1699999999999996e-05,
-        "task_id": "89101e97bd95e50c"
-      },
-      {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 808,
-        "completion_tokens": 105,
-        "cost_usd": 0.006665000000000001,
+        "completion_tokens": 103,
+        "cost_usd": 0.006615,
         "task_id": "01c73e7f5bd7b486"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
-        "prompt_tokens": 757,
-        "completion_tokens": 142,
-        "cost_usd": 0.0001325,
-        "task_id": "89101e97bd95e50c"
+        "prompt_tokens": 425,
+        "completion_tokens": 31,
+        "cost_usd": 5.489999999999999e-05,
+        "task_id": "27c31c63ff778ef9"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2037,6 +2021,22 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
+        "prompt_tokens": 497,
+        "completion_tokens": 5,
+        "cost_usd": 5.1699999999999996e-05,
+        "task_id": "89101e97bd95e50c"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 757,
+        "completion_tokens": 142,
+        "cost_usd": 0.0001325,
+        "task_id": "89101e97bd95e50c"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
         "prompt_tokens": 467,
         "completion_tokens": 5,
         "cost_usd": 4.87e-05,
@@ -2045,18 +2045,18 @@
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 684,
-        "completion_tokens": 321,
-        "cost_usd": 0.011445,
-        "task_id": "23132a8725620697"
+        "prompt_tokens": 798,
+        "completion_tokens": 575,
+        "cost_usd": 0.018365,
+        "task_id": "e1e226d29b9ab59f"
       },
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 1128,
-        "completion_tokens": 993,
-        "cost_usd": 0.030465,
-        "task_id": "3de555bbcef9919a"
+        "prompt_tokens": 684,
+        "completion_tokens": 328,
+        "cost_usd": 0.011620000000000002,
+        "task_id": "23132a8725620697"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2075,12 +2075,28 @@
         "task_id": "7c1f49314f2c2614"
       },
       {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1128,
+        "completion_tokens": 890,
+        "cost_usd": 0.02789,
+        "task_id": "3de555bbcef9919a"
+      },
+      {
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
         "prompt_tokens": 554,
         "completion_tokens": 92,
         "cost_usd": 9.219999999999999e-05,
         "task_id": "e882b58cb776d5ec"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1285,
+        "completion_tokens": 490,
+        "cost_usd": 0.018675,
+        "task_id": "ef2c6b4ab2f09b2f"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2091,43 +2107,11 @@
         "task_id": "992a18bff05e5db6"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 798,
-        "completion_tokens": 688,
-        "cost_usd": 0.02119,
-        "task_id": "e1e226d29b9ab59f"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1151,
-        "completion_tokens": 313,
-        "cost_usd": 0.013580000000000002,
-        "task_id": "176daded29d196e2"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1285,
-        "completion_tokens": 653,
-        "cost_usd": 0.02275,
-        "task_id": "ef2c6b4ab2f09b2f"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 658,
-        "completion_tokens": 116,
-        "cost_usd": 0.006190000000000001,
-        "task_id": "7c1f49314f2c2614"
-      },
-      {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 484,
-        "completion_tokens": 5,
-        "cost_usd": 5.04e-05,
+        "role": "generator",
+        "prompt_tokens": 636,
+        "completion_tokens": 132,
+        "cost_usd": 0.0001164,
         "task_id": "1693afc152bb5f95"
       },
       {
@@ -2137,6 +2121,14 @@
         "completion_tokens": 10,
         "cost_usd": 4.89e-05,
         "task_id": "2ac5a0878eb181ce"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1151,
+        "completion_tokens": 305,
+        "cost_usd": 0.013380000000000001,
+        "task_id": "176daded29d196e2"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2165,18 +2157,26 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
+        "prompt_tokens": 649,
+        "completion_tokens": 115,
+        "cost_usd": 0.00011089999999999999,
+        "task_id": "317b199a6aeaec75"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
         "prompt_tokens": 751,
         "completion_tokens": 41,
         "cost_usd": 9.15e-05,
         "task_id": "6755f738cebb3ae6"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 524,
-        "completion_tokens": 20,
-        "cost_usd": 6.04e-05,
-        "task_id": "795dd501310981ef"
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 658,
+        "completion_tokens": 116,
+        "cost_usd": 0.006190000000000001,
+        "task_id": "7c1f49314f2c2614"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2185,70 +2185,6 @@
         "completion_tokens": 10,
         "cost_usd": 5.14e-05,
         "task_id": "4952a5d420fa195e"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 727,
-        "completion_tokens": 90,
-        "cost_usd": 0.0058850000000000005,
-        "task_id": "1693afc152bb5f95"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 649,
-        "completion_tokens": 115,
-        "cost_usd": 0.00011089999999999999,
-        "task_id": "317b199a6aeaec75"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 749,
-        "completion_tokens": 333,
-        "cost_usd": 0.01207,
-        "task_id": "992a18bff05e5db6"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 920,
-        "completion_tokens": 334,
-        "cost_usd": 0.0002256,
-        "task_id": "795dd501310981ef"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 486,
-        "completion_tokens": 20,
-        "cost_usd": 5.6599999999999993e-05,
-        "task_id": "5f7ac157843831b5"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 444,
-        "completion_tokens": 10,
-        "cost_usd": 4.84e-05,
-        "task_id": "5c9d7ade302709f4"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 432,
-        "completion_tokens": 20,
-        "cost_usd": 5.12e-05,
-        "task_id": "7ad613404830cbc9"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 482,
-        "completion_tokens": 10,
-        "cost_usd": 5.22e-05,
-        "task_id": "d5ecf69bb5d8e622"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2261,18 +2197,34 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
-        "prompt_tokens": 565,
-        "completion_tokens": 64,
-        "cost_usd": 8.209999999999999e-05,
-        "task_id": "d5ecf69bb5d8e622"
+        "prompt_tokens": 728,
+        "completion_tokens": 58,
+        "cost_usd": 9.599999999999999e-05,
+        "task_id": "5c9d7ade302709f4"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
-        "prompt_tokens": 649,
-        "completion_tokens": 229,
-        "cost_usd": 0.00015649999999999998,
-        "task_id": "7ad613404830cbc9"
+        "prompt_tokens": 920,
+        "completion_tokens": 334,
+        "cost_usd": 0.0002256,
+        "task_id": "795dd501310981ef"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1064,
+        "completion_tokens": 107,
+        "cost_usd": 0.007995,
+        "task_id": "4952a5d420fa195e"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 473,
+        "completion_tokens": 10,
+        "cost_usd": 5.13e-05,
+        "task_id": "0119bdbf9e79f05e"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2285,10 +2237,18 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 473,
-        "completion_tokens": 5,
-        "cost_usd": 4.93e-05,
-        "task_id": "0119bdbf9e79f05e"
+        "prompt_tokens": 482,
+        "completion_tokens": 10,
+        "cost_usd": 5.22e-05,
+        "task_id": "d5ecf69bb5d8e622"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1381,
+        "completion_tokens": 545,
+        "cost_usd": 0.02053,
+        "task_id": "a326807520b5d18b"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2307,14 +2267,6 @@
         "task_id": "b8e56097d9b57402"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1064,
-        "completion_tokens": 107,
-        "cost_usd": 0.007995,
-        "task_id": "4952a5d420fa195e"
-      },
-      {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 439,
@@ -2323,12 +2275,12 @@
         "task_id": "03741bcada4e970e"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 836,
-        "completion_tokens": 52,
-        "cost_usd": 0.0054800000000000005,
-        "task_id": "5c9d7ade302709f4"
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 565,
+        "completion_tokens": 54,
+        "cost_usd": 7.81e-05,
+        "task_id": "d5ecf69bb5d8e622"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2341,10 +2293,18 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 597,
+        "prompt_tokens": 468,
         "completion_tokens": 5,
-        "cost_usd": 6.17e-05,
-        "task_id": "3d2aec36cd900b96"
+        "cost_usd": 4.88e-05,
+        "task_id": "306525ba191d9f60"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 649,
+        "completion_tokens": 229,
+        "cost_usd": 0.00015649999999999998,
+        "task_id": "7ad613404830cbc9"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2355,28 +2315,12 @@
         "task_id": "03741bcada4e970e"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1381,
-        "completion_tokens": 427,
-        "cost_usd": 0.017580000000000002,
-        "task_id": "a326807520b5d18b"
-      },
-      {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 468,
+        "prompt_tokens": 597,
         "completion_tokens": 5,
-        "cost_usd": 4.88e-05,
-        "task_id": "306525ba191d9f60"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 493,
-        "completion_tokens": 5,
-        "cost_usd": 5.13e-05,
-        "task_id": "df00a4688e96b001"
+        "cost_usd": 6.17e-05,
+        "task_id": "3d2aec36cd900b96"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2395,22 +2339,6 @@
         "task_id": "d5213885ecf30ec0"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 831,
-        "completion_tokens": 186,
-        "cost_usd": 0.008805,
-        "task_id": "ffdb71c563e5f8e9"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 793,
-        "completion_tokens": 254,
-        "cost_usd": 0.0001809,
-        "task_id": "df00a4688e96b001"
-      },
-      {
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
         "prompt_tokens": 592,
@@ -2421,10 +2349,26 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 616,
+        "prompt_tokens": 493,
         "completion_tokens": 5,
-        "cost_usd": 6.359999999999999e-05,
-        "task_id": "3375d42f6db384f6"
+        "cost_usd": 5.13e-05,
+        "task_id": "df00a4688e96b001"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 793,
+        "completion_tokens": 208,
+        "cost_usd": 0.0001625,
+        "task_id": "df00a4688e96b001"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 831,
+        "completion_tokens": 166,
+        "cost_usd": 0.008305,
+        "task_id": "ffdb71c563e5f8e9"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2446,9 +2390,33 @@
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
         "prompt_tokens": 422,
-        "completion_tokens": 47,
-        "cost_usd": 6.099999999999999e-05,
+        "completion_tokens": 42,
+        "cost_usd": 5.9e-05,
         "task_id": "5a87f768962bad5e"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 616,
+        "completion_tokens": 5,
+        "cost_usd": 6.359999999999999e-05,
+        "task_id": "3375d42f6db384f6"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1211,
+        "completion_tokens": 311,
+        "cost_usd": 0.013830000000000002,
+        "task_id": "306525ba191d9f60"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 805,
+        "completion_tokens": 235,
+        "cost_usd": 0.009899999999999999,
+        "task_id": "d5213885ecf30ec0"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2459,12 +2427,12 @@
         "task_id": "e4ee35e76ddb5c90"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1211,
-        "completion_tokens": 207,
-        "cost_usd": 0.01123,
-        "task_id": "306525ba191d9f60"
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 457,
+        "completion_tokens": 5,
+        "cost_usd": 4.77e-05,
+        "task_id": "db5240d8bb9da989"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2477,18 +2445,10 @@
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 805,
-        "completion_tokens": 208,
-        "cost_usd": 0.009225,
-        "task_id": "d5213885ecf30ec0"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 457,
-        "completion_tokens": 5,
-        "cost_usd": 4.77e-05,
-        "task_id": "db5240d8bb9da989"
+        "prompt_tokens": 749,
+        "completion_tokens": 1024,
+        "cost_usd": 0.029345000000000003,
+        "task_id": "992a18bff05e5db6"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2497,14 +2457,6 @@
         "completion_tokens": 5,
         "cost_usd": 4.97e-05,
         "task_id": "5afb74e155e6538c"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 749,
-        "completion_tokens": 191,
-        "cost_usd": 0.008520000000000002,
-        "task_id": "3375d42f6db384f6"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2518,8 +2470,8 @@
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 613,
-        "completion_tokens": 222,
-        "cost_usd": 0.008615000000000001,
+        "completion_tokens": 251,
+        "cost_usd": 0.009340000000000001,
         "task_id": "c675d9db6b456f79"
       },
       {
@@ -2531,20 +2483,20 @@
         "task_id": "7439c76752648b2b"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 552,
-        "completion_tokens": 5,
-        "cost_usd": 5.72e-05,
-        "task_id": "89ca002eeeb0c60d"
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 749,
+        "completion_tokens": 161,
+        "cost_usd": 0.007770000000000001,
+        "task_id": "3375d42f6db384f6"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 736,
-        "completion_tokens": 145,
-        "cost_usd": 0.0001316,
-        "task_id": "89ca002eeeb0c60d"
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 762,
+        "completion_tokens": 74,
+        "cost_usd": 0.00566,
+        "task_id": "5afb74e155e6538c"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2555,11 +2507,19 @@
         "task_id": "d191855119f72c53"
       },
       {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 552,
+        "completion_tokens": 5,
+        "cost_usd": 5.72e-05,
+        "task_id": "89ca002eeeb0c60d"
+      },
+      {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 944,
-        "completion_tokens": 945,
-        "cost_usd": 0.028345000000000002,
+        "completion_tokens": 860,
+        "cost_usd": 0.02622,
         "task_id": "3d2aec36cd900b96"
       },
       {
@@ -2574,33 +2534,17 @@
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 863,
-        "completion_tokens": 131,
-        "cost_usd": 0.00759,
+        "completion_tokens": 134,
+        "cost_usd": 0.007665,
         "task_id": "7439c76752648b2b"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 520,
-        "completion_tokens": 5,
-        "cost_usd": 5.4e-05,
-        "task_id": "042b958543e9a61f"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
-        "prompt_tokens": 537,
-        "completion_tokens": 189,
-        "cost_usd": 0.0001293,
-        "task_id": "d761bf4d5741e128"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 762,
-        "completion_tokens": 80,
-        "cost_usd": 0.005810000000000001,
-        "task_id": "5afb74e155e6538c"
+        "prompt_tokens": 736,
+        "completion_tokens": 145,
+        "cost_usd": 0.0001316,
+        "task_id": "89ca002eeeb0c60d"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2611,12 +2555,20 @@
         "task_id": "388e39eefc4d3950"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1048,
-        "completion_tokens": 697,
-        "cost_usd": 0.022665,
-        "task_id": "55893da1c59947e4"
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 537,
+        "completion_tokens": 189,
+        "cost_usd": 0.0001293,
+        "task_id": "d761bf4d5741e128"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 520,
+        "completion_tokens": 5,
+        "cost_usd": 5.4e-05,
+        "task_id": "042b958543e9a61f"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2629,9 +2581,17 @@
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
+        "prompt_tokens": 1029,
+        "completion_tokens": 210,
+        "cost_usd": 0.010395000000000001,
+        "task_id": "042b958543e9a61f"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
         "prompt_tokens": 1128,
-        "completion_tokens": 410,
-        "cost_usd": 0.01589,
+        "completion_tokens": 424,
+        "cost_usd": 0.01624,
         "task_id": "d191855119f72c53"
       },
       {
@@ -2641,6 +2601,14 @@
         "completion_tokens": 5,
         "cost_usd": 5.6399999999999995e-05,
         "task_id": "232d3a9537df2b3a"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1048,
+        "completion_tokens": 633,
+        "cost_usd": 0.021065000000000004,
+        "task_id": "55893da1c59947e4"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2659,6 +2627,14 @@
         "task_id": "232d3a9537df2b3a"
       },
       {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 905,
+        "completion_tokens": 206,
+        "cost_usd": 0.009675,
+        "task_id": "e4386373494a3b0a"
+      },
+      {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 466,
@@ -2667,28 +2643,20 @@
         "task_id": "b8637ee53e144cd0"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1029,
-        "completion_tokens": 265,
-        "cost_usd": 0.011770000000000001,
-        "task_id": "042b958543e9a61f"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 905,
-        "completion_tokens": 208,
-        "cost_usd": 0.009725000000000001,
-        "task_id": "e4386373494a3b0a"
-      },
-      {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 505,
         "completion_tokens": 5,
         "cost_usd": 5.25e-05,
         "task_id": "af9c90d156658231"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 476,
+        "completion_tokens": 5,
+        "cost_usd": 4.96e-05,
+        "task_id": "cd2f643fc3de0dbc"
       },
       {
         "model": "anthropic/claude-opus-4.8",
@@ -2701,26 +2669,18 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 476,
-        "completion_tokens": 5,
-        "cost_usd": 4.96e-05,
-        "task_id": "cd2f643fc3de0dbc"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
         "prompt_tokens": 501,
         "completion_tokens": 5,
         "cost_usd": 5.21e-05,
         "task_id": "87871f3ecdda8c45"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 917,
-        "completion_tokens": 263,
-        "cost_usd": 0.01116,
-        "task_id": "39d2dcf38a69f076"
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 592,
+        "completion_tokens": 140,
+        "cost_usd": 0.0001152,
+        "task_id": "87871f3ecdda8c45"
       },
       {
         "model": "anthropic/claude-opus-4.8",
@@ -2731,12 +2691,20 @@
         "task_id": "b8637ee53e144cd0"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 592,
-        "completion_tokens": 140,
-        "cost_usd": 0.0001152,
-        "task_id": "87871f3ecdda8c45"
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 917,
+        "completion_tokens": 242,
+        "cost_usd": 0.010635000000000002,
+        "task_id": "39d2dcf38a69f076"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 773,
+        "completion_tokens": 183,
+        "cost_usd": 0.00844,
+        "task_id": "af9c90d156658231"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2750,8 +2718,8 @@
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 464,
-        "completion_tokens": 5,
-        "cost_usd": 4.84e-05,
+        "completion_tokens": 10,
+        "cost_usd": 5.04e-05,
         "task_id": "a902525e38545357"
       },
       {
@@ -2771,12 +2739,12 @@
         "task_id": "9026b23d1094bb00"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 773,
-        "completion_tokens": 187,
-        "cost_usd": 0.00854,
-        "task_id": "af9c90d156658231"
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 851,
+        "completion_tokens": 28,
+        "cost_usd": 9.63e-05,
+        "task_id": "b122f7e6e1fa1556"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2789,30 +2757,6 @@
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 897,
-        "completion_tokens": 229,
-        "cost_usd": 0.01021,
-        "task_id": "cd2f643fc3de0dbc"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 441,
-        "completion_tokens": 20,
-        "cost_usd": 5.21e-05,
-        "task_id": "b122f7e6e1fa1556"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 429,
-        "completion_tokens": 5,
-        "cost_usd": 4.49e-05,
-        "task_id": "59c63e484f7d2159"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
         "prompt_tokens": 925,
         "completion_tokens": 55,
         "cost_usd": 0.006000000000000001,
@@ -2821,18 +2765,10 @@
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 819,
-        "completion_tokens": 40,
-        "cost_usd": 0.005095000000000001,
-        "task_id": "2988282303377818"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 411,
-        "completion_tokens": 20,
-        "cost_usd": 4.9099999999999994e-05,
-        "task_id": "009f4f7e8275c73d"
+        "prompt_tokens": 897,
+        "completion_tokens": 320,
+        "cost_usd": 0.012485,
+        "task_id": "cd2f643fc3de0dbc"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2845,50 +2781,18 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
-        "prompt_tokens": 851,
-        "completion_tokens": 28,
-        "cost_usd": 9.63e-05,
-        "task_id": "b122f7e6e1fa1556"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 2224,
-        "completion_tokens": 289,
-        "cost_usd": 0.018345,
-        "task_id": "049ed4055f772aa9"
+        "prompt_tokens": 1579,
+        "completion_tokens": 99,
+        "cost_usd": 0.00019749999999999998,
+        "task_id": "009f4f7e8275c73d"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
-        "prompt_tokens": 1579,
-        "completion_tokens": 100,
-        "cost_usd": 0.00019789999999999999,
-        "task_id": "009f4f7e8275c73d"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1021,
-        "completion_tokens": 96,
-        "cost_usd": 0.007505,
+        "prompt_tokens": 859,
+        "completion_tokens": 90,
+        "cost_usd": 0.00012190000000000001,
         "task_id": "59c63e484f7d2159"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 920,
-        "completion_tokens": 943,
-        "cost_usd": 0.028175000000000002,
-        "task_id": "388e39eefc4d3950"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 482,
-        "completion_tokens": 20,
-        "cost_usd": 5.62e-05,
-        "task_id": "16503edeb04a3a1a"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2900,6 +2804,22 @@
       },
       {
         "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 1081,
+        "completion_tokens": 26,
+        "cost_usd": 0.0001185,
+        "task_id": "16503edeb04a3a1a"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 2224,
+        "completion_tokens": 297,
+        "cost_usd": 0.018545000000000002,
+        "task_id": "049ed4055f772aa9"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 466,
         "completion_tokens": 10,
@@ -2907,12 +2827,20 @@
         "task_id": "ebde77f9af990a37"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 470,
-        "completion_tokens": 20,
-        "cost_usd": 5.4999999999999995e-05,
-        "task_id": "59811e99700ace9d"
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 920,
+        "completion_tokens": 1024,
+        "cost_usd": 0.0302,
+        "task_id": "388e39eefc4d3950"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 819,
+        "completion_tokens": 37,
+        "cost_usd": 0.00502,
+        "task_id": "2988282303377818"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2923,36 +2851,20 @@
         "task_id": "7ae9d085e0923cd5"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 1081,
-        "completion_tokens": 26,
-        "cost_usd": 0.0001185,
-        "task_id": "16503edeb04a3a1a"
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1152,
+        "completion_tokens": 54,
+        "cost_usd": 0.00711,
+        "task_id": "ab88e681245c5c93"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 703,
-        "completion_tokens": 14,
-        "cost_usd": 7.59e-05,
+        "role": "classifier",
+        "prompt_tokens": 470,
+        "completion_tokens": 10,
+        "cost_usd": 5.1e-05,
         "task_id": "59811e99700ace9d"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 452,
-        "completion_tokens": 20,
-        "cost_usd": 5.32e-05,
-        "task_id": "6f128ce8389efae0"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 446,
-        "completion_tokens": 20,
-        "cost_usd": 5.26e-05,
-        "task_id": "e25750fd4c8fae19"
       },
       {
         "model": "anthropic/claude-opus-4.8",
@@ -2964,11 +2876,11 @@
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 1039,
-        "completion_tokens": 75,
-        "cost_usd": 0.0001339,
-        "task_id": "e25750fd4c8fae19"
+        "role": "classifier",
+        "prompt_tokens": 493,
+        "completion_tokens": 10,
+        "cost_usd": 5.33e-05,
+        "task_id": "e1553e31f9f0e938"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -2979,22 +2891,6 @@
         "task_id": "6f128ce8389efae0"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 456,
-        "completion_tokens": 10,
-        "cost_usd": 4.96e-05,
-        "task_id": "fe6312c9e8cb7985"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 493,
-        "completion_tokens": 10,
-        "cost_usd": 5.33e-05,
-        "task_id": "e1553e31f9f0e938"
-      },
-      {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 1334,
@@ -3003,20 +2899,12 @@
         "task_id": "ebde77f9af990a37"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 485,
-        "completion_tokens": 20,
-        "cost_usd": 5.65e-05,
-        "task_id": "786432ddcf555d87"
-      },
-      {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 908,
-        "completion_tokens": 124,
-        "cost_usd": 0.007640000000000001,
-        "task_id": "7ae9d085e0923cd5"
+        "prompt_tokens": 755,
+        "completion_tokens": 16,
+        "cost_usd": 0.004175,
+        "task_id": "59811e99700ace9d"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3030,33 +2918,33 @@
         "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
         "prompt_tokens": 842,
-        "completion_tokens": 29,
-        "cost_usd": 9.58e-05,
+        "completion_tokens": 51,
+        "cost_usd": 0.0001046,
         "task_id": "786432ddcf555d87"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 429,
-        "completion_tokens": 20,
-        "cost_usd": 5.09e-05,
-        "task_id": "9ccb5f2d887b739b"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1210,
-        "completion_tokens": 64,
-        "cost_usd": 0.0076500000000000005,
+        "prompt_tokens": 456,
+        "completion_tokens": 10,
+        "cost_usd": 4.96e-05,
         "task_id": "fe6312c9e8cb7985"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 429,
-        "completion_tokens": 20,
-        "cost_usd": 5.09e-05,
-        "task_id": "eae492105162057a"
+        "role": "generator",
+        "prompt_tokens": 1039,
+        "completion_tokens": 142,
+        "cost_usd": 0.0001607,
+        "task_id": "e25750fd4c8fae19"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 908,
+        "completion_tokens": 124,
+        "cost_usd": 0.007640000000000001,
+        "task_id": "7ae9d085e0923cd5"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3076,14 +2964,6 @@
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 889,
-        "completion_tokens": 21,
-        "cost_usd": 9.73e-05,
-        "task_id": "eae492105162057a"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 564,
         "completion_tokens": 10,
@@ -3093,50 +2973,34 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 495,
-        "completion_tokens": 20,
-        "cost_usd": 5.7499999999999995e-05,
-        "task_id": "4b6062ff2bb0859f"
+        "prompt_tokens": 429,
+        "completion_tokens": 5,
+        "cost_usd": 4.49e-05,
+        "task_id": "eae492105162057a"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 484,
-        "completion_tokens": 20,
-        "cost_usd": 5.6399999999999995e-05,
-        "task_id": "a62c56a25fd1a6fb"
+        "role": "generator",
+        "prompt_tokens": 1336,
+        "completion_tokens": 152,
+        "cost_usd": 0.0001944,
+        "task_id": "4f4e5b4d83cbc334"
       },
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 1152,
-        "completion_tokens": 102,
-        "cost_usd": 0.008310000000000001,
-        "task_id": "ab88e681245c5c93"
+        "prompt_tokens": 1078,
+        "completion_tokens": 109,
+        "cost_usd": 0.008115,
+        "task_id": "37a9bdb633709429"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 1205,
-        "completion_tokens": 29,
-        "cost_usd": 0.00013209999999999999,
-        "task_id": "a62c56a25fd1a6fb"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 850,
-        "completion_tokens": 17,
-        "cost_usd": 9.18e-05,
-        "task_id": "4b6062ff2bb0859f"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 414,
-        "completion_tokens": 20,
-        "cost_usd": 4.9399999999999995e-05,
-        "task_id": "4f4e5b4d83cbc334"
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1210,
+        "completion_tokens": 62,
+        "cost_usd": 0.007600000000000001,
+        "task_id": "fe6312c9e8cb7985"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3149,34 +3013,42 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 452,
-        "completion_tokens": 20,
-        "cost_usd": 5.32e-05,
-        "task_id": "7795fc4543dfb60b"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 1336,
-        "completion_tokens": 164,
-        "cost_usd": 0.0001992,
-        "task_id": "4f4e5b4d83cbc334"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 789,
-        "completion_tokens": 44,
-        "cost_usd": 9.649999999999999e-05,
-        "task_id": "7795fc4543dfb60b"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
         "prompt_tokens": 525,
         "completion_tokens": 10,
         "cost_usd": 5.65e-05,
         "task_id": "945b77d39f64bc7e"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1013,
+        "completion_tokens": 27,
+        "cost_usd": 0.00574,
+        "task_id": "eae492105162057a"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 850,
+        "completion_tokens": 17,
+        "cost_usd": 9.18e-05,
+        "task_id": "4b6062ff2bb0859f"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 1205,
+        "completion_tokens": 29,
+        "cost_usd": 0.00013209999999999999,
+        "task_id": "a62c56a25fd1a6fb"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 870,
+        "completion_tokens": 69,
+        "cost_usd": 0.0060750000000000005,
+        "task_id": "541fd30fbc3ff5b8"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3195,22 +3067,6 @@
         "task_id": "030471ea2fc50a29"
       },
       {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 870,
-        "completion_tokens": 69,
-        "cost_usd": 0.0060750000000000005,
-        "task_id": "541fd30fbc3ff5b8"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1428,
-        "completion_tokens": 100,
-        "cost_usd": 0.009640000000000001,
-        "task_id": "15b97089ff238df0"
-      },
-      {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 424,
@@ -3219,52 +3075,36 @@
         "task_id": "26aa1d9bdee3ca21"
       },
       {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 789,
+        "completion_tokens": 44,
+        "cost_usd": 9.649999999999999e-05,
+        "task_id": "7795fc4543dfb60b"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 399,
+        "completion_tokens": 10,
+        "cost_usd": 4.39e-05,
+        "task_id": "368b91cf69b159b1"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1428,
+        "completion_tokens": 75,
+        "cost_usd": 0.009015,
+        "task_id": "15b97089ff238df0"
+      },
+      {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 1042,
         "completion_tokens": 23,
         "cost_usd": 0.005785,
         "task_id": "030471ea2fc50a29"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 399,
-        "completion_tokens": 20,
-        "cost_usd": 4.79e-05,
-        "task_id": "368b91cf69b159b1"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 949,
-        "completion_tokens": 102,
-        "cost_usd": 0.007295,
-        "task_id": "5ced71fafeb7058e"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1239,
-        "completion_tokens": 138,
-        "cost_usd": 0.009645,
-        "task_id": "945b77d39f64bc7e"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 431,
-        "completion_tokens": 20,
-        "cost_usd": 5.1099999999999995e-05,
-        "task_id": "e2ee8ea63cf9d79d"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 451,
-        "completion_tokens": 5,
-        "cost_usd": 4.71e-05,
-        "task_id": "3cd8c16a338ab1b2"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3283,20 +3123,28 @@
         "task_id": "26aa1d9bdee3ca21"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 1002,
-        "completion_tokens": 88,
-        "cost_usd": 0.00013539999999999998,
-        "task_id": "e2ee8ea63cf9d79d"
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 949,
+        "completion_tokens": 102,
+        "cost_usd": 0.007295,
+        "task_id": "5ced71fafeb7058e"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1239,
+        "completion_tokens": 100,
+        "cost_usd": 0.008695000000000001,
+        "task_id": "945b77d39f64bc7e"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 433,
-        "completion_tokens": 20,
-        "cost_usd": 5.129999999999999e-05,
-        "task_id": "447b358040b99c91"
+        "role": "generator",
+        "prompt_tokens": 1368,
+        "completion_tokens": 46,
+        "cost_usd": 0.00015519999999999998,
+        "task_id": "3cd8c16a338ab1b2"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3305,30 +3153,6 @@
         "completion_tokens": 10,
         "cost_usd": 5.46e-05,
         "task_id": "45d51d0927f37783"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1713,
-        "completion_tokens": 53,
-        "cost_usd": 0.009890000000000001,
-        "task_id": "3cd8c16a338ab1b2"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 664,
-        "completion_tokens": 788,
-        "cost_usd": 0.00038159999999999995,
-        "task_id": "368b91cf69b159b1"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1061,
-        "completion_tokens": 46,
-        "cost_usd": 0.006455000000000001,
-        "task_id": "7878539e8dd4fe1d"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3340,43 +3164,11 @@
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 471,
-        "completion_tokens": 20,
-        "cost_usd": 5.51e-05,
-        "task_id": "100c6ce0a28db067"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 462,
-        "completion_tokens": 20,
-        "cost_usd": 5.4199999999999996e-05,
-        "task_id": "73642dac6679890d"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 465,
-        "completion_tokens": 5,
-        "cost_usd": 4.85e-05,
-        "task_id": "2cb17950d950274f"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 466,
-        "completion_tokens": 5,
-        "cost_usd": 4.86e-05,
-        "task_id": "5d2c5a9568774196"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
         "role": "generator",
-        "prompt_tokens": 920,
-        "completion_tokens": 26,
-        "cost_usd": 0.0001024,
-        "task_id": "100c6ce0a28db067"
+        "prompt_tokens": 1002,
+        "completion_tokens": 72,
+        "cost_usd": 0.000129,
+        "task_id": "e2ee8ea63cf9d79d"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3387,28 +3179,20 @@
         "task_id": "73642dac6679890d"
       },
       {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "generator",
-        "prompt_tokens": 495,
-        "completion_tokens": 46,
-        "cost_usd": 6.79e-05,
-        "task_id": "5d2c5a9568774196"
-      },
-      {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 1078,
-        "completion_tokens": 110,
-        "cost_usd": 0.008140000000000001,
-        "task_id": "37a9bdb633709429"
+        "prompt_tokens": 1061,
+        "completion_tokens": 40,
+        "cost_usd": 0.006305000000000001,
+        "task_id": "7878539e8dd4fe1d"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 540,
-        "completion_tokens": 11,
-        "cost_usd": 5.8399999999999997e-05,
-        "task_id": "7f4101a7131ddc37"
+        "role": "generator",
+        "prompt_tokens": 920,
+        "completion_tokens": 26,
+        "cost_usd": 0.0001024,
+        "task_id": "100c6ce0a28db067"
       },
       {
         "model": "anthropic/claude-opus-4.8",
@@ -3421,10 +3205,42 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
+        "prompt_tokens": 465,
+        "completion_tokens": 5,
+        "cost_usd": 4.85e-05,
+        "task_id": "2cb17950d950274f"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 540,
+        "completion_tokens": 11,
+        "cost_usd": 5.8399999999999997e-05,
+        "task_id": "7f4101a7131ddc37"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
         "prompt_tokens": 481,
         "completion_tokens": 5,
         "cost_usd": 5.01e-05,
         "task_id": "f78df88e67557027"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 786,
+        "completion_tokens": 78,
+        "cost_usd": 0.005880000000000001,
+        "task_id": "368b91cf69b159b1"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 466,
+        "completion_tokens": 5,
+        "cost_usd": 4.86e-05,
+        "task_id": "5d2c5a9568774196"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3437,34 +3253,42 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 485,
-        "completion_tokens": 5,
-        "cost_usd": 5.05e-05,
-        "task_id": "d9c8393373b3a80e"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
         "prompt_tokens": 582,
         "completion_tokens": 5,
         "cost_usd": 6.02e-05,
         "task_id": "588bc5f2d796806f"
       },
       {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 495,
+        "completion_tokens": 46,
+        "cost_usd": 6.79e-05,
+        "task_id": "5d2c5a9568774196"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 485,
+        "completion_tokens": 5,
+        "cost_usd": 5.05e-05,
+        "task_id": "d9c8393373b3a80e"
+      },
+      {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 628,
-        "completion_tokens": 189,
-        "cost_usd": 0.007865,
+        "completion_tokens": 188,
+        "cost_usd": 0.00784,
         "task_id": "7f4101a7131ddc37"
       },
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 591,
-        "completion_tokens": 159,
-        "cost_usd": 0.00693,
-        "task_id": "d9c8393373b3a80e"
+        "prompt_tokens": 1321,
+        "completion_tokens": 207,
+        "cost_usd": 0.01178,
+        "task_id": "f78df88e67557027"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3473,14 +3297,6 @@
         "completion_tokens": 5,
         "cost_usd": 4.42e-05,
         "task_id": "df2028f3f71248ce"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 896,
-        "completion_tokens": 234,
-        "cost_usd": 0.01033,
-        "task_id": "588bc5f2d796806f"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3493,10 +3309,10 @@
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 1321,
-        "completion_tokens": 200,
-        "cost_usd": 0.011605,
-        "task_id": "f78df88e67557027"
+        "prompt_tokens": 896,
+        "completion_tokens": 198,
+        "cost_usd": 0.009430000000000001,
+        "task_id": "588bc5f2d796806f"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3513,14 +3329,6 @@
         "completion_tokens": 223,
         "cost_usd": 0.000144,
         "task_id": "df2028f3f71248ce"
-      },
-      {
-        "model": "google/gemini-2.5-flash-lite",
-        "role": "classifier",
-        "prompt_tokens": 438,
-        "completion_tokens": 5,
-        "cost_usd": 4.58e-05,
-        "task_id": "6a84becb14831610"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3541,18 +3349,10 @@
       {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
-        "prompt_tokens": 455,
+        "prompt_tokens": 438,
         "completion_tokens": 5,
-        "cost_usd": 4.7499999999999996e-05,
-        "task_id": "b6a1eeb2bf7e0899"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1470,
-        "completion_tokens": 439,
-        "cost_usd": 0.018325,
-        "task_id": "556eb10bbb584e5d"
+        "cost_usd": 4.58e-05,
+        "task_id": "6a84becb14831610"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3563,12 +3363,44 @@
         "task_id": "30cd4633ff2a6f4a"
       },
       {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1470,
+        "completion_tokens": 497,
+        "cost_usd": 0.019775,
+        "task_id": "556eb10bbb584e5d"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 455,
+        "completion_tokens": 5,
+        "cost_usd": 4.7499999999999996e-05,
+        "task_id": "b6a1eeb2bf7e0899"
+      },
+      {
         "model": "google/gemini-2.5-flash-lite",
         "role": "classifier",
         "prompt_tokens": 516,
         "completion_tokens": 5,
         "cost_usd": 5.36e-05,
         "task_id": "2a0f52cd0d54e167"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1546,
+        "completion_tokens": 814,
+        "cost_usd": 0.02808,
+        "task_id": "2cb17950d950274f"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 829,
+        "completion_tokens": 176,
+        "cost_usd": 0.008545,
+        "task_id": "b6a1eeb2bf7e0899"
       },
       {
         "model": "google/gemini-2.5-flash-lite",
@@ -3581,34 +3413,26 @@
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
-        "prompt_tokens": 1546,
-        "completion_tokens": 765,
-        "cost_usd": 0.026855,
-        "task_id": "2cb17950d950274f"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 829,
-        "completion_tokens": 222,
-        "cost_usd": 0.009695,
-        "task_id": "b6a1eeb2bf7e0899"
-      },
-      {
-        "model": "anthropic/claude-opus-4.8",
-        "role": "writer",
-        "prompt_tokens": 1135,
-        "completion_tokens": 511,
-        "cost_usd": 0.01845,
-        "task_id": "6a84becb14831610"
+        "prompt_tokens": 591,
+        "completion_tokens": 159,
+        "cost_usd": 0.00693,
+        "task_id": "d9c8393373b3a80e"
       },
       {
         "model": "anthropic/claude-opus-4.8",
         "role": "writer",
         "prompt_tokens": 727,
-        "completion_tokens": 415,
-        "cost_usd": 0.014010000000000002,
+        "completion_tokens": 286,
+        "cost_usd": 0.010785,
         "task_id": "2a0f52cd0d54e167"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 1135,
+        "completion_tokens": 660,
+        "cost_usd": 0.022175,
+        "task_id": "6a84becb14831610"
       },
       {
         "model": "anthropic/claude-opus-4.8",
