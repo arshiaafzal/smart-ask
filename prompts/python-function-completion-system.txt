@@ -1,0 +1,1 @@
+You are an expert Python programmer. Complete the given Python function correctly and completely. Return ONLY the complete function implementation, starting from the `def` line. No explanation, markdown fences, or extra text.

@@ -1,26 +1,47 @@
-#!/Users/arshia.afzal/hermes-agent/.venv/bin/python3
+#!/usr/bin/env python3
 """
-smart-ask: classify → route → spawn Hermes
+smart-ask: run a configured model-routing strategy.
 
-  Gate 1  Gemini classifier — easy/hard structural check
-
-  easy → gemini-2.5-flash-lite   passed to Hermes
-  hard → claude-opus-4.8         passed to Hermes
-
-Smart-ask only decides the model. Hermes handles generation,
-tools, streaming, and multi-turn within its own session.
+The selected strategy defines its method, prompts, models, parameters, and
+classifier/generation transports.
 """
 
-import os, sys, argparse, threading, time, re, random, subprocess
+import sys, argparse, threading, time, re, random, sysconfig
 from pathlib import Path
-from openai import OpenAI
 
 # ── Repo path ─────────────────────────────────────────────────────────
 _REPO = Path(__file__).resolve().parent
 sys.path.insert(0, str(_REPO))
 
-from methods.gate1 import OR_BASE, CLASSIFIER_MODEL, EASY_MODEL, HARD_MODEL, gate1_classify
+
+def _default_strategy_path(
+    checkout_root: Path | None = None,
+    install_data_root: Path | None = None,
+) -> Path:
+    """Locate the bundled product strategy in a checkout or installed prefix."""
+
+    checkout_root = _REPO if checkout_root is None else Path(checkout_root)
+    install_data_root = (
+        Path(sysconfig.get_path("data"))
+        if install_data_root is None
+        else Path(install_data_root)
+    )
+    candidates = (
+        checkout_root / "strategies" / "product.yaml",
+        checkout_root.parent / "share" / "smart-ask" / "strategies" / "product.yaml",
+        install_data_root / "share" / "smart-ask" / "strategies" / "product.yaml",
+    )
+    return next((path for path in candidates if path.is_file()), candidates[-1])
+
 from cost.tracker import TokenTracker
+from smart_ask import Task
+from smart_ask.strategy import (
+    StrategyBuildError,
+    StrategyBuilder,
+    StrategyConfigError,
+    load_strategy,
+)
+from smart_ask.strategy.schema import FixedMethodConfig
 
 # ── ANSI palette ──────────────────────────────────────────────────────
 R  = "\033[0m"
@@ -39,9 +60,6 @@ RD = "\033[38;5;196m"
 
 def _strip(s: str) -> str:
     return re.sub(r"\033\[[0-9;]*m", "", s)
-
-# ── Config ────────────────────────────────────────────────────────────
-OR_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
 # ── Rain palette ──────────────────────────────────────────────────────
 _GREEN_RAIN = [
@@ -130,25 +148,49 @@ def _box(rows: list, inner_w: int = 52) -> None:
             print(f"  {WH}║{R}{row}{' ' * pad}{WH}║{R}")
     print(bot)
 
-def show_welcome():
+def _configured_profiles(config):
+    method = config.method
+    if isinstance(method, FixedMethodConfig):
+        return (("Model", method.model.model),)
+    return (("Easy", method.easy.model), ("Hard", method.hard.model))
+
+
+def _transport_name(transport_type: str) -> str:
+    return {
+        "hermes": "Hermes",
+        "openrouter": "OpenRouter",
+    }.get(transport_type, transport_type)
+
+
+def show_welcome(config):
+    transport = _transport_name(config.generation.type)
+    profile_rows = [
+        f"  {BL}>{R} {WH}{label:<7}:{R} {CY}{model.split('/')[-1]}{R}"
+        for label, model in _configured_profiles(config)
+    ]
+    force_rows = []
+    if not isinstance(config.method, FixedMethodConfig):
+        force_rows = [
+            f"  {GY}smart-ask --force-hard \"...\"{R}  use configured hard profile",
+            f"  {GY}smart-ask --force-easy \"...\"{R}  use configured easy profile",
+        ]
     _teaser()
     _box([
-        f"   {WH}{BD}SMART ASK  --  v3 Cascade Router{R}",
-        f"   {GY}classifies your task · hands off to Hermes{R}",
+        f"   {WH}{BD}SMART ASK  --  Model Router{R}",
+        f"   {GY}{config.name}{R}",
         None,
-        f"  {GR}>{R} {WH}Gate 1:{R}  {CY}Gemini classifier{R}     {DM}easy/hard?{R}",
+        f"  {GR}>{R} {WH}Method:{R}   {CY}{config.method.type}{R}",
+        f"  {GR}>{R} {WH}Transport:{R} {CY}{transport}{R}",
         None,
-        f"  {BL}>{R} {WH}Easy  :{R}  {CY}gemini-2.5-flash-lite{R}  {DM}→ Hermes{R}",
-        f"  {O}>{R} {WH}Hard  :{R}  {O}claude-opus-4.8{R}       {DM}→ Hermes{R}",
+        *profile_rows,
         None,
         f"  {CY}{BD}Usage{R}",
-        f"  {GY}ask \"task\"{R}              classify → Hermes",
-        f"  {GY}ask -f file.py \"...\"{R}   include file context",
-        f"  {GY}ask --force-hard \"...\"{R}  force Opus → Hermes",
-        f"  {GY}ask --force-easy \"...\"{R}  force Gemini → Hermes",
-        f"  {GY}ask --dry-run \"...\"{R}     classify only, skip Hermes",
-        f"  {GY}Ctrl-D or /exit{R}          end session",
-    ], inner_w=56)
+        f"  {GY}smart-ask \"task\"{R}              route and execute",
+        f"  {GY}smart-ask -f file.py \"...\"{R}   include file context",
+        *force_rows,
+        f"  {GY}smart-ask --dry-run \"...\"{R}     plan only; skip generation",
+        f"  {GY}Ctrl-D or /exit{R}                 end session",
+    ], inner_w=68)
     print()
 
 # ── Spinner ───────────────────────────────────────────────────────────
@@ -174,15 +216,15 @@ def _spinner(stop: threading.Event) -> None:
     sys.stdout.write("\r" + " " * 72 + "\r"); sys.stdout.flush()
 
 # ── Route label ───────────────────────────────────────────────────────
-def print_route(model_id: str, tag: str = "") -> None:
-    if model_id == EASY_MODEL:
-        print(f"\n  {BL}{BD}▸{R}  {CY}{BD}gemini-2.5-flash-lite{R}  "
-              f"{GY}[easy]{R}  {GR}cheap ✓{R}  {GY}{tag}{R}")
-    else:
-        gate_info = f"{YL}{tag}{R}" if tag.startswith("G1") else f"{GY}{tag}{R}"
-        print(f"\n  {O}{BD}▸{R}  {O}{BD}claude-opus-4.8{R}   "
-              f"{YL}[hard]{R}  {O}powerful ✓{R}  {gate_info}")
-    print(f"  {PR}↳  Hermes{R}\n")
+def print_route(model_id: str, decision: str, transport: str, tag: str = "") -> None:
+    model_name = model_id.split("/")[-1]
+    accent = CY if decision == "easy" else O
+    decision_color = GY if decision == "easy" else YL
+    print(
+        f"\n  {accent}{BD}▸{R}  {accent}{BD}{model_name}{R}  "
+        f"{decision_color}[{decision}]{R}  {GY}{tag}{R}"
+    )
+    print(f"  {PR}↳  {transport}{R}\n")
 
 # ── File context ──────────────────────────────────────────────────────
 def _build_file_context(files: list[str]) -> str:
@@ -195,47 +237,72 @@ def _build_file_context(files: list[str]) -> str:
             print(f"  {RD}Warning:{R} could not read {path}: {e}", file=sys.stderr)
     return "\n".join(parts) + "\n" if parts else ""
 
-# ── Cost (gate1 only — Hermes tracks its own) ─────────────────────────
-def _print_gate_cost(tracker: TokenTracker, turn_n: int, session_cost: float) -> None:
+# ── Model-backed routing cost ─────────────────────────────────────────
+def _cost_label(tracker: TokenTracker) -> str:
+    known = tracker.total_cost()
+    if tracker.has_unpriced_calls():
+        return "unknown" if known == 0 else f"${known:.6f} + unknown"
+    return f"${known:.6f}"
+
+
+def _print_classifier_cost(
+    tracker: TokenTracker,
+    turn_n: int,
+    session_tracker: TokenTracker,
+) -> None:
     calls = tracker._snapshot()
     if not calls:
         return
-    turn_cost = tracker.total_cost()
-    W = 49
+    W = 64
     print(f"  {GY}{'─' * W}{R}")
     for c in calls:
-        print(f"  {GY}{c.model.split('/')[-1]:<24}  {c.role:<12}  {YL}${c.cost_usd:.6f}{R}")
+        cost = f"${c.cost_usd:.6f}" if c.cost_usd is not None else "cost unknown"
+        print(f"  {GY}{c.model.split('/')[-1]:<28}  {c.role:<12}  {YL}{cost}{R}")
     print(f"  {GY}{'─' * W}{R}")
-    print(f"  {WH}{BD}Turn {turn_n:<4}{R}  {YL}${turn_cost:.6f}{R}"
-          f"   {GY}│{R}  Session gates  {YL}${session_cost:.6f}{R}")
+    print(
+        f"  {WH}{BD}Turn {turn_n:<4}{R}  {YL}{_cost_label(tracker)}{R}"
+        f"   {GY}│{R}  Session routing  {YL}{_cost_label(session_tracker)}{R}"
+    )
     print()
-
-# ── Hermes spawn ──────────────────────────────────────────────────────
-def _spawn_hermes(prompt: str, model: str) -> None:
-    """Hand off to Hermes. Inherits terminal — fully interactive."""
-    subprocess.run([
-        "hermes", "chat", "-q", prompt,
-        "-m", model, "--provider", "openrouter",
-    ])
 
 # ── Main ──────────────────────────────────────────────────────────────
 def main():
     p = argparse.ArgumentParser(
-        description="Smart AI router: classify → Hermes",
+        description="Run tasks through a configured model-routing strategy",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
     )
     p.add_argument("prompt",           nargs="*")
     p.add_argument("-f", "--file",     action="append", dest="files", metavar="FILE")
-    p.add_argument("--force-easy",     action="store_true")
-    p.add_argument("--force-hard",     action="store_true")
+    forced = p.add_mutually_exclusive_group()
+    forced.add_argument("--force-easy", action="store_true")
+    forced.add_argument("--force-hard", action="store_true")
+    p.add_argument(
+        "--strategy",
+        default=str(_default_strategy_path()),
+        metavar="FILE",
+        help="YAML strategy configuration (default: bundled product strategy)",
+    )
+    p.add_argument("--validate-strategy", action="store_true")
     p.add_argument("--dry-run",        action="store_true")
     p.add_argument("-h", "--help",     action="store_true")
     args = p.parse_args()
 
+    try:
+        loaded_strategy = load_strategy(args.strategy)
+    except StrategyConfigError as exc:
+        sys.exit(f"{RD}ERROR:{R} {exc}")
+
+    if args.validate_strategy:
+        print(
+            f"{loaded_strategy.config.name}: valid "
+            f"({loaded_strategy.digest[:12]})"
+        )
+        return
+
     # ── Welcome ────────────────────────────────────────────────────────
     if args.help or (not args.prompt and sys.stdin.isatty() and not args.files):
-        show_welcome()
+        show_welcome(loaded_strategy.config)
         if args.help:
             sys.exit(0)
         try:
@@ -259,11 +326,13 @@ def main():
     if not initial_prompt and not file_context:
         sys.exit(0)
 
-    if not OR_KEY:
-        sys.exit(f"{RD}ERROR:{R} OPENROUTER_API_KEY not set in environment")
+    force = "hard" if args.force_hard else "easy" if args.force_easy else None
+    try:
+        app = StrategyBuilder().build(loaded_strategy, force=force)
+    except StrategyBuildError as exc:
+        sys.exit(f"{RD}ERROR:{R} {exc}")
 
-    client          = OpenAI(base_url=OR_BASE, api_key=OR_KEY)
-    session_tracker = TokenTracker()
+    session_tracker = TokenTracker(allow_unpriced=True)
     turn_n          = 0
     pending         = (file_context + initial_prompt).strip()
 
@@ -287,37 +356,66 @@ def main():
             break
 
         turn_n      += 1
-        turn_tracker = TokenTracker()
+        turn_tracker = TokenTracker(allow_unpriced=True)
 
-        # ── Gate 1 ─────────────────────────────────────────────────────
-        if args.force_hard:
-            model, tag = HARD_MODEL, "(forced)"
-        elif args.force_easy:
-            model, tag = EASY_MODEL, "(forced)"
-        else:
-            _set_label("Gate 1  classifying task")
+        task = Task(user_input)
+
+        # ── Plan the route ──────────────────────────────────────────────
+        classification_enabled = (
+            force is None
+            and loaded_strategy.config.method.type in ("difficulty", "cascade")
+        )
+        if classification_enabled:
+            _set_label("Classifying task difficulty")
             stop = threading.Event()
             t    = threading.Thread(target=_spinner, args=(stop,), daemon=True)
             t.start()
             try:
-                difficulty, cls_usage = gate1_classify(user_input, client)
+                route = app.plan(task)
             finally:
                 stop.set(); t.join()
-            if cls_usage:
-                turn_tracker.record(CLASSIFIER_MODEL, "classifier", cls_usage)
-                session_tracker.record(CLASSIFIER_MODEL, "classifier", cls_usage)
-            model = HARD_MODEL if difficulty == "hard" else EASY_MODEL
-            tag   = "G1-hard"  if difficulty == "hard" else "G1-easy"
+        else:
+            route = app.plan(task)
 
-        print_route(model, tag)
+        for event in route.routing_events:
+            if event.usage is not None and event.model and event.role:
+                turn_tracker.record(
+                    event.model,
+                    event.role,
+                    event.usage,
+                )
+                session_tracker.record(
+                    event.model,
+                    event.role,
+                    event.usage,
+                )
 
-        _print_gate_cost(turn_tracker, turn_n, session_tracker.total_cost())
+        decision = next(
+            (
+                event.outcome
+                for event in route.routing_events
+                if event.outcome in ("easy", "hard")
+            ),
+            "hard",
+        )
+        tag = "(forced)" if force is not None else route.label
+
+        print_route(
+            route.model or "",
+            decision,
+            _transport_name(loaded_strategy.config.generation.type),
+            tag,
+        )
+
+        _print_classifier_cost(turn_tracker, turn_n, session_tracker)
 
         if args.dry_run:
             continue
 
-        # ── Hand off to Hermes ─────────────────────────────────────────
-        _spawn_hermes(user_input, model)
+        # ── Hand off to the configured generation executor ─────────────
+        run = app.run_detailed(task, initial_route=route)
+        if getattr(app.executor, "captures_output", False) and run.final_result.text:
+            print(run.final_result.text)
 
 
 if __name__ == "__main__":

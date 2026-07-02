@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-ask"
+version = "0.1.0"
+description = "Configurable routing between language models"
+requires-python = ">=3.11"
+dependencies = [
+  "openai>=2,<3",
+  "pydantic>=2.7,<3",
+  "PyYAML>=6,<7",
+]
+
+[project.optional-dependencies]
+bench = [
+  "datasets>=2",
+]
+
+[tool.setuptools]
+script-files = ["smart-ask"]
+
+[tool.setuptools.data-files]
+"share/smart-ask/strategies" = ["strategies/*.yaml"]
+"share/smart-ask/prompts" = ["prompts/*.txt"]
+
+[tool.setuptools.packages.find]
+include = ["smart_ask*", "benchmarks*", "cost*", "harness*"]

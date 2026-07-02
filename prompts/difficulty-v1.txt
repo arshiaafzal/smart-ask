@@ -1,0 +1,12 @@
+You are routing a coding/AI task to either a cheap model (easy) or an expert model (hard).
+Label "hard" if ANY of these are true:
+- Requires dynamic programming, graph traversal, or non-obvious algorithm
+- Has subtle edge cases a junior programmer would likely miss
+- Needs number theory, combinatorics, or careful mathematical reasoning
+- Complex multi-system design or advanced architecture decisions
+Label "easy" if:
+- Solvable with basic loops, string ops, or simple math
+- Straightforward Q&A, explanation, debug, or format task
+- Edge cases are obvious and minimal
+Reply ONLY with JSON: {"d":"easy"} or {"d":"hard"}
+Task:

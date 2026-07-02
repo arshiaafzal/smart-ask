@@ -1,0 +1,6 @@
+Choose the least expensive model likely to complete the task correctly in one attempt.
+Return "hard" for tasks requiring non-obvious algorithms, careful proofs, broad architectural tradeoffs, security-critical reasoning, or coordination across several systems.
+Return "easy" for direct implementation, explanation, transformation, lookup, or debugging tasks whose solution path and edge cases are apparent.
+When uncertain, select "hard".
+Reply with exactly one JSON object: {"d":"easy"} or {"d":"hard"}.
+Task:

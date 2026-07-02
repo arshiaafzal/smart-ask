@@ -1,184 +1,255 @@
 # smart-ask
 
-A terminal CLI that routes AI tasks to the cheapest capable model — saving **98%** vs always using Claude Opus.
+`smart-ask` is a configurable terminal router for language-model tasks. A YAML
+strategy chooses a routing method, models, prompts, generation settings, and
+execution transports; the CLI loads that strategy and runs each task through
+the resulting application.
 
+The shipped product strategy classifies a task with Gemini 2.5 Flash Lite,
+routes easy work to Gemini and hard work to Claude Opus, and hands generation
+to Hermes:
+
+```text
+$ smart-ask "explain how a TCP handshake works"
+  ▸  gemini-2.5-flash-lite  [easy]  classified easy
+  ↳  Hermes
+
+$ smart-ask "design a distributed event-sourcing architecture"
+  ▸  claude-opus-4.8        [hard]  classified hard
+  ↳  Hermes
 ```
-$ ask "explain how TCP handshake works"
-  ▸  gemini-2.5-flash-lite  [easy]  cheap ✓
 
-$ ask "design a distributed event-sourcing architecture"
-  ▸  claude-opus-4.8        [hard]  powerful ✓
-```
-
-On startup (`ask` with no arguments) you get an animated dollar-rain teaser, then a prompt asking what you want to build.
-
----
+These are defaults from [`strategies/product.yaml`](strategies/product.yaml),
+not model choices embedded in the CLI.
 
 ## How it works
 
-```
-┌─────────────┐     ~$0.0001      ┌──────────────────┐
-│  your task  │ ──→ haiku-4.5 ──→ │  easy / hard?    │
-└─────────────┘   (classifier)    └──────────────────┘
-                                         │
-                    ┌────────────────────┴───────────────────┐
-                    ▼                                         ▼
-       google/gemini-2.5-flash-lite            claude-opus-4.8
-          cheap & fast (50x cheaper)              full power
+```text
+strategies/product.yaml
+  → load_strategy(): validate YAML, resolve prompt files, compute digest
+  → StrategyBuilder: construct method, collaborators, and executors
+  → SmartAsk(method, generation executor)
+  → route and execute each Task
 ```
 
-1. You type `ask "your task"` (or just `ask` to be prompted)
-2. `claude-haiku-4.5` classifies it as **easy** or **hard** (~$0.0001)
-3. **Easy** → `google/gemini-2.5-flash-lite` via OpenRouter (50x cheaper than Opus)
-4. **Hard** → `claude-opus-4.8` via OpenRouter (maximum capability)
+The default product flow is:
 
-All sessions run interactively inside Hermes — you can watch the agent work, steer mid-task, and approve/deny tool calls.
+```text
+Task
+  → DifficultyRoutingMethod
+      → LLMDifficultyClassifier
+          → classifier OpenRouterExecutor → easy or hard
+      → RouteResult with the selected model
+  → SmartAsk
+      → generation HermesExecutor → Hermes → selected model
+```
 
----
+Classification and generation use separate executor instances. Classification
+needs a short captured response; the default product generation path delegates
+the selected task to Hermes. A strategy may instead configure direct
+OpenRouter generation, as the shipped direct-execution strategies do.
 
-## Prerequisites
+“Method” and “strategy” have distinct meanings in the codebase:
 
-| Requirement | Notes |
-|-------------|-------|
-| Python 3.11+ | Comes with macOS / most Linux |
-| [Hermes agent](https://github.com/NousResearch/hermes-agent) | Open-source agent harness |
-| OpenRouter API key | [openrouter.ai](https://openrouter.ai) — get a free key |
+- A `RoutingMethod` is the runtime routing algorithm, such as difficulty,
+  cascade, or fixed routing.
+- A `StrategyConfig` is the complete reproducible YAML composition: method,
+  classifier and escalation collaborators, model profiles, prompt sources,
+  executors, parameters, and attempt limit.
 
----
+## Requirements and installation
 
-## Installation
+- Python 3.11+
+- Hermes for strategies whose generation executor is `hermes`
+- An OpenRouter API key for any OpenRouter classifier or generation executor
 
-### 1. Clone
+The project declares its runtime dependencies—OpenAI, Pydantic, and PyYAML—in
+[`pyproject.toml`](pyproject.toml). From the repository root, install the exact
+`smart-ask` executable plus the bundled strategies and prompts:
 
 ```bash
-git clone https://github.com/arshiaafzal/smart-ask.git
-cd smart-ask
+# Install the product runtime and command.
+python3.11 -m pip install .
+
+# Use an editable install while developing this checkout.
+python3.11 -m pip install -e .
+
+# Include benchmark dataset support when needed (editable form shown).
+python3.11 -m pip install -e '.[bench]'
 ```
 
-### 2. Install Hermes
-
-Follow the [Hermes installation guide](https://github.com/NousResearch/hermes-agent). By default it lands at `~/hermes-agent/` with a venv at `~/hermes-agent/.venv/`.
-
-If your Hermes lives somewhere else, update the shebang on line 1 of `smart-ask`:
-
-```python
-#!/path/to/your/hermes-venv/bin/python3
-```
-
-### 3. Install the openai package into the Hermes venv
+Configure the credential named by the strategy, which is
+`OPENROUTER_API_KEY` in all shipped OpenRouter configurations:
 
 ```bash
-~/hermes-agent/.venv/bin/pip install openai
+export OPENROUTER_API_KEY="sk-or-..."
 ```
 
-### 4. Copy the script
+If that environment's `bin` directory is on `PATH`, verify the installed
+command and bundled default strategy:
 
 ```bash
-cp smart-ask ~/.local/bin/smart-ask
-chmod +x ~/.local/bin/smart-ask
+smart-ask --validate-strategy
 ```
 
-### 5. Configure your shell (`~/.zshrc` or `~/.bashrc`)
+An optional short alias is fine: `alias ask=smart-ask`.
+
+## Product CLI
+
+```text
+smart-ask                                      prompt for independent tasks
+smart-ask "task"                               route and execute one task
+smart-ask -f FILE "task"                       prepend one or more files
+smart-ask --strategy FILE "task"               use a strategy YAML
+smart-ask --validate-strategy --strategy FILE   validate without credentials or calls
+smart-ask --force-easy "task"                  use the configured easy profile
+smart-ask --force-hard "task"                  use the configured hard profile
+smart-ask --dry-run "task"                     plan and print the route only
+smart-ask --help                                show the configured welcome/help screen
+```
+
+The default is the bundled `product.yaml`: the executable finds it in either a
+source checkout or the installation data directory. Force flags replace the
+configured method with a one-shot fixed method while retaining the selected
+model profile and generation transport. In the shipped product strategy,
+forcing a route also skips the classifier call.
+
+The outer prompt remains open after a task, but each entry is an independent
+query. Type `/exit` or `/quit`, or press Ctrl-D/Ctrl-C, to stop.
+
+Classifier token usage is still shown when a configured model has no entry in
+the local price catalog; its monetary cost is reported explicitly as unknown.
+
+## Strategy YAML
+
+A strategy file has schema version 1 and exactly one root `StrategyConfig`:
+
+```yaml
+schema_version: 1
+name: product-difficulty-v1
+method:
+  type: difficulty
+  classifier:
+    type: llm
+    model: google/gemini-2.5-flash-lite
+    executor:
+      type: openrouter
+    prompt:
+      type: file
+      path: ../prompts/difficulty-v1.txt
+    max_prompt_chars: 1200
+    parameters:
+      max_tokens: 20
+      temperature: 0.0
+  easy:
+    model: google/gemini-2.5-flash-lite
+  hard:
+    model: anthropic/claude-opus-4.8
+generation:
+  type: hermes
+  provider: openrouter
+  command: hermes
+max_attempts: 1
+```
+
+Supported method types are `difficulty`, `cascade`, and `fixed`. The supported
+collaborators are an `llm` difficulty classifier and `marker` escalation
+policy. Generation and classification can use `openrouter`; one-shot generation
+can also use `hermes`. Model profiles can supply system prompts, maximum output
+tokens, and temperature where the selected executor supports them.
+
+Prompt-file paths are resolved relative to the strategy file. Loading rejects
+duplicate keys, unknown fields, invalid compositions, missing or empty prompts,
+and incompatible executor capabilities. The loaded strategy digest includes the
+typed config and prompt contents, so prompt edits change its identity.
+
+Shipped configurations include:
+
+- `strategies/product.yaml` — product difficulty method with Hermes generation
+- `strategies/python-function-completion-difficulty-v1.yaml` and
+  `python-function-completion-difficulty-v2.yaml` for paired classifier-prompt
+  comparison
+- `strategies/python-function-completion-cascade.yaml` and
+  `python-function-completion-fixed-opus.yaml`
+- `strategies/python-code-generation-cascade.yaml` and
+  `python-code-generation-fixed-opus.yaml`
+
+Reusable strategy and prompt names describe their task/output contract rather
+than the benchmark that happens to exercise them. The same strategy can be
+passed to any compatible benchmark suite or application entrypoint.
+
+## Benchmarking strategies
+
+HumanEval and LiveBench are module-based benchmark applications. Repeat
+`--strategy` to run the same case set against several configurations:
 
 ```bash
-export OPENROUTER_API_KEY="sk-or-..."   # your OpenRouter key
-alias ask="smart-ask"
+python -m benchmarks.humaneval \
+  --strategy strategies/python-function-completion-difficulty-v1.yaml \
+  --strategy strategies/python-function-completion-difficulty-v2.yaml \
+  --limit 20 \
+  --workers 4 \
+  --output benchmarks/results/humaneval/prompt-comparison
+
+python -m benchmarks.livebench \
+  --strategy strategies/python-code-generation-cascade.yaml \
+  --strategy strategies/python-code-generation-fixed-opus.yaml \
+  --workers 4
 ```
 
-```bash
-source ~/.zshrc   # reload
+Each run produces schema-v3 evidence:
+
+```text
+<output>/
+├── manifest.json   dataset/code/pricing identity and strategy snapshots
+├── records.jsonl   one append-safe record per strategy/task pair
+└── summary.json    aggregate metrics and paired comparisons
 ```
 
-### 6. Verify
+Every task record retains routing events, attempts, classifier and generation
+calls, provider-neutral requests, raw and normalized outputs, usage, cost,
+latency, evaluation, errors, and timestamps. `--resume` continues an explicit
+`--output` directory only when its suite, strategies, cases, pricing, workers,
+code/runtime identity, and dependency versions still match. When `--output` is
+omitted, a timestamped directory is created under
+`benchmarks/results/<suite>/`.
 
-```bash
-ask                        # shows animated teaser, then prompts for task
-ask --dry-run "hello"      # classify only, no model run
-```
+The benchmark CLI owns run controls such as suite, case limit, workers, output,
+and resume. There is no separate `ExperimentConfig`; a comparison is a fixed
+suite plus one or more repeatable strategy YAMLs and those CLI controls.
 
----
+The correctness harnesses execute model-generated Python in local subprocesses.
+A timeout limits duration but is not a security sandbox; run benchmarks in an
+isolated environment when model output is untrusted.
 
-## Usage
-
-```
-ask                      animated teaser → prompt for task → run
-ask "task"               auto-route + run directly
-ask --force-hard "..."   always Claude Opus 4.8
-ask --force-easy "..."   always Gemini 3.5 Flash
-ask --dry-run "..."      classify only, skip run
-ask -v "..."             verbose tool output
-ask --help               show help screen
-```
-
-### Examples
-
-```bash
-# Simple coding task → routed to Gemini (cheap)
-ask "write a Python function to parse a CSV file"
-
-# Architecture question → routed to Claude Opus
-ask "design a fault-tolerant microservices system with CQRS"
-
-# No argument — shows teaser then asks what you want to build
-ask
-
-# Pipe a task from stdin
-echo "explain async/await in JavaScript" | ask
-```
-
----
-
-## Models
-
-| Role | Model | Provider | Cost |
-|------|-------|----------|------|
-| Classifier | `anthropic/claude-haiku-4.5` | OpenRouter | ~$0.0001 / call |
-| Easy tasks | `google/gemini-2.5-flash-lite` | OpenRouter | $0.0001 / 1M in, $0.0004 / 1M out |
-| Hard tasks | `anthropic/claude-opus-4.8` | OpenRouter | $5 / 1M in, $25 / 1M out |
-
-The easy model is **50x cheaper** than Opus per token. On our HumanEval benchmark (164 problems), Gemini cost $0.016 vs $0.82 for Opus — a **98% saving**.
-
-The **classifier threshold** is intentionally conservative — when in doubt it routes to Gemini and lets you override with `--force-hard` if needed.
-
----
-
-## Interactive sessions
-
-Every session runs inside a full PTY session in Hermes. You can:
-
-- Watch the agent reason and use tools in real time
-- Approve or reject tool calls
-- Type follow-up messages mid-task
-- Press `Ctrl-C` to abort
-
----
-
-## Configuration reference
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENROUTER_API_KEY` | Yes | Your OpenRouter API key (`sk-or-...`) |
-
-All three models (haiku classifier, Gemini, Opus) are accessed through OpenRouter — one key covers everything.
-
----
+See [`benchmarks/humaneval/README.md`](benchmarks/humaneval/README.md) for the
+HumanEval workflow and [`DESIGN.md`](DESIGN.md) for component boundaries.
 
 ## Project structure
 
-```
+```text
 smart-ask/
-├── smart-ask                        # CLI executable — copy to ~/.local/bin/
-├── benchmarks/
-│   └── humaneval/
-│       ├── run.py                   # HumanEval cost benchmark
-│       ├── requirements.txt
-│       └── README.md
-├── skills/
-│   └── smart-ask.md                 # Claude Code skill file
-└── README.md
+├── smart-ask                     product CLI
+├── smart_ask/
+│   ├── application.py            SmartAsk coordinator
+│   ├── domain.py                 immutable per-task values
+│   ├── methods/                  runtime routing methods and collaborators
+│   │   ├── base.py               RoutingMethod protocol
+│   │   ├── difficulty.py
+│   │   ├── cascade.py
+│   │   ├── fixed.py
+│   │   ├── classifiers/
+│   │   └── escalation/
+│   ├── executors/                Hermes and OpenRouter adapters
+│   └── strategy/                 YAML schema, loader, and builder
+├── strategies/                   shipped StrategyConfig YAML files
+├── prompts/                      versioned prompt text
+├── benchmarks/                   suites, matrix runner, artifacts, comparison
+├── harness/                      generated-code execution
+├── cost/                         model price catalog and accounting
+├── tests/                        network-free tests
+└── pyproject.toml                package and dependency metadata
 ```
-
----
 
 ## License
 

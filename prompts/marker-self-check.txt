@@ -1,0 +1,10 @@
+
+
+---
+[SMART-ASK SELF-CHECK]
+After your answer, check:
+1. Does your code have stubs (NotImplementedError / pass as placeholder / # TODO)?
+2. If the task has visible >>> examples, does your code pass them?
+3. Is your answer only a high-level outline with no working code?
+If YES to any of the above: output the token ESCALATE_NOW alone on its own line.
+If your answer is complete and correct: no action needed, output nothing extra.
