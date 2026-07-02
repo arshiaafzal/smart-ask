@@ -1,0 +1,44 @@
+schema_version: 1
+name: python-function-completion-cascade-v1
+method:
+  type: cascade
+  classifier:
+    type: llm
+    model: google/gemini-2.5-flash-lite
+    executor:
+      type: openrouter
+    prompt:
+      type: file
+      path: ../prompts/difficulty-v1.txt
+    max_prompt_chars: 1200
+    parameters:
+      max_tokens: 20
+      temperature: 0.0
+  escalation:
+    type: marker
+    marker: ESCALATE_NOW
+    self_check_suffix:
+      type: file
+      path: ../prompts/marker-self-check.txt
+    escalation_prefix:
+      type: file
+      path: ../prompts/marker-escalation.txt
+  easy:
+    model: google/gemini-2.5-flash-lite
+    system_prompt:
+      type: file
+      path: ../prompts/python-function-completion-system.txt
+    parameters:
+      max_tokens: 1024
+      temperature: 0.0
+  hard:
+    model: anthropic/claude-opus-4.8
+    system_prompt:
+      type: file
+      path: ../prompts/python-function-completion-system.txt
+    parameters:
+      max_tokens: 1024
+      temperature: 0.0
+generation:
+  type: openrouter
+max_attempts: 2

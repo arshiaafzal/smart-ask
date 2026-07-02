@@ -21,6 +21,10 @@ Usage
     tracker.by_model()        # dict: per-model aggregates
     tracker.by_role()         # dict: per-role aggregates
     tracker.export_json()     # full call log as JSON string
+
+Unknown models raise by default so benchmark cost reports cannot silently
+under-count. Product callers that still want token evidence can construct
+TokenTracker(allow_unpriced=True); those calls retain usage with a null cost.
 """
 
 import threading
@@ -44,7 +48,7 @@ class CallRecord:
     role:              str            # "classifier" | "generator" | "confidence" | "fixer"
     prompt_tokens:     int            # exact value from response.usage
     completion_tokens: int            # exact value from response.usage
-    cost_usd:          float          # computed from exact tokens × price
+    cost_usd:          Optional[float] # None when tokens are known but price is not
     task_id:           Optional[str]  # e.g. "HumanEval/7"
 
 
@@ -56,9 +60,13 @@ class TokenTracker:
 
     Each call to .record() ingests the raw usage object from the OpenAI
     response and computes cost from exact token counts — never estimated.
+    Unknown catalog entries remain strict errors unless allow_unpriced is set.
     """
 
-    def __init__(self):
+    def __init__(self, allow_unpriced: bool = False):
+        """Create a tracker; unknown models remain errors unless explicitly allowed."""
+
+        self.allow_unpriced = allow_unpriced
         self._calls: list[CallRecord] = []
         self._lock  = threading.Lock()
 
@@ -70,17 +78,18 @@ class TokenTracker:
         role:    str,
         usage,                      # openai CompletionUsage object, or None on API error
         task_id: str = None,
-    ) -> float:
+    ) -> Optional[float]:
         """
         Record one API call from its response.usage.
-        Returns the exact cost in USD for this single call.
+        Returns the exact cost in USD for this single call, or None when the
+        model is unpriced and this tracker was created with allow_unpriced=True.
         If usage is None (API call failed), returns 0.0 and records nothing.
         """
         if usage is None:
             return 0.0
 
         prices = MODEL_PRICES.get(model)
-        if prices is None:
+        if prices is None and not self.allow_unpriced:
             raise ValueError(
                 f"Unknown model '{model}'. "
                 f"Add it to cost/tracker.py MODEL_PRICES."
@@ -88,8 +97,11 @@ class TokenTracker:
 
         prompt_tok     = usage.prompt_tokens
         completion_tok = usage.completion_tokens
-        cost           = (prompt_tok     * prices["input"] +
-                          completion_tok * prices["output"])
+        cost = (
+            prompt_tok * prices["input"] + completion_tok * prices["output"]
+            if prices is not None
+            else None
+        )
 
         rec = CallRecord(
             model             = model,
@@ -111,8 +123,17 @@ class TokenTracker:
             return list(self._calls)
 
     def total_cost(self) -> float:
-        """Exact total cost across all recorded calls."""
-        return sum(c.cost_usd for c in self._snapshot())
+        """Return the known-cost subtotal across all recorded calls."""
+
+        return sum(
+            (c.cost_usd for c in self._snapshot() if c.cost_usd is not None),
+            0.0,
+        )
+
+    def has_unpriced_calls(self) -> bool:
+        """Return whether any recorded call has usage but no catalog price."""
+
+        return any(c.cost_usd is None for c in self._snapshot())
 
     def by_model(self) -> dict[str, dict]:
         """Aggregate exact token usage grouped by model ID."""
@@ -125,13 +146,18 @@ class TokenTracker:
                     "completion_tokens": 0,
                     "total_tokens": 0,
                     "cost_usd": 0.0,
+                    "unpriced_calls": 0,
                 }
             t = totals[c.model]
             t["calls"]             += 1
             t["prompt_tokens"]     += c.prompt_tokens
             t["completion_tokens"] += c.completion_tokens
             t["total_tokens"]      += c.prompt_tokens + c.completion_tokens
-            t["cost_usd"]          += c.cost_usd
+            if c.cost_usd is None:
+                t["cost_usd"] = None
+                t["unpriced_calls"] += 1
+            elif t["cost_usd"] is not None:
+                t["cost_usd"] += c.cost_usd
         return totals
 
     def by_role(self) -> dict[str, dict]:
@@ -144,12 +170,17 @@ class TokenTracker:
                     "prompt_tokens": 0,
                     "completion_tokens": 0,
                     "cost_usd": 0.0,
+                    "unpriced_calls": 0,
                 }
             t = totals[c.role]
             t["calls"]             += 1
             t["prompt_tokens"]     += c.prompt_tokens
             t["completion_tokens"] += c.completion_tokens
-            t["cost_usd"]          += c.cost_usd
+            if c.cost_usd is None:
+                t["cost_usd"] = None
+                t["unpriced_calls"] += 1
+            elif t["cost_usd"] is not None:
+                t["cost_usd"] += c.cost_usd
         return totals
 
     def n_calls(self) -> int:
@@ -179,17 +210,25 @@ class TokenTracker:
         total_in = total_out = 0
         for model, t in sorted(by_m.items()):
             short = model.split("/")[-1]
+            cost = (
+                f"${t['cost_usd']:>11.6f}"
+                if t["cost_usd"] is not None
+                else f"{'unknown':>12}"
+            )
             print(
                 f"  {short:<34}  {t['calls']:>5,}  "
                 f"{t['prompt_tokens']:>9,}  {t['completion_tokens']:>9,}  "
-                f"${t['cost_usd']:>11.6f}"
+                f"{cost}"
             )
             total_in  += t["prompt_tokens"]
             total_out += t["completion_tokens"]
         print(f"  {'·'*W}")
+        total_cost = f"${total:>11.6f}"
+        if self.has_unpriced_calls():
+            total_cost = f"${total:.6f}+?"
         print(
             f"  {'TOTAL':<34}  {self.n_calls():>5,}  "
-            f"{total_in:>9,}  {total_out:>9,}  ${total:>11.6f}"
+            f"{total_in:>9,}  {total_out:>9,}  {total_cost:>12}"
         )
 
         # ── Per-role table ─────────────────────────────────────────────────
@@ -197,10 +236,15 @@ class TokenTracker:
         print(f"  {'role':<18}  {'calls':>5}  {'in tok':>9}  {'out tok':>9}  {'cost':>12}")
         print(f"  {'·'*W}")
         for role, t in sorted(by_r.items()):
+            cost = (
+                f"${t['cost_usd']:>11.6f}"
+                if t["cost_usd"] is not None
+                else f"{'unknown':>12}"
+            )
             print(
                 f"  {role:<18}  {t['calls']:>5,}  "
                 f"{t['prompt_tokens']:>9,}  {t['completion_tokens']:>9,}  "
-                f"${t['cost_usd']:>11.6f}"
+                f"{cost}"
             )
 
         print(f"  {'─'*W}\n")
@@ -211,7 +255,13 @@ class TokenTracker:
         """Full call log as a JSON string for saving to disk."""
         return json.dumps(
             {
-                "total_cost_usd": self.total_cost(),
+                "total_cost_usd": (
+                    None if self.has_unpriced_calls() else self.total_cost()
+                ),
+                "known_cost_usd": self.total_cost(),
+                "unpriced_calls": sum(
+                    call.cost_usd is None for call in self._snapshot()
+                ),
                 "n_calls":        self.n_calls(),
                 "by_model":       self.by_model(),
                 "by_role":        self.by_role(),
