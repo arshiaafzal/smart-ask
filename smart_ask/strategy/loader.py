@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+from importlib.resources import files
 import json
 from pathlib import Path
 from types import MappingProxyType
@@ -12,13 +13,59 @@ from typing import Any, Iterator, Mapping
 from pydantic import BaseModel, ValidationError
 
 from .errors import StrategyConfigError
-from .schema import FilePromptConfig, InlinePromptConfig, PromptConfig, StrategyConfig
+from .schema import (
+    CascadeMethodConfig,
+    FilePromptConfig,
+    InlinePromptConfig,
+    PromptConfig,
+    StrategyConfig,
+)
+
+
+BUILTIN_STRATEGY_PREFIX = "builtin:"
 
 
 class _UniqueKeyLoader:
     """Namespace populated lazily with a duplicate-rejecting SafeLoader."""
 
     loader = None
+
+
+def compute_strategy_digest(
+    config: StrategyConfig,
+    prompt_hashes: Mapping[str, str],
+) -> str:
+    """Hash a validated config and its declared file-prompt identities."""
+
+    if not isinstance(config, StrategyConfig):
+        raise TypeError("config must be a StrategyConfig")
+    declared_paths = {
+        prompt.path
+        for prompt in _iter_prompt_configs(config)
+        if isinstance(prompt, FilePromptConfig)
+    }
+    if set(prompt_hashes) != declared_paths:
+        raise ValueError("prompt hashes must exactly match declared file prompts")
+    prompt_identity = []
+    for declared_path in sorted(declared_paths):
+        digest = prompt_hashes[declared_path]
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError("prompt hashes must be lowercase SHA-256 digests")
+        prompt_identity.append({
+            "declared_path": declared_path,
+            "sha256": digest,
+        })
+    identity = {
+        "config": config.model_dump(mode="json"),
+        "prompts": prompt_identity,
+    }
+    return sha256(
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 def _yaml_loader():
@@ -37,7 +84,13 @@ def _yaml_loader():
             mapping = {}
             for key_node, value_node in node.value:
                 key = loader.construct_object(key_node, deep=deep)
-                if key in mapping:
+                try:
+                    duplicate = key in mapping
+                except TypeError as exc:
+                    raise StrategyConfigError(
+                        "YAML mapping keys must be scalar values"
+                    ) from exc
+                if duplicate:
                     raise StrategyConfigError(f"duplicate YAML key: {key!r}")
                 mapping[key] = loader.construct_object(value_node, deep=deep)
             return mapping
@@ -74,35 +127,82 @@ class LoadedStrategy:
     digest: str
     _prompt_texts: Mapping[str, str]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.config, StrategyConfig):
+            raise TypeError("config must be a StrategyConfig")
+        path = Path(self.path)
+        if not path.is_absolute():
+            raise ValueError("path must be absolute")
+        if (
+            not isinstance(self.digest, str)
+            or len(self.digest) != 64
+            or any(character not in "0123456789abcdef" for character in self.digest)
+        ):
+            raise ValueError("digest must be a lowercase SHA-256 digest")
+        if not isinstance(self._prompt_texts, Mapping):
+            raise TypeError("prompt texts must be a mapping")
+        prompt_texts = dict(self._prompt_texts)
+        declared_paths = {
+            prompt.path
+            for prompt in _iter_prompt_configs(self.config)
+            if isinstance(prompt, FilePromptConfig)
+        }
+        if set(prompt_texts) != declared_paths:
+            raise ValueError("prompt texts must exactly match declared file prompts")
+        if any(
+            not isinstance(text, str) or not text.strip()
+            for text in prompt_texts.values()
+        ):
+            raise ValueError("resolved prompt texts must be non-empty strings")
+        prompt_hashes = {
+            declared_path: sha256(text.encode("utf-8")).hexdigest()
+            for declared_path, text in prompt_texts.items()
+        }
+        if self.digest != compute_strategy_digest(self.config, prompt_hashes):
+            raise ValueError("digest does not match the strategy config and prompts")
+        object.__setattr__(self, "path", path)
+        object.__setattr__(
+            self,
+            "_prompt_texts",
+            MappingProxyType(prompt_texts),
+        )
+
     def resolve_prompt(self, prompt: PromptConfig) -> str:
+        if not isinstance(prompt, (InlinePromptConfig, FilePromptConfig)):
+            raise TypeError("prompt must be an inline or file prompt configuration")
+        if prompt not in tuple(_iter_prompt_configs(self.config)):
+            path = getattr(prompt, "path", "<inline>")
+            raise ValueError(f"prompt is not declared by this strategy: {path}")
         if isinstance(prompt, InlinePromptConfig):
             return prompt.text
-        resolved = str(_resolve_prompt_path(self.path, prompt.path))
-        return self._prompt_texts[resolved]
+        return self._prompt_texts[prompt.path]
 
     def manifest(self) -> dict[str, Any]:
         """Return a JSON-serializable snapshot including prompt hashes."""
 
-        prompts = []
-        for path, text in sorted(self._prompt_texts.items()):
-            prompts.append({
-                "path": path,
+        prompts_by_declared_path = {}
+        for prompt in _iter_prompt_configs(self.config):
+            if not isinstance(prompt, FilePromptConfig):
+                continue
+            text = self._prompt_texts[prompt.path]
+            prompts_by_declared_path[prompt.path] = {
+                "declared_path": prompt.path,
                 "sha256": sha256(text.encode("utf-8")).hexdigest(),
                 "text": text,
-            })
+            }
         return {
             "name": self.config.name,
-            "path": str(self.path),
             "digest": self.digest,
             "config": self.config.model_dump(mode="json"),
-            "prompts": prompts,
+            "prompts": [
+                prompts_by_declared_path[path]
+                for path in sorted(prompts_by_declared_path)
+            ],
         }
 
 
 def _resolve_prompt_path(config_path: Path, prompt_path: str) -> Path:
-    prompt_path = Path(prompt_path).expanduser()
-    path = prompt_path if prompt_path.is_absolute() else config_path.parent / prompt_path
-    return path.resolve()
+    return (config_path.parent / prompt_path).resolve()
 
 
 def _format_validation_error(error: ValidationError) -> str:
@@ -114,12 +214,12 @@ def _format_validation_error(error: ValidationError) -> str:
 
 
 def load_strategy(path: str | Path) -> LoadedStrategy:
-    """Load, strictly validate, and resolve one YAML strategy file."""
+    """Load a filesystem YAML or a ``builtin:<name>`` package resource."""
 
-    source_path = Path(path).expanduser().resolve()
+    source_path = _strategy_path(path).expanduser().resolve()
     try:
         source_text = source_path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         raise StrategyConfigError(f"cannot read strategy {source_path}: {exc}") from exc
 
     yaml, loader = _yaml_loader()
@@ -141,6 +241,8 @@ def load_strategy(path: str | Path) -> LoadedStrategy:
     for prompt in _iter_prompt_configs(config):
         if isinstance(prompt, InlinePromptConfig):
             continue
+        if prompt.path in prompt_texts:
+            continue
         prompt_path = _resolve_prompt_path(source_path, prompt.path)
         if not prompt_path.is_file():
             raise StrategyConfigError(f"prompt file does not exist: {prompt_path}")
@@ -150,41 +252,51 @@ def load_strategy(path: str | Path) -> LoadedStrategy:
             raise StrategyConfigError(f"cannot read prompt {prompt_path}: {exc}") from exc
         if not text.strip():
             raise StrategyConfigError(f"prompt file is empty: {prompt_path}")
-        prompt_texts[str(prompt_path)] = text
+        prompt_texts[prompt.path] = text
 
     method = config.method
-    if getattr(method, "type", None) == "cascade":
+    if isinstance(method, CascadeMethodConfig):
         suffix = (
             method.escalation.self_check_suffix.text
             if isinstance(method.escalation.self_check_suffix, InlinePromptConfig)
-            else prompt_texts[str(_resolve_prompt_path(
-                source_path,
-                method.escalation.self_check_suffix.path,
-            ))]
+            else prompt_texts[method.escalation.self_check_suffix.path]
         )
         if method.escalation.marker not in suffix:
             raise StrategyConfigError(
                 "method.escalation.self_check_suffix must contain the configured marker"
             )
 
-    prompt_identity = []
+    prompt_hashes: dict[str, str] = {}
     for prompt in _iter_prompt_configs(config):
         if isinstance(prompt, FilePromptConfig):
-            resolved = str(_resolve_prompt_path(source_path, prompt.path))
-            prompt_identity.append({
-                "declared_path": prompt.path,
-                "sha256": sha256(prompt_texts[resolved].encode("utf-8")).hexdigest(),
-            })
-    identity = {
-        "config": config.model_dump(mode="json"),
-        "prompts": sorted(prompt_identity, key=lambda item: item["declared_path"]),
-    }
-    digest = sha256(
-        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+            prompt_hashes[prompt.path] = sha256(
+                prompt_texts[prompt.path].encode("utf-8")
+            ).hexdigest()
+    digest = compute_strategy_digest(config, prompt_hashes)
     return LoadedStrategy(
         config=config,
         path=source_path,
         digest=digest,
-        _prompt_texts=MappingProxyType(prompt_texts),
+        _prompt_texts=prompt_texts,
     )
+
+
+def _strategy_path(value: str | Path) -> Path:
+    if not isinstance(value, str) or not value.startswith(BUILTIN_STRATEGY_PREFIX):
+        return Path(value)
+    name = value.removeprefix(BUILTIN_STRATEGY_PREFIX)
+    if name.endswith(".yaml"):
+        name = name[:-5]
+    if not name or Path(name).name != name or name in {".", ".."}:
+        raise StrategyConfigError(
+            "bundled strategy must use builtin:<name> without path separators"
+        )
+    resource = files("smart_ask").joinpath(
+        "resources",
+        "strategies",
+        f"{name}.yaml",
+    )
+    path = Path(str(resource))
+    if not path.is_file():
+        raise StrategyConfigError(f"unknown bundled strategy: {name!r}")
+    return path

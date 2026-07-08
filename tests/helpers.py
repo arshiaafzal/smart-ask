@@ -12,8 +12,9 @@ def usage(prompt_tokens: int = 10, completion_tokens: int = 2):
     )
 
 
-def response(content: str, call_usage=None):
+def response(content: str, call_usage=None, *, model: str | None = None):
     return SimpleNamespace(
+        model=model,
         choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
         usage=call_usage or usage(),
     )

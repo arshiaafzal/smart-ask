@@ -1,0 +1,15 @@
+schema_version: 2
+name: python-code-generation-fixed-opus-v1
+method:
+  type: fixed
+  role: writer
+  model:
+    model: anthropic/claude-opus-4.8
+    system_prompt:
+      type: file
+      path: ../prompts/python-code-generation-system.txt
+    parameters:
+      max_tokens: 1024
+      temperature: 0.0
+generation:
+  type: openrouter
