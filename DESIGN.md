@@ -48,14 +48,18 @@ Shared application library (`smart_ask/`)
 │   ├── StrategyConfig schema
 │   ├── load_strategy / LoadedStrategy
 │   └── StrategyBuilder
+├── metrics
+│   ├── StatsCollector / StatsCapture
+│   ├── CallStats / RunStats / StatsSummary
+│   └── PriceCatalog / PriceQuote
 └── immutable domain values
     ├── Task / Context
     ├── ExecutionRequest / ModelResult
     └── RouteResult / RoutingEvent / Attempt / RunResult
 
 Application entrypoints
-├── product CLI (`smart-ask`)
-└── benchmark modules (`python -m benchmarks.<suite>`)
+├── product CLI (`smart_ask/cli.py`, installed as `smart-ask`)
+└── benchmark modules (`python -m smart_ask.benchmarks.<suite>`)
 ```
 
 Classifiers and escalation policies are replaceable collaborators inside a
@@ -68,20 +72,20 @@ strict Pydantic `StrategyConfig` with:
 
 ```text
 StrategyConfig
-├── schema_version: 1
+├── schema_version: 2
 ├── name
 ├── method
 │   ├── difficulty: classifier + easy/hard model profiles
 │   ├── cascade: classifier + escalation policy + easy/hard profiles
-│   └── fixed: one model profile + decision + optional role
-├── generation: OpenRouter or Hermes executor config
-└── max_attempts
+│   └── fixed: one model profile + required semantic role
+└── generation: OpenRouter or Hermes executor config
 ```
 
 An LLM classifier has its own executor, prompt source, model, prompt-length
-limit, and request parameters. A model profile can include a system-prompt
-source, maximum output tokens, and temperature. A marker policy owns its exact
-marker, candidate self-check suffix, and escalation prefix.
+limit, request parameters, and explicit `easy | hard | raise` fallback. A model
+profile can include a system-prompt source, maximum output tokens, and
+temperature. A marker policy owns its exact marker, candidate self-check
+suffix, and escalation prefix.
 
 Shipped strategy and prompt names describe reusable task/output contracts,
 such as Python function completion or complete Python code generation. They do
@@ -94,7 +98,7 @@ library callers.
 
 ### Loading and identity
 
-`load_strategy(path)` performs configuration-only work:
+`load_strategy(path | "builtin:<name>")` performs configuration-only work:
 
 1. Reads one UTF-8 YAML mapping through a duplicate-key-rejecting safe loader.
 2. Validates the closed schema; unknown fields and incompatible compositions
@@ -119,14 +123,19 @@ LoadedStrategy
   → build MarkerEscalationPolicy when required
   → build the selected RoutingMethod
   → build the separately configured generation executor
-  → SmartAsk(method, generation executor, max_attempts)
+  → SmartAsk(method, generation executor, derived attempt bound)
 ```
+
+The builder derives the closed method bound: fixed and difficulty use one
+attempt; cascade uses two. It is not a strategy knob.
 
 OpenRouter clients may be shared by endpoint and credential name, but classifier
 and generation executors remain distinct instances so prompts and model
 parameters cannot leak between roles. Builder dependencies—environment, client
-factory, Hermes runner, and executor wrapper—are injectable for offline tests
-and benchmark tracing.
+factory, Hermes runner, and one `StatsCollector`—are injectable for offline
+tests and benchmark metrics. `LLMDifficultyClassifier` owns instrumentation of
+its executor; `SmartAsk` exclusively instruments generation. Both require the
+same collector, so each call is counted exactly once.
 
 `StrategyBuilder.build(..., force="easy" | "hard")` replaces the configured
 method with `FixedRoutingMethod` using the corresponding configured profile. It
@@ -140,7 +149,8 @@ does not need to build or call the classifier.
   model. An easy task goes to the easy model and is assessed by the configured
   escalation policy; a marker decision can trigger one hard-model retry.
 - `FixedRoutingMethod` selects one configured model without classification and
-  is used by force overrides and baseline strategies.
+  is used by force overrides and baseline strategies. Fixed baselines can
+  explicitly reproduce a routed call's user-prompt prefix or suffix.
 
 The method classes depend on collaborator protocols, not concrete classifier or
 policy implementations.
@@ -169,9 +179,9 @@ SmartAsk
 ```
 
 The classifier contains classification behavior—prompt construction, response
-parsing, validation, and fallback—but calls only the generic `ModelExecutor`
-contract. OpenRouter is a configured transport, not part of the classifier's
-policy.
+parsing, validation, and its configured fallback—but calls only the generic
+`ModelExecutor` contract and instruments it with the shared `StatsCollector`.
+OpenRouter is a configured transport, not part of the classifier's policy.
 
 ## Contracts and capabilities
 
@@ -213,7 +223,7 @@ Task
       → optional DifficultyClassification
       → RoutingEvent(s)
       → RouteResult
-  → SmartAsk creates ExecutionRequest
+  → SmartAsk creates ExecutionRequest with the route's semantic role
   → generation executor returns ModelResult
   → Attempt is appended to immutable Context
   → method returns accept or another route
@@ -226,50 +236,110 @@ Task
 returns all attempts and passive routing events. A maximum-attempt guard
 prevents a faulty method from routing forever.
 
+`SmartAsk.run_with_stats(task)` and `run_detailed_with_stats(task)` add an
+immutable `RunStats` snapshot without changing those existing APIs. The shared
+`StatsCollector` observes executor calls through a `ContextVar`-scoped run:
+
+```text
+CallStats             one classifier or generation executor invocation
+  ↓ aggregate
+RunStats              one task, benchmark case, or conversation turn
+  ↓ caller-owned aggregate_stats(...) / aggregate_resources(...)
+StatsSummary          a conversation, benchmark, or other caller-defined group
+```
+
+Unknown usage and price evidence is represented by incomplete totals, never by
+silently adding zero. A lower-level `capture_stats()` context supports custom
+callback/manual workflows and lets benchmark failures retain partial call
+evidence. Normal conversation turns are explicitly `unrated`; an evaluator or
+caller can replace that state with one mutually exclusive objective outcome.
+
 ## Benchmark application
 
 The benchmark framework is separate from routing:
 
 ```text
-python -m benchmarks.<suite> --strategy A.yaml --strategy B.yaml
+python -m smart_ask.benchmarks.<suite> --strategy A.yaml --strategy B.yaml
   → load each StrategyConfig
   → load one pinned case set from the suite
-  → build one traced SmartAsk application per strategy
+  → build one metrics-instrumented SmartAsk application per pending strategy/task
   → run every strategy/task pair
   → suite evaluates each final output
-  → append one schema-v3 evidence record
+  → append one schema-v5 evidence record
   → summarize each strategy and compute paired comparisons
 ```
 
 `BenchmarkSuite` owns dataset loading and correctness evaluation.
-`run_matrix` owns concurrency and applies every strategy to the same case set.
-`TracedExecutor` wraps both classifier and generation transports, recording
-their provider-neutral `ExecutionRequest` values, outputs, usage, failures,
-channels, and latency without changing the routing library. Provider-specific
-defaults and system prompts remain in the strategy snapshot.
+`run_matrix` owns concurrency, isolates each strategy/task pair in its own
+application instance, and applies every strategy to the same case set.
+The shared collector records both classifier and generation transports: their
+provider-neutral `ExecutionRequest` values, outputs, usage, failures, semantic
+roles, requested/actual/priced models, channels, latency, pricing provenance,
+normalized termination/output state, and separate caller-requested and
+adapter-applied generation caps. Benchmarks
+retain the call ledger; regular callers receive the immutable `RunStats`
+snapshot. Provider-specific defaults and system prompts remain in the strategy
+snapshot.
 
-### Evidence schema v3
+Actual model identity is provider evidence and may be absent. Pricing uses that
+actual model when present and otherwise the requested model; both identities,
+the selected priced model, and the complete catalog snapshot remain explicit.
+OpenRouter's reported account charge is recorded alongside—not merged with—the
+catalog estimate, and each has independent completeness.
 
-Benchmark artifact schema version 3 is distinct from strategy YAML schema
-version 1. A run directory contains:
+### Evidence schema v5
+
+Benchmark artifact schema version 5 is distinct from strategy YAML schema
+version 2. A run directory contains:
 
 | File | Contents |
 |---|---|
-| `manifest.json` | Dataset revision and case hashes, strategy config/prompt snapshots and digests, pricing, Python and git identity |
-| `records.jsonl` | One crash-safe line per strategy/task pair with input, route, classifier decision, events, attempts, calls, outputs, evaluation, usage, cost, latency, errors, and timestamps |
+| `manifest.json` | Dataset/evaluator identity, case hashes, strategy snapshots, metrics/pricing provenance, Python/dependency versions, package hash/version, and matching-checkout Git state |
+| `records.jsonl` | One crash-safe line per strategy/task pair with input, route, classifier decision, events, attempts, call ledger, final output, evaluation, canonical metrics envelope, errors, and timestamps |
 | `summary.json` | Per-strategy aggregates and all paired comparisons |
 
 Each JSONL line is flushed and synced before completion is recorded. Resume
 skips completed `(strategy_id, task_id)` pairs only after verifying the existing
 manifest still matches the requested benchmark, dataset, strategies, cases,
-pricing, worker count, runtime/dependency versions, and code identity.
+evaluator, pricing, metrics schema, worker count, runtime/dependency versions,
+and code identity. An advisory lock prevents concurrent writers to one run
+directory.
 
-The comparison layer reports accuracy/score, route counts, calls, attempts,
-tokens, priced cost, errors, and latency summaries. Pairwise output retains
-per-task outcomes, score/cost/latency deltas, missing tasks, and counts where
-only one strategy passes. Missing cost or latency remains explicit rather than
-being treated as zero. Legacy JSON result files can be normalized for reading,
-with unavailable evidence marked as missing.
+Calls are the canonical source for request, output, usage, cost, and latency.
+Attempts and semantic routing events reference call IDs. The record-level
+`metrics` object and summary-level `metrics` object use the same
+`smart-ask.metrics/v2` envelope at different scopes; there are no parallel flat
+usage or cost totals.
+
+The derived reporting layer has four explicit levels:
+
+```text
+Call evidence
+  → resource rollups by model/channel/role/strategy
+  → mutually exclusive task outcomes
+  → routing transitions, complete paths, and benchmark-only counterfactuals
+```
+
+Only `passed` and `incorrect` task outcomes enter quality rates and paired score
+comparisons. Routing, execution, and evaluation errors remain explicit excluded
+tasks while their call, cost, token, and timing evidence remains reportable.
+
+Generation usage belongs to the transition that launches its call, preventing
+the same downstream cost from being counted at every gate. The transition
+ledger retains gate/decision, route and model movement, task identity, and
+resulting call ID. Paired fixed easy/hard baselines enable router regret and
+opportunity/error rates. A match includes role, resolved system and user-prompt
+transforms, tuning, and executor configuration. Missing evidence disables only
+the dependent metric; full oracle regret requires both exact baselines.
+Per-strategy summaries distinguish
+`wall_clock_record_span_ms`
+(which can include resumed-run gaps) from cumulative run time. Hidden SDK
+retries, TTFT, provider queue time, model-only execution time, and authoritative
+context-window utilization are absent because the current adapters cannot
+observe them. Repeated-run variance needs a future trial dimension because a
+run currently permits one result per strategy/task pair. The reader accepts
+only schema-v5 run directories;
+historical artifacts remain under `benchmark-history/` with provenance notes.
 
 ## Dependency direction
 
@@ -283,13 +353,14 @@ product CLI / benchmark CLI
 
 benchmark runner
   → SmartAsk public behavior and BenchmarkSuite contract
-  → tracing/artifact/comparison modules
+  → core metrics plus artifact/comparison modules
 ```
 
 Methods do not import concrete executors. Classifiers depend on the executor
-protocol, not OpenRouter. Executors do not import methods. Benchmark concerns
-do not enter the core application; tracing is injected through the builder's
-executor wrapper.
+protocol and core metrics, not OpenRouter. Executors do not import methods.
+Benchmark concerns do not enter the core application. A shared collector is
+injected into the builder and application, and benchmarks serialize its public
+call and run evidence.
 
 ## Main file responsibilities
 
@@ -297,24 +368,33 @@ executor wrapper.
 |---|---|
 | `smart_ask/domain.py` | Immutable per-task route, request, response, and audit values |
 | `smart_ask/application.py` | Method/executor coordination and attempt guard |
+| `smart_ask/metrics/models.py` | Immutable token/call/run metrics and aggregation |
+| `smart_ask/metrics/collector.py` | Context-scoped call capture and executor instrumentation |
+| `smart_ask/metrics/cost.py` | Versioned prices and cost calculation |
+| `smart_ask/metrics/rollups.py` | Resource aggregation by model, channel, role, and strategy |
+| `smart_ask/metrics/wire.py` | Strict metrics-v2 serialization and reconciliation |
 | `smart_ask/methods/` | Runtime methods and their classifier/escalation collaborators |
 | `smart_ask/executors/` | Provider/process transport adapters |
 | `smart_ask/strategy/schema.py` | Strict root `StrategyConfig` model |
 | `smart_ask/strategy/loader.py` | Safe YAML loading, prompt resolution, digest and manifest |
 | `smart_ask/strategy/builder.py` | Runtime object construction and dependency injection |
-| `strategies/` | Shipped strategy YAML files |
-| `prompts/` | Versioned prompt text referenced by YAML |
-| `benchmarks/suite.py` | Benchmark case/evaluation contract |
-| `benchmarks/runner.py` | Tracing, matrix execution, evidence serialization |
-| `benchmarks/artifacts.py` | Schema-v3 JSONL persistence, resume, legacy reading |
-| `benchmarks/compare.py` | Aggregates and paired comparisons |
-| `benchmarks/humaneval/`, `livebench/` | Suite-specific datasets and evaluation |
+| `smart_ask/cli.py` | Installed product command |
+| `smart_ask/resources/strategies/` | Shipped strategy YAML files |
+| `smart_ask/resources/prompts/` | Versioned prompt text referenced by YAML |
+| `smart_ask/benchmarks/suite.py` | Benchmark case/evaluation and strategy contracts |
+| `smart_ask/benchmarks/runner.py` | Matrix execution and evidence serialization |
+| `smart_ask/benchmarks/run_manifest.py` | Reproducible manifest and code identity |
+| `smart_ask/benchmarks/artifacts.py` | Crash-safe JSONL persistence, locking, and resume |
+| `smart_ask/benchmarks/artifact_schema.py` | Strict schema-v5 integrity validation |
+| `smart_ask/benchmarks/compare.py` | Aggregates, resource/timing summaries, and paired comparisons |
+| `smart_ask/benchmarks/routing_analysis.py` | Transition/path ledger with exact-once call attribution |
+| `smart_ask/benchmarks/counterfactual.py` | Paired routing quality and regret diagnostics |
+| `smart_ask/benchmarks/humaneval/`, `livebench/` | HumanEval and noncanonical LiveBench public-test evaluation |
+| `benchmark-history/` | Read-only archive of pre-current-schema evidence and its caveats |
 
 ## Public API
 
-The root `smart_ask` package re-exports the coordinator and domain values;
-`RoutingMethod` and all shipped method/collaborator implementations;
-`ModelExecutor`, `HermesExecutor`, and `OpenRouterExecutor`; and
-`StrategyConfig`, `LoadedStrategy`, `load_strategy`, and `StrategyBuilder` with
-their configuration/build errors. Focused imports remain available from the
-corresponding subpackages.
+The root `smart_ask` package re-exports the coordinator, common metric/domain
+values, shipped methods and collaborators, executors, and strategy loading and
+building APIs. Focused metric imports use `smart_ask.metrics`; other focused
+imports use their corresponding subpackages.
