@@ -10,7 +10,7 @@ class RoutingMethod(Protocol):
 
     requires_response_text: bool
 
-    def route(self, task: Task, context: Context = Context()) -> RouteResult:
+    def route(self, task: Task, context: Context | None = None) -> RouteResult:
         """Choose whether to execute a model or accept the latest response."""
 
         ...

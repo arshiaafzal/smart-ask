@@ -18,6 +18,16 @@ class EscalationDecision:
     outcome: EscalationOutcome
     reason: str
 
+    def __post_init__(self) -> None:
+        if self.outcome not in ("accept", "escalate"):
+            raise ValueError("outcome must be accept or escalate")
+        if (
+            not isinstance(self.reason, str)
+            or not self.reason
+            or self.reason != self.reason.strip()
+        ):
+            raise ValueError("reason must be a non-empty trimmed string")
+
     @property
     def should_escalate(self) -> bool:
         """Return whether the response should be retried on the hard model."""

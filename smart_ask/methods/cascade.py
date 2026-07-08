@@ -1,9 +1,8 @@
 """Response-aware cascade routing method."""
 
-from ..config import EASY_MODEL, HARD_MODEL
 from ..domain import Context, RouteResult, Task
-from .classifiers.base import DifficultyClassifier
-from .escalation.base import EscalationPolicy
+from .classifiers.base import DifficultyClassification, DifficultyClassifier
+from .escalation.base import EscalationDecision, EscalationPolicy
 
 
 class CascadeRoutingMethod:
@@ -15,24 +14,56 @@ class CascadeRoutingMethod:
         self,
         classifier: DifficultyClassifier,
         escalation_policy: EscalationPolicy,
-        easy_model: str = EASY_MODEL,
-        hard_model: str = HARD_MODEL,
+        easy_model: str,
+        hard_model: str,
     ):
-        self.classifier = classifier
-        self.escalation_policy = escalation_policy
-        self.easy_model = easy_model
-        self.hard_model = hard_model
+        if not callable(getattr(classifier, "classify", None)):
+            raise TypeError("classifier must expose a callable classify")
+        for operation in (
+            "prepare_candidate_prompt",
+            "assess",
+            "prepare_escalation_prompt",
+        ):
+            if not callable(getattr(escalation_policy, operation, None)):
+                raise TypeError(
+                    f"escalation_policy must expose a callable {operation}"
+                )
+        for name, value in (("easy_model", easy_model), ("hard_model", hard_model)):
+            if (
+                not isinstance(value, str)
+                or not value
+                or value != value.strip()
+            ):
+                raise ValueError(f"{name} must be a non-empty trimmed string")
+        self._classifier = classifier
+        self._escalation_policy = escalation_policy
+        self._easy_model = easy_model
+        self._hard_model = hard_model
 
-    def route(self, task: Task, context: Context = Context()) -> RouteResult:
+    @property
+    def classifier(self) -> DifficultyClassifier:
+        return self._classifier
+
+    def route(self, task: Task, context: Context | None = None) -> RouteResult:
         """Choose the next cascade action from the immutable per-task context."""
 
+        if not isinstance(task, Task):
+            raise TypeError("task must be a Task")
+        if context is None:
+            context = Context()
+        elif not isinstance(context, Context):
+            raise TypeError("context must be a Context or None")
         if not context.attempts:
-            classification = self.classifier.classify(task)
+            classification = self._classifier.classify(task)
+            if not isinstance(classification, DifficultyClassification):
+                raise TypeError(
+                    "classifier.classify must return a DifficultyClassification"
+                )
             event = classification.to_routing_event()
             if classification.difficulty == "hard":
                 return RouteResult(
                     action="execute",
-                    model=self.hard_model,
+                    model=self._hard_model,
                     prompt=task.prompt,
                     role="writer",
                     phase="initial-hard",
@@ -41,8 +72,8 @@ class CascadeRoutingMethod:
                 )
             return RouteResult(
                 action="execute",
-                model=self.easy_model,
-                prompt=self.escalation_policy.prepare_candidate_prompt(task),
+                model=self._easy_model,
+                prompt=self._escalation_policy.prepare_candidate_prompt(task),
                 role="generator",
                 phase="initial-easy",
                 label="easy primary",
@@ -54,13 +85,17 @@ class CascadeRoutingMethod:
             previous_attempt = context.previous_attempt
             if previous_attempt is None:
                 raise RuntimeError("An initial easy route must have a model response")
-            decision = self.escalation_policy.assess(previous_attempt)
+            decision = self._escalation_policy.assess(previous_attempt)
+            if not isinstance(decision, EscalationDecision):
+                raise TypeError(
+                    "escalation_policy.assess must return an EscalationDecision"
+                )
             event = decision.to_routing_event()
             if decision.should_escalate:
                 return RouteResult(
                     action="execute",
-                    model=self.hard_model,
-                    prompt=self.escalation_policy.prepare_escalation_prompt(task),
+                    model=self._hard_model,
+                    prompt=self._escalation_policy.prepare_escalation_prompt(task),
                     role="fixer",
                     phase="escalation",
                     label="hard escalation",

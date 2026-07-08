@@ -32,9 +32,21 @@ from .strategy import (
     StrategyConfigError,
     load_strategy,
 )
+from .metrics import (
+    CallStats,
+    RunStats,
+    StatsCollector,
+    StatsSummary,
+    ResourceReport,
+    TaskOutcome,
+    TokenUsage,
+    aggregate_resources,
+    aggregate_stats,
+)
 
 __all__ = [
     "Attempt",
+    "CallStats",
     "CascadeRoutingMethod",
     "Context",
     "DifficultyClassification",
@@ -55,11 +67,19 @@ __all__ = [
     "RoutingEvent",
     "RoutingMethod",
     "RunResult",
+    "RunStats",
+    "ResourceReport",
     "SmartAsk",
     "StrategyBuildError",
     "StrategyBuilder",
     "StrategyConfig",
     "StrategyConfigError",
+    "StatsCollector",
+    "StatsSummary",
+    "TaskOutcome",
     "Task",
+    "TokenUsage",
+    "aggregate_stats",
+    "aggregate_resources",
     "load_strategy",
 ]

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path, PureWindowsPath
 from typing import Annotated, Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from ..config import OR_BASE
+
+DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 class ConfigModel(BaseModel):
@@ -35,9 +37,19 @@ class FilePromptConfig(ConfigModel):
 
     @field_validator("path")
     @classmethod
-    def path_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("prompt path must not be blank")
+    def path_must_be_portable_and_relative(cls, value: str) -> str:
+        if not value or value != value.strip():
+            raise ValueError("prompt path must be non-empty and trimmed")
+        if (
+            value.startswith("~")
+            or "\\" in value
+            or Path(value).is_absolute()
+            or PureWindowsPath(value).is_absolute()
+            or bool(PureWindowsPath(value).drive)
+        ):
+            raise ValueError(
+                "prompt path must be a portable path relative to the strategy file"
+            )
         return value
 
 
@@ -52,6 +64,16 @@ class ModelParametersConfig(ConfigModel):
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
 
 
+class OpenRouterDefaultsConfig(ConfigModel):
+    max_tokens: int = Field(default=1024, gt=0)
+    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+
+
+class ClassifierParametersConfig(ConfigModel):
+    max_tokens: int = Field(default=20, gt=0)
+    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+
+
 class ModelProfileConfig(ConfigModel):
     model: str
     system_prompt: PromptConfig | None = None
@@ -60,25 +82,23 @@ class ModelProfileConfig(ConfigModel):
     @field_validator("model")
     @classmethod
     def model_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("model must not be blank")
+        if not value or value != value.strip():
+            raise ValueError("model must be non-empty and trimmed")
         return value
 
 
-class OpenRouterExecutorConfig(ConfigModel):
+class OpenRouterConnectionConfig(ConfigModel):
+    """Connection settings shared by OpenRouter call sites."""
+
     type: Literal["openrouter"]
-    base_url: str = OR_BASE
+    base_url: str = DEFAULT_OPENROUTER_BASE_URL
     api_key_env: str = "OPENROUTER_API_KEY"
-    defaults: ModelParametersConfig = Field(
-        default_factory=lambda: ModelParametersConfig(
-            max_tokens=1024,
-            temperature=0.0,
-        )
-    )
 
     @field_validator("base_url")
     @classmethod
     def base_url_must_be_http(cls, value: str) -> str:
+        if not value or value != value.strip():
+            raise ValueError("base_url must be non-empty and trimmed")
         parsed = urlparse(value)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
             raise ValueError("base_url must be an absolute HTTP(S) URL")
@@ -92,6 +112,14 @@ class OpenRouterExecutorConfig(ConfigModel):
         return value
 
 
+class OpenRouterExecutorConfig(OpenRouterConnectionConfig):
+    """OpenRouter generation settings, including request fallbacks."""
+
+    defaults: OpenRouterDefaultsConfig = Field(
+        default_factory=OpenRouterDefaultsConfig
+    )
+
+
 class HermesExecutorConfig(ConfigModel):
     type: Literal["hermes"]
     command: str = "hermes"
@@ -100,8 +128,8 @@ class HermesExecutorConfig(ConfigModel):
     @field_validator("command", "provider")
     @classmethod
     def values_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("value must not be blank")
+        if not value or value != value.strip():
+            raise ValueError("value must be non-empty and trimmed")
         return value
 
 
@@ -114,36 +142,27 @@ ExecutorConfig = Annotated[
 class LLMClassifierConfig(ConfigModel):
     type: Literal["llm"]
     model: str
-    executor: ExecutorConfig
+    executor: OpenRouterConnectionConfig
     prompt: PromptConfig
+    fallback: Literal["easy", "hard", "raise"]
     max_prompt_chars: int = Field(default=1200, gt=0)
-    parameters: ModelParametersConfig = Field(
-        default_factory=lambda: ModelParametersConfig(
-            max_tokens=20,
-            temperature=0.0,
-        )
+    parameters: ClassifierParametersConfig = Field(
+        default_factory=ClassifierParametersConfig
     )
 
     @field_validator("model")
     @classmethod
     def model_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("model must not be blank")
+        if not value or value != value.strip():
+            raise ValueError("model must be non-empty and trimmed")
         return value
-
-    @model_validator(mode="after")
-    def executor_must_capture_output(self) -> "LLMClassifierConfig":
-        if isinstance(self.executor, HermesExecutorConfig):
-            raise ValueError("an LLM classifier requires a capturing executor")
-        return self
-
 
 ClassifierConfig = Annotated[LLMClassifierConfig, Field(discriminator="type")]
 
 
 class MarkerEscalationConfig(ConfigModel):
     type: Literal["marker"]
-    marker: str = "ESCALATE_NOW"
+    marker: str
     self_check_suffix: PromptConfig
     escalation_prefix: PromptConfig
 
@@ -178,9 +197,10 @@ class CascadeMethodConfig(ConfigModel):
 
 class FixedMethodConfig(ConfigModel):
     type: Literal["fixed"]
-    decision: Literal["easy", "hard"]
-    role: Literal["generator", "writer", "fixer"] | None = None
+    role: Literal["generator", "writer", "fixer"]
     model: ModelProfileConfig
+    prompt_prefix: PromptConfig | None = None
+    prompt_suffix: PromptConfig | None = None
 
 
 MethodConfig = Annotated[
@@ -192,24 +212,17 @@ MethodConfig = Annotated[
 class StrategyConfig(ConfigModel):
     """One complete, reproducible smart-ask strategy."""
 
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     name: str
     method: MethodConfig
     generation: ExecutorConfig
-    max_attempts: int | None = Field(default=None, gt=0)
 
     @field_validator("name")
     @classmethod
     def name_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("name must not be blank")
+        if not value or value != value.strip():
+            raise ValueError("name must be non-empty and trimmed")
         return value
-
-    @property
-    def resolved_max_attempts(self) -> int:
-        if self.max_attempts is not None:
-            return self.max_attempts
-        return 2 if isinstance(self.method, CascadeMethodConfig) else 1
 
     @property
     def model_profiles(self) -> tuple[ModelProfileConfig, ...]:
@@ -222,8 +235,6 @@ class StrategyConfig(ConfigModel):
         if isinstance(self.method, CascadeMethodConfig):
             if isinstance(self.generation, HermesExecutorConfig):
                 raise ValueError("cascade requires a generation executor that captures output")
-            if self.max_attempts is not None and self.max_attempts < 2:
-                raise ValueError("cascade requires max_attempts >= 2")
 
         if isinstance(self.generation, HermesExecutorConfig):
             for profile in self.model_profiles:
