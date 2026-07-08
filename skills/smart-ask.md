@@ -49,7 +49,7 @@ smart-ask --strategy path/to/strategy.yaml "task" # another complete strategy
 smart-ask --validate-strategy --strategy FILE     # schema/prompt validation only
 smart-ask --force-hard "complex task"             # configured hard profile, no classifier
 smart-ask --force-easy "simple task"              # configured easy profile, no classifier
-smart-ask --dry-run "task"                        # plan and print; skip generation
+smart-ask --dry-run "task"                        # classify/plan; skip generation
 smart-ask -f FILE "task"                          # prepend file contents
 smart-ask                                        # prompt for independent tasks
 ```
@@ -58,7 +58,7 @@ smart-ask                                        # prompt for independent tasks
 
 Force flags use profiles from the loaded YAML. Do not assume they always mean
 Gemini or Opus when a custom strategy is selected. A fixed strategy has only its
-declared profile and cannot be forced to the opposite decision.
+declared profile and does not accept force overrides.
 
 ## Choosing a route
 
@@ -79,18 +79,25 @@ Install benchmark support, then repeat `--strategy` on a suite module:
 ```bash
 python -m pip install -e '.[bench]'
 
-python -m benchmarks.humaneval \
-  --strategy strategies/python-function-completion-difficulty-v1.yaml \
-  --strategy strategies/python-function-completion-difficulty-v2.yaml \
+python -m smart_ask.benchmarks.humaneval \
+  --strategy builtin:python-function-completion-difficulty-v1 \
+  --strategy builtin:python-function-completion-difficulty-v2 \
   --limit 20 \
   --workers 4 \
-  --output benchmarks/results/humaneval/prompt-comparison
+  --output benchmark-results/humaneval/prompt-comparison
 ```
 
-The benchmark writes schema-v3 `manifest.json`, `records.jsonl`, and
-`summary.json`. Use `--resume` only with an explicit existing `--output`
-directory. Benchmark controls stay on the command line; there is no separate
-experiment configuration object.
+The benchmark writes strict schema-v5 `manifest.json`, `records.jsonl`, and
+`summary.json`. Each record has one canonical metrics-v2 envelope and a call
+ledger; attempts and routing events reference calls rather than copying their
+usage or cost. Summaries include explicit task outcomes, resource rollups,
+routing transition/path ledgers, and counterfactual diagnostics when matching
+fixed cheap/expensive baselines are present. A cascade cheap baseline must use
+the same prompt suffix; the bundled `*-fixed-gemini-self-check` strategies do
+so. Use `--resume` only with an explicit existing `--output` directory.
+Benchmark controls stay on the command line;
+there is no separate experiment configuration object. Supply
+`--price-catalog JSON` for models not present in the bundled versioned catalog.
 
 ## Output interpretation
 
@@ -100,7 +107,8 @@ experiment configuration object.
 ```
 
 Direct OpenRouter generation strategies print captured response text. Hermes
-strategies let Hermes own terminal output.
+strategies let Hermes own terminal output. Every completed turn prints per-call
+and turn/session token and cost accounting when those values are observable.
 
 ## Troubleshooting
 
@@ -112,7 +120,7 @@ strategies let Hermes own terminal output.
 | Classifier repeatedly falls back to easy | Check provider access and inspect the classifier prompt/model settings |
 | Product routing cost is `unknown` | The configured classifier has no local price entry; token usage is still retained |
 | Benchmark rejects a model price | Add that configured model to the benchmark price catalog before running |
-| Resume manifest mismatch | Use the original suite/strategies/cases/pricing or start a new output directory |
+| Resume manifest mismatch | Use the original suite/evaluator/strategies/cases/pricing/metrics schema or start a new output directory |
 
 ## Installation for a new checkout
 
