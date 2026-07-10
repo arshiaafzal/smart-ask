@@ -10,7 +10,7 @@ from smart_ask.benchmarks.humaneval.harness import run_tests
 from smart_ask import ExecutionRequest, StrategyBuilder, Task, load_strategy
 from smart_ask.executors import HermesExecutor, OpenAIExecutor, OpenRouterExecutor
 
-from tests.helpers import FakeClient, response, usage
+from tests.helpers import FakeClient, response, responses_response, usage
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -118,7 +118,20 @@ class ExecutorTests(unittest.TestCase):
 
     def test_openai_executor_uses_native_reasoning_request_fields(self):
         client = FakeClient([
-            response("answer", usage(12, 7), model="gpt-5.3-codex")
+            responses_response(
+                "answer",
+                SimpleNamespace(
+                    input_tokens=12,
+                    output_tokens=7,
+                    total_tokens=19,
+                    input_tokens_details=SimpleNamespace(
+                        cached_tokens=2,
+                        cache_write_tokens=0,
+                    ),
+                    output_tokens_details=SimpleNamespace(reasoning_tokens=3),
+                ),
+                model="gpt-5.3-codex",
+            )
         ])
         executor = OpenAIExecutor(
             client,
@@ -137,9 +150,11 @@ class ExecutorTests(unittest.TestCase):
 
         self.assertEqual(result.model, "gpt-5.3-codex")
         self.assertIsNone(result.provider_cost_usd)
-        call = client.completions.calls[0]
-        self.assertEqual(call["max_completion_tokens"], 2048)
-        self.assertEqual(call["reasoning_effort"], "high")
+        call = client.responses.calls[0]
+        self.assertEqual(call["max_output_tokens"], 2048)
+        self.assertEqual(call["reasoning"], {"effort": "high"})
+        self.assertEqual(call["input"], "prompt")
+        self.assertIs(call["store"], False)
         self.assertNotIn("max_tokens", call)
         self.assertNotIn("temperature", call)
 

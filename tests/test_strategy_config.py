@@ -28,7 +28,7 @@ from smart_ask.strategy import (
 from smart_ask.strategy.loader import compute_strategy_digest
 from smart_ask.strategy.schema import FilePromptConfig, InlinePromptConfig
 
-from tests.helpers import FakeClient, response, usage
+from tests.helpers import FakeClient, response, responses_response, usage
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -559,8 +559,11 @@ class StrategyBuilderTests(unittest.TestCase):
 
     def test_builder_uses_openai_key_for_codex_classifier_and_generation(self):
         client = FakeClient([
-            response('{"d":"easy"}', usage(5, 3), model="gpt-5.1-codex-mini"),
-            response("answer", usage(10, 4), model="gpt-5.1-codex-mini"),
+            responses_response(
+                '{"d":"easy"}',
+                model="gpt-5.1-codex-mini",
+            ),
+            responses_response("answer", model="gpt-5.1-codex-mini"),
         ])
         factory_calls = []
 
@@ -581,11 +584,11 @@ class StrategyBuilderTests(unittest.TestCase):
         self.assertEqual(factory_calls, [
             ("https://api.openai.com/v1", "test-openai-key"),
         ])
-        classifier_call, generation_call = client.completions.calls
-        self.assertEqual(classifier_call["max_completion_tokens"], 256)
-        self.assertEqual(classifier_call["reasoning_effort"], "low")
-        self.assertEqual(generation_call["max_completion_tokens"], 16384)
-        self.assertEqual(generation_call["reasoning_effort"], "low")
+        classifier_call, generation_call = client.responses.calls
+        self.assertEqual(classifier_call["max_output_tokens"], 256)
+        self.assertEqual(classifier_call["reasoning"], {"effort": "low"})
+        self.assertEqual(generation_call["max_output_tokens"], 16384)
+        self.assertEqual(generation_call["reasoning"], {"effort": "low"})
         self.assertNotIn("temperature", classifier_call)
         self.assertNotIn("temperature", generation_call)
 
