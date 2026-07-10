@@ -15,6 +15,7 @@ from smart_ask.conversation import (
 )
 from smart_ask.executors import (
     OllamaConversationExecutor,
+    OpenAIConversationExecutor,
     OpenRouterConversationExecutor,
 )
 from smart_ask.strategy import StrategyBuilder, load_strategy
@@ -507,6 +508,142 @@ class OpenRouterConversationExecutorTests(unittest.IsolatedAsyncioTestCase):
         )
         await runtime.aclose()
         self.assertTrue(client.is_closed)
+
+
+class OpenAIConversationExecutorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_uses_responses_streaming_tools_usage_and_reasoning(self):
+        observed = {}
+
+        async def handler(http_request):
+            observed["path"] = http_request.url.path
+            observed["body"] = json.loads(http_request.content)
+            chunks = (
+                {
+                    "type": "response.created",
+                    "response": {"model": "gpt-5.3-codex"},
+                },
+                {
+                    "type": "response.output_item.added",
+                    "output_index": 0,
+                    "item": {
+                        "type": "function_call",
+                        "id": "item_1",
+                        "call_id": "call_1",
+                        "name": "read",
+                    },
+                },
+                {
+                    "type": "response.function_call_arguments.delta",
+                    "output_index": 0,
+                    "item_id": "item_1",
+                    "delta": '{"path":"x"}',
+                },
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "model": "gpt-5.3-codex",
+                        "status": "completed",
+                        "usage": {
+                            "input_tokens": 9,
+                            "output_tokens": 4,
+                            "total_tokens": 13,
+                            "input_tokens_details": {
+                                "cached_tokens": 1,
+                                "cache_write_tokens": 0,
+                            },
+                            "output_tokens_details": {"reasoning_tokens": 2},
+                        },
+                    },
+                },
+            )
+            data = b"".join(
+                b"data: " + json.dumps(chunk).encode() + b"\n\n"
+                for chunk in chunks
+            ) + b"data: [DONE]\n\n"
+            return httpx.Response(200, content=data)
+
+        client = httpx.AsyncClient(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.openai.test/v1",
+        )
+        self.addAsyncCleanup(client.aclose)
+        executor = OpenAIConversationExecutor(
+            client,
+            default_max_tokens=8192,
+            reasoning_effort="medium",
+        )
+        conversation = request(
+            tools=({
+                "name": "read",
+                "description": "read a file",
+                "input_schema": {"type": "object"},
+            },)
+        ).with_parameters({
+            "reasoning_effort": "high",
+            "tool_choice": {"type": "tool", "name": "read"},
+        })
+
+        events = [event async for event in executor.stream(
+            ConversationExecutionRequest("gpt-5.3-codex", "writer", conversation)
+        )]
+
+        body = observed["body"]
+        self.assertEqual(observed["path"], "/v1/responses")
+        self.assertEqual(body["max_output_tokens"], 100)
+        self.assertEqual(body["reasoning"], {"effort": "high"})
+        self.assertIs(body["store"], False)
+        self.assertNotIn("max_tokens", body)
+        self.assertNotIn("temperature", body)
+        self.assertEqual(body["tool_choice"], {
+            "type": "function",
+            "name": "read",
+        })
+        self.assertEqual(body["tools"][0]["name"], "read")
+        self.assertNotIn("function", body["tools"][0])
+        tool_start = next(
+            event for event in events
+            if event.kind == "content_start"
+            and event.data["block"].get("type") == "tool_call"
+        )
+        self.assertEqual(tool_start.data["block"]["id"], "call_1")
+        arguments = next(
+            event for event in events
+            if event.kind == "content_delta"
+        )
+        self.assertEqual(arguments.data["delta"]["json"], '{"path":"x"}')
+        usage_event = next(event for event in events if event.kind == "usage")
+        self.assertEqual(usage_event.data["reasoning_tokens"], 2)
+        stop = next(event for event in events if event.kind == "message_delta")
+        self.assertEqual(stop.data["stop_reason"], "tool_call")
+
+    async def test_includes_openai_error_body_in_failure(self):
+        async def handler(_http_request):
+            return httpx.Response(429, json={
+                "error": {
+                    "message": "You exceeded your current quota.",
+                    "code": "insufficient_quota",
+                },
+            })
+
+        client = httpx.AsyncClient(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.openai.test/v1",
+        )
+        self.addAsyncCleanup(client.aclose)
+        executor = OpenAIConversationExecutor(
+            client,
+            default_max_tokens=100,
+            reasoning_effort="low",
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "current quota"):
+            _events = [event async for event in executor.stream(
+                ConversationExecutionRequest(
+                    "gpt-5.1-codex-mini",
+                    "writer",
+                    request(),
+                )
+            )]
 
 
 if __name__ == "__main__":

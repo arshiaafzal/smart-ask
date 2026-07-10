@@ -28,7 +28,7 @@ from smart_ask.strategy import (
 from smart_ask.strategy.loader import compute_strategy_digest
 from smart_ask.strategy.schema import FilePromptConfig, InlinePromptConfig
 
-from tests.helpers import FakeClient, response, usage
+from tests.helpers import FakeClient, response, responses_response, usage
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -189,6 +189,31 @@ class StrategyLoaderTests(unittest.TestCase):
                     any(name in item.config.name.lower() for name in benchmark_names)
                 )
 
+    def test_codex_cascade_is_first_party_openai_and_model_specific(self):
+        loaded = load_strategy(
+            "builtin:python-code-generation-codex-cascade"
+        )
+
+        self.assertEqual(loaded.config.generation.type, "openai")
+        self.assertEqual(
+            loaded.config.method.classifier.executor.type,
+            "openai",
+        )
+        self.assertEqual(
+            loaded.config.method.classifier.model,
+            "gpt-5.1-codex-mini",
+        )
+        self.assertEqual(loaded.config.method.easy.model, "gpt-5.1-codex-mini")
+        self.assertEqual(loaded.config.method.hard.model, "gpt-5.3-codex")
+        self.assertEqual(
+            loaded.config.method.easy.parameters.reasoning_effort,
+            "low",
+        )
+        self.assertEqual(
+            loaded.config.method.hard.parameters.reasoning_effort,
+            "high",
+        )
+
     def test_shipped_counterfactual_baselines_match_routed_profiles(self):
         for contract in (
             "python-function-completion",
@@ -283,6 +308,13 @@ class StrategyLoaderTests(unittest.TestCase):
         obsolete_attempt_limit["max_attempts"] = 1
         with self.assertRaisesRegex(ValueError, "max_attempts"):
             StrategyConfig.model_validate(obsolete_attempt_limit)
+
+        wrong_reasoning_transport = difficulty_config()
+        wrong_reasoning_transport["method"]["easy"]["parameters"] = {
+            "reasoning_effort": "low",
+        }
+        with self.assertRaisesRegex(ValueError, "OpenAI generation"):
+            StrategyConfig.model_validate(wrong_reasoning_transport)
 
     def test_file_prompt_paths_are_portable_relative_declarations(self):
         valid = FilePromptConfig.model_validate({
@@ -524,6 +556,41 @@ class StrategyBuilderTests(unittest.TestCase):
         self.assertEqual(generation_call["max_tokens"], 1024)
         self.assertEqual(generation_call["temperature"], 0.0)
         self.assertEqual(generation_call["messages"][0]["role"], "system")
+
+    def test_builder_uses_openai_key_for_codex_classifier_and_generation(self):
+        client = FakeClient([
+            responses_response(
+                '{"d":"easy"}',
+                model="gpt-5.1-codex-mini",
+            ),
+            responses_response("answer", model="gpt-5.1-codex-mini"),
+        ])
+        factory_calls = []
+
+        def factory(base_url, api_key):
+            factory_calls.append((base_url, api_key))
+            return client
+
+        app = StrategyBuilder(
+            env={"OPENAI_API_KEY": "test-openai-key"},
+            openai_client_factory=factory,
+        ).build(load_strategy(
+            "builtin:python-code-generation-codex-cascade"
+        ))
+
+        run = app.run_detailed(Task("write a small function"))
+
+        self.assertEqual(run.final_result.text, "answer")
+        self.assertEqual(factory_calls, [
+            ("https://api.openai.com/v1", "test-openai-key"),
+        ])
+        classifier_call, generation_call = client.responses.calls
+        self.assertEqual(classifier_call["max_output_tokens"], 256)
+        self.assertEqual(classifier_call["reasoning"], {"effort": "low"})
+        self.assertEqual(generation_call["max_output_tokens"], 16384)
+        self.assertEqual(generation_call["reasoning"], {"effort": "low"})
+        self.assertNotIn("temperature", classifier_call)
+        self.assertNotIn("temperature", generation_call)
 
     def test_forced_product_route_does_not_require_classifier_credentials(self):
         calls = []

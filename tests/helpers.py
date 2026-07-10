@@ -20,6 +20,32 @@ def response(content: str, call_usage=None, *, model: str | None = None):
     )
 
 
+def responses_response(
+    content: str,
+    call_usage=None,
+    *,
+    model: str | None = None,
+    status: str = "completed",
+):
+    return SimpleNamespace(
+        model=model,
+        status=status,
+        output_text=content,
+        output=[],
+        usage=call_usage or SimpleNamespace(
+            input_tokens=10,
+            output_tokens=2,
+            total_tokens=12,
+            input_tokens_details=SimpleNamespace(
+                cached_tokens=0,
+                cache_write_tokens=0,
+            ),
+            output_tokens_details=SimpleNamespace(reasoning_tokens=0),
+        ),
+        incomplete_details=None,
+    )
+
+
 class FakeCompletions:
     def __init__(self, responses):
         self.responses = list(responses)
@@ -37,6 +63,7 @@ class FakeClient:
     def __init__(self, responses):
         self.completions = FakeCompletions(responses)
         self.chat = SimpleNamespace(completions=self.completions)
+        self.responses = FakeCompletions(responses)
 
 
 class RecordingExecutor:

@@ -1,0 +1,302 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+umask 077
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+SECRETS_FILE=${SMART_ASK_SECRETS_FILE:-$ROOT_DIR/scripts/claude-smart-ask.local.env}
+if [ -f "$SECRETS_FILE" ]; then
+    set -a
+    # This is a local, user-owned shell environment file and is gitignored.
+    # shellcheck disable=SC1090
+    source "$SECRETS_FILE"
+    set +a
+fi
+CALLER_DIR=$PWD
+STATE_PARENT=${SMART_ASK_LAUNCHER_STATE_DIR:-${TMPDIR:-/tmp}}
+START_ATTEMPTS=${SMART_ASK_START_ATTEMPTS:-120}
+ADAPTER_HOST=${SMART_ASK_ADAPTER_HOST:-127.0.0.1}
+LAUNCHER_VENV=$STATE_PARENT/smart-ask-claude-launcher-venv
+
+usage() {
+    cat <<'EOF'
+Usage:
+  scripts/claude-smart-ask --strategy NAME [CLAUDE_ARGS...]
+
+Examples:
+  scripts/claude-smart-ask --strategy python-code-generation-codex-cascade
+  scripts/claude-smart-ask --strategy local-qwen -p "hello"
+
+The selected strategy determines its backend and required credentials. This
+launcher starts only the external adapter and Claude Code; provider services
+such as Ollama must already be running.
+
+Environment overrides:
+  SMART_ASK_SECRETS_FILE
+  SMART_ASK_CLAUDE_CODE_TOKEN
+  SMART_ASK_ADAPTER_BIN, SMART_ASK_PYTHON, SMART_ASK_AUTO_INSTALL
+  SMART_ASK_ADAPTER_HOST, SMART_ASK_ADAPTER_PORT
+  SMART_ASK_LAUNCHER_STATE_DIR, SMART_ASK_START_ATTEMPTS
+  SMART_ASK_METRICS_PATH, CLAUDE_BIN
+EOF
+}
+
+fail() {
+    echo "error: $*" >&2
+    exit 1
+}
+
+resolve_python() {
+    local candidate
+    if [ -n "${SMART_ASK_PYTHON:-}" ]; then
+        candidate=$SMART_ASK_PYTHON
+        "$candidate" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))' \
+            >/dev/null 2>&1 || return 1
+        printf '%s\n' "$candidate"
+        return
+    fi
+    for candidate in python3.13 python3.12 python3.11 python3; do
+        if command -v "$candidate" >/dev/null 2>&1 && \
+            "$candidate" -c \
+                'import sys; raise SystemExit(sys.version_info < (3, 11))' \
+                >/dev/null 2>&1; then
+            command -v "$candidate"
+            return
+        fi
+    done
+    return 1
+}
+
+bootstrap_adapter() {
+    local python
+    python=$(resolve_python) || fail \
+        "Python 3.11+ was not found; install it or set SMART_ASK_PYTHON"
+    echo "First run: preparing the SmartAsk adapter environment..." >&2
+    if [ ! -x "$LAUNCHER_VENV/bin/python" ]; then
+        "$python" -m venv "$LAUNCHER_VENV" >&2
+    fi
+    "$LAUNCHER_VENV/bin/python" -m pip install \
+        --disable-pip-version-check \
+        --quiet \
+        --editable "$ROOT_DIR" \
+        --editable "$ROOT_DIR/integrations/claude_code" >&2
+    [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ] || return 1
+    printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask-claude-code"
+}
+
+resolve_adapter() {
+    if [ -n "${SMART_ASK_ADAPTER_BIN:-}" ]; then
+        printf '%s\n' "$SMART_ASK_ADAPTER_BIN"
+    elif command -v smart-ask-claude-code >/dev/null 2>&1; then
+        command -v smart-ask-claude-code
+    elif [ -x "$ROOT_DIR/.venv/bin/smart-ask-claude-code" ]; then
+        printf '%s\n' "$ROOT_DIR/.venv/bin/smart-ask-claude-code"
+    elif [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ]; then
+        printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask-claude-code"
+    elif [ "${SMART_ASK_AUTO_INSTALL:-1}" != "0" ]; then
+        bootstrap_adapter
+    else
+        return 1
+    fi
+}
+
+resolve_claude() {
+    if [ -n "${CLAUDE_BIN:-}" ]; then
+        printf '%s\n' "$CLAUDE_BIN"
+    elif command -v claude >/dev/null 2>&1; then
+        command -v claude
+    else
+        return 1
+    fi
+}
+
+make_token() {
+    if [ -n "${SMART_ASK_CLAUDE_CODE_TOKEN:-}" ]; then
+        printf '%s\n' "$SMART_ASK_CLAUDE_CODE_TOKEN"
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 24
+    else
+        printf 'local-%s-%s-%s\n' "$RANDOM" "$RANDOM" "$$"
+    fi
+}
+
+unused_port() {
+    "$PYTHON" - <<'PY'
+import socket
+
+with socket.socket() as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+}
+
+adapter_ready() {
+    curl \
+        --silent \
+        --fail \
+        --max-time 1 \
+        --header "x-api-key: $TOKEN" \
+        "$ADAPTER_URL/v1/models" >"$MODELS_FILE" 2>/dev/null
+}
+
+cleanup() {
+    local status=$?
+    trap - EXIT INT TERM
+    if [ -n "${ADAPTER_PID:-}" ] && kill -0 "$ADAPTER_PID" 2>/dev/null; then
+        kill "$ADAPTER_PID" 2>/dev/null || true
+        wait "$ADAPTER_PID" 2>/dev/null || true
+    fi
+    rm -rf "$STATE_DIR"
+    exit "$status"
+}
+
+case "${1:-}" in
+    help|-h|--help|'')
+        usage
+        [ -n "${1:-}" ] && exit 0 || exit 2
+        ;;
+esac
+
+[ "${1:-}" = "--strategy" ] || fail \
+    "expected --strategy NAME; run with --help for usage"
+[ -n "${2:-}" ] || fail "--strategy requires a strategy name"
+STRATEGY_NAME=$2
+shift 2
+[ "${1:-}" = "--" ] && shift
+
+command -v curl >/dev/null 2>&1 || fail "required command not found: curl"
+PYTHON=$(resolve_python) || fail \
+    "Python 3.11+ was not found; install it or set SMART_ASK_PYTHON"
+mkdir -p "$STATE_PARENT"
+ADAPTER=$(resolve_adapter) || fail \
+    "adapter was not found and automatic installation failed"
+if ! "$PYTHON" -c 'import smart_ask.strategy' >/dev/null 2>&1; then
+    if [ "${SMART_ASK_AUTO_INSTALL:-1}" = "0" ]; then
+        fail "selected Python cannot import smart_ask and automatic installation is disabled"
+    fi
+    ADAPTER=$(bootstrap_adapter) || fail \
+        "adapter environment preparation failed"
+    PYTHON=$LAUNCHER_VENV/bin/python
+fi
+CLAUDE=$(resolve_claude) || fail \
+    "Claude Code was not found; install it or set CLAUDE_BIN"
+
+STATE_DIR=$(mktemp -d "$STATE_PARENT/smart-ask-claude.XXXXXX")
+CONFIG=$STATE_DIR/adapter.json
+PROVIDER_ENVS=$STATE_DIR/provider-envs
+MODELS_FILE=$STATE_DIR/models.json
+ADAPTER_LOG=$STATE_DIR/adapter.log
+TOKEN=$(make_token)
+PORT=${SMART_ASK_ADAPTER_PORT:-$(unused_port)}
+ADAPTER_URL=http://$ADAPTER_HOST:$PORT
+METRICS_PATH=${SMART_ASK_METRICS_PATH:-$ROOT_DIR/benchmark-results/claude-code/strategy-runs.jsonl}
+ADAPTER_PID=
+trap cleanup EXIT INT TERM
+
+"$PYTHON" - "$STRATEGY_NAME" "$CONFIG" "$PROVIDER_ENVS" "$ADAPTER_HOST" "$PORT" "$METRICS_PATH" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+from smart_ask.strategy import load_strategy
+
+name, config_path, env_path, host, raw_port, metrics_path = sys.argv[1:]
+if not name or name != name.strip():
+    raise SystemExit("strategy name must be non-empty and trimmed")
+if "/" in name or "\\" in name or name.startswith("builtin:"):
+    raise SystemExit(
+        "strategy must be a bundled strategy name, without a path or builtin: prefix"
+    )
+if name.endswith(".yaml"):
+    name = name[:-5]
+reference = "builtin:" + name
+loaded = load_strategy(reference)
+
+credential_names = set()
+generation = loaded.config.generation
+api_key_env = getattr(generation, "api_key_env", None)
+if api_key_env:
+    credential_names.add(api_key_env)
+classifier = getattr(loaded.config.method, "classifier", None)
+if classifier is not None:
+    api_key_env = getattr(classifier.executor, "api_key_env", None)
+    if api_key_env:
+        credential_names.add(api_key_env)
+
+config = {
+    "schema_version": 1,
+    "listen": {"host": host, "port": int(raw_port)},
+    "auth": {
+        "token_env": "SMART_ASK_CLAUDE_CODE_TOKEN",
+        "required_on_loopback": True,
+    },
+    "strategies": [reference],
+    "limits": {
+        "max_request_bytes": 33554432,
+        "max_concurrent_requests": 32,
+        "max_output_tokens": 65536,
+    },
+    "metrics": {"jsonl_path": str(Path(metrics_path).expanduser().resolve())},
+    "security": {"allowed_strategy_roots": []},
+}
+Path(config_path).write_text(json.dumps(config), encoding="utf-8")
+Path(env_path).write_text(
+    "".join(name + "\n" for name in sorted(credential_names)),
+    encoding="utf-8",
+)
+PY
+
+(
+    cd "$ROOT_DIR"
+    exec env SMART_ASK_CLAUDE_CODE_TOKEN="$TOKEN" \
+        "$ADAPTER" serve --config "$CONFIG"
+) >"$ADAPTER_LOG" 2>&1 &
+ADAPTER_PID=$!
+
+attempt=0
+while [ "$attempt" -lt "$START_ATTEMPTS" ]; do
+    if adapter_ready; then
+        break
+    fi
+    if ! kill -0 "$ADAPTER_PID" 2>/dev/null; then
+        sed -n '1,160p' "$ADAPTER_LOG" >&2
+        fail "SmartAsk adapter exited before becoming ready"
+    fi
+    attempt=$((attempt + 1))
+    sleep 0.25
+done
+adapter_ready || {
+    sed -n '1,160p' "$ADAPTER_LOG" >&2
+    fail "SmartAsk adapter did not become ready"
+}
+
+MODEL=$(
+    "$PYTHON" - "$MODELS_FILE" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+models = payload.get("data")
+if not isinstance(models, list) or len(models) != 1:
+    raise SystemExit("adapter must expose exactly one model")
+model = models[0].get("id")
+if not isinstance(model, str) or not model:
+    raise SystemExit("adapter returned an invalid model id")
+print(model)
+PY
+)
+
+CLAUDE_ENV=(env -u OPENAI_API_KEY -u OPENROUTER_API_KEY)
+while IFS= read -r credential; do
+    [ -n "$credential" ] && CLAUDE_ENV+=(-u "$credential")
+done <"$PROVIDER_ENVS"
+CLAUDE_ENV+=(
+    ANTHROPIC_BASE_URL="$ADAPTER_URL"
+    ANTHROPIC_API_KEY="$TOKEN"
+    ANTHROPIC_AUTH_TOKEN="$TOKEN"
+)
+
+echo "ready: $MODEL via $ADAPTER_URL" >&2
+cd "$CALLER_DIR"
+"${CLAUDE_ENV[@]}" "$CLAUDE" --model "$MODEL" "$@"

@@ -8,9 +8,9 @@ import unittest
 from smart_ask.benchmarks.code_output import extract_code
 from smart_ask.benchmarks.humaneval.harness import run_tests
 from smart_ask import ExecutionRequest, StrategyBuilder, Task, load_strategy
-from smart_ask.executors import HermesExecutor, OpenRouterExecutor
+from smart_ask.executors import HermesExecutor, OpenAIExecutor, OpenRouterExecutor
 
-from tests.helpers import FakeClient, response, usage
+from tests.helpers import FakeClient, response, responses_response, usage
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -115,6 +115,48 @@ class ExecutorTests(unittest.TestCase):
         ])
         self.assertEqual(call["max_tokens"], 20)
         self.assertEqual(call["temperature"], 0)
+
+    def test_openai_executor_uses_native_reasoning_request_fields(self):
+        client = FakeClient([
+            responses_response(
+                "answer",
+                SimpleNamespace(
+                    input_tokens=12,
+                    output_tokens=7,
+                    total_tokens=19,
+                    input_tokens_details=SimpleNamespace(
+                        cached_tokens=2,
+                        cache_write_tokens=0,
+                    ),
+                    output_tokens_details=SimpleNamespace(reasoning_tokens=3),
+                ),
+                model="gpt-5.3-codex",
+            )
+        ])
+        executor = OpenAIExecutor(
+            client,
+            reasoning_efforts={"gpt-5.3-codex": "high"},
+            default_max_tokens=8192,
+            reasoning_effort="medium",
+        )
+
+        result = executor.execute(ExecutionRequest(
+            "gpt-5.3-codex",
+            "prompt",
+            "writer",
+            max_tokens=2048,
+            temperature=0,
+        ))
+
+        self.assertEqual(result.model, "gpt-5.3-codex")
+        self.assertIsNone(result.provider_cost_usd)
+        call = client.responses.calls[0]
+        self.assertEqual(call["max_output_tokens"], 2048)
+        self.assertEqual(call["reasoning"], {"effort": "high"})
+        self.assertEqual(call["input"], "prompt")
+        self.assertIs(call["store"], False)
+        self.assertNotIn("max_tokens", call)
+        self.assertNotIn("temperature", call)
 
     def test_openrouter_preserves_provider_text(self):
         text = "```python\ncode\n```\nexplanation"

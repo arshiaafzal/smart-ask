@@ -26,6 +26,8 @@ from .executors import (
     ModelExecutor,
     OllamaConversationExecutor,
     OllamaExecutor,
+    OpenAIConversationExecutor,
+    OpenAIExecutor,
     OpenRouterConversationExecutor,
     OpenRouterExecutor,
 )
@@ -86,6 +88,8 @@ __all__ = [
     "MarkerEscalationPolicy",
     "ModelExecutor",
     "ModelResult",
+    "OpenAIConversationExecutor",
+    "OpenAIExecutor",
     "OpenRouterExecutor",
     "OpenRouterConversationExecutor",
     "OllamaConversationExecutor",

@@ -91,13 +91,13 @@ StrategyConfig
 │   ├── difficulty: classifier + easy/hard model profiles
 │   ├── cascade: classifier + escalation policy + easy/hard profiles
 │   └── fixed: one model profile + required semantic role
-└── generation: OpenRouter, Ollama, or Hermes executor config
+└── generation: OpenAI, OpenRouter, Ollama, or Hermes executor config
 ```
 
 An LLM classifier has its own executor, prompt source, model, prompt-length
 limit, request parameters, and explicit `easy | hard | raise` fallback. A model
-profile can include a system-prompt source, maximum output tokens, and
-temperature. A marker policy owns its exact marker, candidate self-check
+profile can include a system-prompt source, maximum output tokens, temperature,
+and reasoning effort. A marker policy owns its exact marker, candidate self-check
 suffix, and escalation prefix.
 
 Shipped strategy and prompt names describe reusable task/output contracts,
