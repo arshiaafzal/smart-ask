@@ -39,7 +39,7 @@ To use the bundled first-party OpenAI Codex cascade instead:
 ```bash
 export OPENAI_API_KEY="sk-..."
 ./scripts/claude-smart-ask \
-  builtin:python-code-generation-codex-cascade
+  --strategy python-code-generation-codex-cascade
 ```
 
 The general launcher creates a private adapter configuration, selects its

@@ -102,7 +102,8 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             run = subprocess.run(
                 [
                     str(LAUNCHER),
-                    "builtin:python-code-generation-codex-cascade",
+                    "--strategy",
+                    "python-code-generation-codex-cascade",
                     "-p",
                     "hello",
                 ],

@@ -179,7 +179,7 @@ The general launcher generates that adapter configuration automatically:
 ```bash
 export OPENAI_API_KEY="sk-..."
 ./scripts/claude-smart-ask \
-  builtin:python-code-generation-codex-cascade
+  --strategy python-code-generation-codex-cascade
 ```
 
 Any additional arguments are passed to Claude Code, for example

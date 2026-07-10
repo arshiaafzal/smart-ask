@@ -6,16 +6,16 @@ of the `smart_ask` Python package or its external protocol adapters.
 
 ## `claude-smart-ask`
 
-`claude-smart-ask` is the general one-command Claude Code launcher. Give it any
-bundled or custom strategy reference followed by normal Claude Code arguments:
+`claude-smart-ask` is the general one-command Claude Code launcher. Give it a
+strategy name from `smart_ask/resources/strategies/`, followed by normal Claude
+Code arguments:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
 ./scripts/claude-smart-ask \
-  builtin:python-code-generation-codex-cascade
+  --strategy python-code-generation-codex-cascade
 
-./scripts/claude-smart-ask builtin:local-qwen -p "hello"
-./scripts/claude-smart-ask ./my-strategy.yaml --dangerously-skip-permissions
+./scripts/claude-smart-ask --strategy local-qwen -p "hello"
 ```
 
 For each invocation it:
@@ -37,7 +37,7 @@ process. It automatically generates loopback authentication and writes metrics
 to `benchmark-results/claude-code/strategy-runs.jsonl` by default.
 
 The launcher intentionally does not start provider-specific services. For
-`builtin:local-qwen`, run `ollama serve` first or use the specialized
+`local-qwen`, run `ollama serve` first or use the specialized
 `claude-local-qwen` launcher below. For an OpenAI strategy, export the configured
 OpenAI key before starting it.
 
