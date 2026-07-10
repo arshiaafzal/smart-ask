@@ -34,6 +34,22 @@ The example uses `builtin:local-qwen`, so it makes no OpenRouter request and
 requires no OpenRouter credential. Add another strategy reference to the
 adapter YAML to expose another `claude-smart-ask-{yaml-stem}` alias.
 
+To use the bundled first-party OpenAI Codex cascade instead:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export SMART_ASK_CLAUDE_CODE_TOKEN="local-secret"
+smart-ask-claude-code serve --config claude-code-openai-codex.example.yaml
+
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+export ANTHROPIC_API_KEY="$SMART_ASK_CLAUDE_CODE_TOKEN"
+claude --model claude-smart-ask-python-code-generation-codex-cascade
+```
+
+The adapter still knows only the strategy alias. SmartAsk reads the YAML and
+uses `OPENAI_API_KEY`; the Claude Code process never selects or calls the two
+underlying Codex models itself.
+
 When `metrics.jsonl_path` is configured, the adapter appends the prompt-free run
 and session metrics envelopes produced by SmartAsk. It does not calculate or
 reinterpret provider usage itself.

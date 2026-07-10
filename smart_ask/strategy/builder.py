@@ -18,6 +18,8 @@ from ..executors import (
     ModelExecutor,
     OllamaExecutor,
     OllamaConversationExecutor,
+    OpenAIExecutor,
+    OpenAIConversationExecutor,
     OpenRouterExecutor,
     OpenRouterConversationExecutor,
 )
@@ -41,12 +43,16 @@ from .schema import (
     LLMClassifierConfig,
     ModelProfileConfig,
     OllamaExecutorConfig,
+    OpenAIConnectionConfig,
+    OpenAIExecutorConfig,
     OpenRouterConnectionConfig,
     OpenRouterExecutorConfig,
 )
 
 OpenRouterClientFactory = Callable[[str, str], Any]
 OpenRouterConversationClientFactory = Callable[[str, str], httpx.AsyncClient]
+OpenAIClientFactory = Callable[[str, str], Any]
+OpenAIConversationClientFactory = Callable[[str, str], httpx.AsyncClient]
 
 
 class StrategyBuilder:
@@ -56,6 +62,8 @@ class StrategyBuilder:
         "_env",
         "_openrouter_client_factory",
         "_openrouter_conversation_client_factory",
+        "_openai_client_factory",
+        "_openai_conversation_client_factory",
         "_hermes_runner",
         "_stats_collector",
         "_clients",
@@ -69,6 +77,10 @@ class StrategyBuilder:
         openrouter_client_factory: OpenRouterClientFactory | None = None,
         openrouter_conversation_client_factory: (
             OpenRouterConversationClientFactory | None
+        ) = None,
+        openai_client_factory: OpenAIClientFactory | None = None,
+        openai_conversation_client_factory: (
+            OpenAIConversationClientFactory | None
         ) = None,
         hermes_runner: Callable[..., Any] | None = None,
         stats_collector: StatsCollector | None = None,
@@ -85,6 +97,15 @@ class StrategyBuilder:
         ):
             raise TypeError(
                 "openrouter_conversation_client_factory must be callable or None"
+            )
+        if openai_client_factory is not None and not callable(openai_client_factory):
+            raise TypeError("openai_client_factory must be callable or None")
+        if (
+            openai_conversation_client_factory is not None
+            and not callable(openai_conversation_client_factory)
+        ):
+            raise TypeError(
+                "openai_conversation_client_factory must be callable or None"
             )
         if hermes_runner is not None and not callable(hermes_runner):
             raise TypeError("hermes_runner must be callable or None")
@@ -110,6 +131,16 @@ class StrategyBuilder:
             if openrouter_conversation_client_factory is None
             else openrouter_conversation_client_factory
         )
+        self._openai_client_factory = (
+            self._default_openai_client
+            if openai_client_factory is None
+            else openai_client_factory
+        )
+        self._openai_conversation_client_factory = (
+            self._default_openai_conversation_client
+            if openai_conversation_client_factory is None
+            else openai_conversation_client_factory
+        )
         self._hermes_runner = (
             subprocess.run if hermes_runner is None else hermes_runner
         )
@@ -118,8 +149,8 @@ class StrategyBuilder:
             if stats_collector is not None
             else StatsCollector(price_catalog=DEFAULT_PRICE_CATALOG)
         )
-        self._clients: dict[tuple[str, str], Any] = {}
-        self._conversation_clients: dict[tuple[str, str], httpx.AsyncClient] = {}
+        self._clients: dict[tuple[str, ...], Any] = {}
+        self._conversation_clients: dict[tuple[str, ...], httpx.AsyncClient] = {}
 
     @property
     def stats_collector(self) -> StatsCollector:
@@ -146,6 +177,27 @@ class StrategyBuilder:
             timeout=httpx.Timeout(300.0),
         )
 
+    @staticmethod
+    def _default_openai_client(base_url: str, api_key: str):
+        try:
+            from openai import OpenAI
+        except ImportError as exc:
+            raise StrategyBuildError(
+                "the openai package is required for OpenAI strategies"
+            ) from exc
+        return OpenAI(base_url=base_url, api_key=api_key)
+
+    @staticmethod
+    def _default_openai_conversation_client(
+        base_url: str,
+        api_key: str,
+    ) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=base_url.rstrip("/"),
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=httpx.Timeout(300.0),
+        )
+
     def _openrouter_client(
         self,
         config: OpenRouterConnectionConfig,
@@ -155,7 +207,7 @@ class StrategyBuilder:
             raise StrategyBuildError(
                 f"required environment variable {config.api_key_env} is not set"
             )
-        key = (config.base_url, api_key)
+        key = ("openrouter", config.base_url, api_key)
         if key not in self._clients:
             self._clients[key] = self._openrouter_client_factory(
                 config.base_url,
@@ -172,7 +224,7 @@ class StrategyBuilder:
             raise StrategyBuildError(
                 f"required environment variable {config.api_key_env} is not set"
             )
-        key = (config.base_url, api_key)
+        key = ("openrouter", config.base_url, api_key)
         if key not in self._conversation_clients:
             client = self._openrouter_conversation_client_factory(
                 config.base_url,
@@ -182,6 +234,42 @@ class StrategyBuilder:
                 raise TypeError(
                     "openrouter conversation client factory must return "
                     "httpx.AsyncClient"
+                )
+            self._conversation_clients[key] = client
+        return self._conversation_clients[key]
+
+    def _openai_client(self, config: OpenAIConnectionConfig):
+        api_key = self._env.get(config.api_key_env, "")
+        if not api_key.strip():
+            raise StrategyBuildError(
+                f"required environment variable {config.api_key_env} is not set"
+            )
+        key = ("openai", config.base_url, api_key)
+        if key not in self._clients:
+            self._clients[key] = self._openai_client_factory(
+                config.base_url,
+                api_key,
+            )
+        return self._clients[key]
+
+    def _openai_conversation_client(
+        self,
+        config: OpenAIConnectionConfig,
+    ) -> httpx.AsyncClient:
+        api_key = self._env.get(config.api_key_env, "")
+        if not api_key.strip():
+            raise StrategyBuildError(
+                f"required environment variable {config.api_key_env} is not set"
+            )
+        key = ("openai", config.base_url, api_key)
+        if key not in self._conversation_clients:
+            client = self._openai_conversation_client_factory(
+                config.base_url,
+                api_key,
+            )
+            if not isinstance(client, httpx.AsyncClient):
+                raise TypeError(
+                    "openai conversation client factory must return httpx.AsyncClient"
                 )
             self._conversation_clients[key] = client
         return self._conversation_clients[key]
@@ -212,6 +300,12 @@ class StrategyBuilder:
                 default_max_tokens=config.defaults.max_tokens,
                 temperature=config.defaults.temperature,
             )
+        if isinstance(config, OpenAIExecutorConfig):
+            return OpenAIExecutor(
+                self._openai_client(config),
+                default_max_tokens=config.defaults.max_tokens,
+                reasoning_effort=config.defaults.reasoning_effort,
+            )
         raise StrategyBuildError(f"unsupported executor configuration: {config}")
 
     def _build_generation_executor(
@@ -226,6 +320,7 @@ class StrategyBuilder:
         system_prompts = {}
         max_tokens = {}
         temperatures = {}
+        reasoning_efforts = {}
         for profile in profiles:
             if profile.system_prompt is not None:
                 system_prompts[profile.model] = loaded.resolve_prompt(profile.system_prompt)
@@ -233,6 +328,10 @@ class StrategyBuilder:
                 max_tokens[profile.model] = profile.parameters.max_tokens
             if profile.parameters.temperature is not None:
                 temperatures[profile.model] = profile.parameters.temperature
+            if profile.parameters.reasoning_effort is not None:
+                reasoning_efforts[profile.model] = (
+                    profile.parameters.reasoning_effort
+                )
         if isinstance(config, OllamaExecutorConfig):
             return OllamaExecutor(
                 base_url=config.base_url,
@@ -253,6 +352,15 @@ class StrategyBuilder:
                 default_max_tokens=config.defaults.max_tokens,
                 temperature=config.defaults.temperature,
             )
+        if isinstance(config, OpenAIExecutorConfig):
+            return OpenAIExecutor(
+                self._openai_client(config),
+                system_prompts=system_prompts,
+                max_tokens=max_tokens,
+                reasoning_efforts=reasoning_efforts,
+                default_max_tokens=config.defaults.max_tokens,
+                reasoning_effort=config.defaults.reasoning_effort,
+            )
         raise StrategyBuildError(f"unsupported generation configuration: {config}")
 
     def _build_classifier(
@@ -260,11 +368,24 @@ class StrategyBuilder:
         loaded: LoadedStrategy,
         config: LLMClassifierConfig,
     ) -> LLMDifficultyClassifier:
-        executor = OpenRouterExecutor(
-            self._openrouter_client(config.executor),
-            default_max_tokens=config.parameters.max_tokens,
-            temperature=config.parameters.temperature,
-        )
+        if isinstance(config.executor, OpenRouterConnectionConfig):
+            executor = OpenRouterExecutor(
+                self._openrouter_client(config.executor),
+                default_max_tokens=config.parameters.max_tokens,
+                temperature=config.parameters.temperature,
+            )
+        elif isinstance(config.executor, OpenAIConnectionConfig):
+            executor = OpenAIExecutor(
+                self._openai_client(config.executor),
+                default_max_tokens=config.parameters.max_tokens,
+                reasoning_effort=(
+                    config.parameters.reasoning_effort or "low"
+                ),
+            )
+        else:
+            raise StrategyBuildError(
+                f"unsupported classifier executor: {config.executor}"
+            )
         return LLMDifficultyClassifier(
             executor,
             stats_collector=self._stats_collector,
@@ -321,6 +442,12 @@ class StrategyBuilder:
                 self._openrouter_conversation_client(generation),
                 default_max_tokens=generation.defaults.max_tokens,
                 temperature=generation.defaults.temperature,
+            )
+        elif isinstance(generation, OpenAIExecutorConfig):
+            executor = OpenAIConversationExecutor(
+                self._openai_conversation_client(generation),
+                default_max_tokens=generation.defaults.max_tokens,
+                reasoning_effort=generation.defaults.reasoning_effort,
             )
         else:
             raise StrategyBuildError(

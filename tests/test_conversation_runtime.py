@@ -15,6 +15,7 @@ from smart_ask.conversation import (
 )
 from smart_ask.executors import (
     OllamaConversationExecutor,
+    OpenAIConversationExecutor,
     OpenRouterConversationExecutor,
 )
 from smart_ask.strategy import StrategyBuilder, load_strategy
@@ -507,6 +508,60 @@ class OpenRouterConversationExecutorTests(unittest.IsolatedAsyncioTestCase):
         )
         await runtime.aclose()
         self.assertTrue(client.is_closed)
+
+
+class OpenAIConversationExecutorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_uses_openai_token_and_reasoning_fields(self):
+        observed = {}
+
+        async def handler(http_request):
+            observed["body"] = json.loads(http_request.content)
+            data = (
+                b'data: {"model":"gpt-5.3-codex","choices":[{"delta":'
+                b'{"content":"ok"},"finish_reason":"stop"}]}\n\n'
+                b'data: {"choices":[],"usage":{"prompt_tokens":9,'
+                b'"completion_tokens":4,"total_tokens":13,'
+                b'"completion_tokens_details":{"reasoning_tokens":2}}}\n\n'
+                b'data: [DONE]\n\n'
+            )
+            return httpx.Response(200, content=data)
+
+        client = httpx.AsyncClient(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.openai.test/v1",
+        )
+        self.addAsyncCleanup(client.aclose)
+        executor = OpenAIConversationExecutor(
+            client,
+            default_max_tokens=8192,
+            reasoning_effort="medium",
+        )
+        conversation = request(
+            tools=({
+                "name": "read",
+                "description": "read a file",
+                "input_schema": {"type": "object"},
+            },)
+        ).with_parameters({
+            "reasoning_effort": "high",
+            "tool_choice": {"type": "tool", "name": "read"},
+        })
+
+        events = [event async for event in executor.stream(
+            ConversationExecutionRequest("gpt-5.3-codex", "writer", conversation)
+        )]
+
+        body = observed["body"]
+        self.assertEqual(body["max_completion_tokens"], 100)
+        self.assertEqual(body["reasoning_effort"], "high")
+        self.assertNotIn("max_tokens", body)
+        self.assertNotIn("temperature", body)
+        self.assertEqual(body["tool_choice"], {
+            "type": "function",
+            "function": {"name": "read"},
+        })
+        usage_event = next(event for event in events if event.kind == "usage")
+        self.assertEqual(usage_event.data["reasoning_tokens"], 2)
 
 
 if __name__ == "__main__":

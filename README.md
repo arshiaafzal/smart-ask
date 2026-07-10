@@ -64,6 +64,7 @@ OpenRouter generation, as the shipped direct-execution strategies do.
 - Python 3.11+
 - Hermes for strategies whose generation executor is `hermes`
 - An OpenRouter API key for any OpenRouter classifier or generation executor
+- An OpenAI API key for any first-party OpenAI classifier or generation executor
 
 The project declares its runtime dependencies—OpenAI, Pydantic, and PyYAML—in
 [`pyproject.toml`](pyproject.toml). From the repository root, install the exact
@@ -84,10 +85,12 @@ python3.11 -m pip install -e ./integrations/claude_code
 ```
 
 Configure the credential named by the strategy, which is
-`OPENROUTER_API_KEY` in all shipped OpenRouter configurations:
+`OPENROUTER_API_KEY` in OpenRouter configurations or `OPENAI_API_KEY` in
+first-party OpenAI configurations:
 
 ```bash
 export OPENROUTER_API_KEY="sk-or-..."
+export OPENAI_API_KEY="sk-..."
 ```
 
 If that environment's `bin` directory is on `PATH`, verify the installed
@@ -129,6 +132,9 @@ claude-smart-ask-python-code-generation-cascade
 
 claude-smart-ask-python-code-generation-fixed-opus
   -> builtin:python-code-generation-fixed-opus
+
+claude-smart-ask-python-code-generation-codex-cascade
+  -> builtin:python-code-generation-codex-cascade
 ```
 
 Install both packages from a checkout, make sure Ollama is running, and copy or
@@ -158,6 +164,15 @@ claude --model claude-smart-ask-local-qwen
 The example exposes `builtin:local-qwen`, so this path needs no OpenRouter key.
 An OpenRouter credential is required only when the selected YAML configures an
 OpenRouter classifier or generation executor.
+
+For the first-party Codex cascade, use
+[`claude-code-openai-codex.example.yaml`](claude-code-openai-codex.example.yaml),
+set `OPENAI_API_KEY`, and select
+`claude-smart-ask-python-code-generation-codex-cascade`. The strategy uses
+`gpt-5.1-codex-mini` for classification and easy work, then
+`gpt-5.3-codex` for hard work and escalations. OpenAI currently marks the mini
+model deprecated; this strategy intentionally retains it as the requested old,
+small Codex tier.
 
 The adapter implements messages, streaming, token counting, model discovery,
 authentication, request limits, and concurrency limits. It preserves tools,
@@ -347,9 +362,10 @@ generation:
 
 Supported method types are `difficulty`, `cascade`, and `fixed`. The supported
 collaborators are an `llm` difficulty classifier and `marker` escalation
-policy. Generation and classification can use `openrouter`; one-shot generation
-can also use `hermes`. Model profiles can supply system prompts, maximum output
-tokens, and temperature where the selected executor supports them. A `fixed`
+policy. Generation and classification can use `openrouter` or the first-party
+`openai` executor; one-shot generation can also use `hermes`. Model profiles
+can supply system prompts, maximum output tokens, temperature, and reasoning
+effort where the selected executor supports them. A `fixed`
 method may also declare `prompt_prefix` and `prompt_suffix`; this lets a
 counterfactual baseline reproduce the exact user-prompt transform used by a
 routed call.
@@ -372,6 +388,8 @@ Shipped configurations are addressable after installation as:
 - `builtin:python-code-generation-cascade` and
   `builtin:python-code-generation-fixed-gemini-self-check` and
   `builtin:python-code-generation-fixed-opus`
+- `builtin:python-code-generation-codex-cascade` — direct OpenAI Codex
+  small-to-large cascade
 
 Reusable strategy and prompt names describe their task/output contract rather
 than the benchmark that happens to exercise them. The same strategy can be

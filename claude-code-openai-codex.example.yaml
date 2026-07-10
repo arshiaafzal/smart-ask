@@ -1,0 +1,23 @@
+schema_version: 1
+
+listen:
+  host: 127.0.0.1
+  port: 8787
+
+auth:
+  token_env: SMART_ASK_CLAUDE_CODE_TOKEN
+  required_on_loopback: true
+
+strategies:
+  - builtin:python-code-generation-codex-cascade
+
+limits:
+  max_request_bytes: 33554432
+  max_concurrent_requests: 32
+  max_output_tokens: 65536
+
+metrics:
+  jsonl_path: benchmark-results/claude-code/openai-codex-metrics.jsonl
+
+security:
+  allowed_strategy_roots: []

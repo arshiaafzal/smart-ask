@@ -204,6 +204,10 @@ class ConversationRuntime:
             parameter_updates["max_tokens"] = profile.parameters.max_tokens
         if profile.parameters.temperature is not None:
             parameter_updates["temperature"] = profile.parameters.temperature
+        if profile.parameters.reasoning_effort is not None:
+            parameter_updates["reasoning_effort"] = (
+                profile.parameters.reasoning_effort
+            )
         if parameter_updates:
             prepared = prepared.with_parameters(parameter_updates)
         method = self._loaded.config.method

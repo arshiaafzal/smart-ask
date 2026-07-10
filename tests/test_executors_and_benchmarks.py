@@ -8,7 +8,7 @@ import unittest
 from smart_ask.benchmarks.code_output import extract_code
 from smart_ask.benchmarks.humaneval.harness import run_tests
 from smart_ask import ExecutionRequest, StrategyBuilder, Task, load_strategy
-from smart_ask.executors import HermesExecutor, OpenRouterExecutor
+from smart_ask.executors import HermesExecutor, OpenAIExecutor, OpenRouterExecutor
 
 from tests.helpers import FakeClient, response, usage
 
@@ -115,6 +115,33 @@ class ExecutorTests(unittest.TestCase):
         ])
         self.assertEqual(call["max_tokens"], 20)
         self.assertEqual(call["temperature"], 0)
+
+    def test_openai_executor_uses_native_reasoning_request_fields(self):
+        client = FakeClient([
+            response("answer", usage(12, 7), model="gpt-5.3-codex")
+        ])
+        executor = OpenAIExecutor(
+            client,
+            reasoning_efforts={"gpt-5.3-codex": "high"},
+            default_max_tokens=8192,
+            reasoning_effort="medium",
+        )
+
+        result = executor.execute(ExecutionRequest(
+            "gpt-5.3-codex",
+            "prompt",
+            "writer",
+            max_tokens=2048,
+            temperature=0,
+        ))
+
+        self.assertEqual(result.model, "gpt-5.3-codex")
+        self.assertIsNone(result.provider_cost_usd)
+        call = client.completions.calls[0]
+        self.assertEqual(call["max_completion_tokens"], 2048)
+        self.assertEqual(call["reasoning_effort"], "high")
+        self.assertNotIn("max_tokens", call)
+        self.assertNotIn("temperature", call)
 
     def test_openrouter_preserves_provider_text(self):
         text = "```python\ncode\n```\nexplanation"

@@ -7,6 +7,8 @@ from .ollama import (
     OllamaExecutor,
     UnsupportedConversationFeature,
 )
+from .openai import OpenAIExecutor
+from .openai_conversation import OpenAIConversationExecutor
 from .openrouter import OpenRouterExecutor
 from .openrouter_conversation import OpenRouterConversationExecutor
 
@@ -15,6 +17,8 @@ __all__ = [
     "ModelExecutor",
     "OllamaConversationExecutor",
     "OllamaExecutor",
+    "OpenAIConversationExecutor",
+    "OpenAIExecutor",
     "OpenRouterExecutor",
     "OpenRouterConversationExecutor",
     "UnsupportedConversationFeature",

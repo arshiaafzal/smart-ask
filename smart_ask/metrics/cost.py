@@ -167,11 +167,14 @@ class PriceQuote:
         }
 
 
-# Per-token prices captured from OpenRouter on 2026-07-01.
+# Per-token prices captured from the named providers on 2026-07-10.
 DEFAULT_PRICE_CATALOG = PriceCatalog(
-    catalog_id="openrouter-2026-07-01",
-    effective_date="2026-07-01",
-    source="https://openrouter.ai/api/v1/models",
+    catalog_id="provider-pricing-2026-07-10",
+    effective_date="2026-07-10",
+    source=(
+        "https://openrouter.ai/api/v1/models; "
+        "https://developers.openai.com/api/docs/models/all"
+    ),
     prices={
         "google/gemini-2.5-flash-lite": {
             "input": 0.0000001,
@@ -185,6 +188,16 @@ DEFAULT_PRICE_CATALOG = PriceCatalog(
             "output": 0.000025,
             "input_cache_read": 0.0000005,
             "input_cache_write": 0.00000625,
+        },
+        "gpt-5.1-codex-mini": {
+            "input": 0.00000025,
+            "output": 0.000002,
+            "input_cache_read": 0.000000025,
+        },
+        "gpt-5.3-codex": {
+            "input": 0.00000175,
+            "output": 0.000014,
+            "input_cache_read": 0.000000175,
         },
     },
 )

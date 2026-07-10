@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
 
 
 class ConfigModel(BaseModel):
@@ -62,6 +64,7 @@ PromptConfig = Annotated[
 class ModelParametersConfig(ConfigModel):
     max_tokens: int | None = Field(default=None, gt=0)
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    reasoning_effort: ReasoningEffort | None = None
 
 
 class OpenRouterDefaultsConfig(ConfigModel):
@@ -72,6 +75,7 @@ class OpenRouterDefaultsConfig(ConfigModel):
 class ClassifierParametersConfig(ConfigModel):
     max_tokens: int = Field(default=20, gt=0)
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+    reasoning_effort: ReasoningEffort | None = None
 
 
 class ModelProfileConfig(ConfigModel):
@@ -120,6 +124,42 @@ class OpenRouterExecutorConfig(OpenRouterConnectionConfig):
     )
 
 
+class OpenAIConnectionConfig(ConfigModel):
+    """Connection settings for the first-party OpenAI API."""
+
+    type: Literal["openai"]
+    base_url: str = DEFAULT_OPENAI_BASE_URL
+    api_key_env: str = "OPENAI_API_KEY"
+
+    @field_validator("base_url")
+    @classmethod
+    def base_url_must_be_http(cls, value: str) -> str:
+        if not value or value != value.strip():
+            raise ValueError("base_url must be non-empty and trimmed")
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError("base_url must be an absolute HTTP(S) URL")
+        return value
+
+    @field_validator("api_key_env")
+    @classmethod
+    def env_name_must_be_valid(cls, value: str) -> str:
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+            raise ValueError("api_key_env must be a valid environment-variable name")
+        return value
+
+
+class OpenAIDefaultsConfig(ConfigModel):
+    max_tokens: int = Field(default=8192, gt=0)
+    reasoning_effort: ReasoningEffort = "medium"
+
+
+class OpenAIExecutorConfig(OpenAIConnectionConfig):
+    """First-party OpenAI generation settings."""
+
+    defaults: OpenAIDefaultsConfig = Field(default_factory=OpenAIDefaultsConfig)
+
+
 class OllamaExecutorConfig(ConfigModel):
     """Native local Ollama chat transport with no provider credential."""
 
@@ -156,7 +196,15 @@ class HermesExecutorConfig(ConfigModel):
 
 
 ExecutorConfig = Annotated[
-    OpenRouterExecutorConfig | OllamaExecutorConfig | HermesExecutorConfig,
+    OpenRouterExecutorConfig
+    | OpenAIExecutorConfig
+    | OllamaExecutorConfig
+    | HermesExecutorConfig,
+    Field(discriminator="type"),
+]
+
+ModelConnectionConfig = Annotated[
+    OpenRouterConnectionConfig | OpenAIConnectionConfig,
     Field(discriminator="type"),
 ]
 
@@ -164,7 +212,7 @@ ExecutorConfig = Annotated[
 class LLMClassifierConfig(ConfigModel):
     type: Literal["llm"]
     model: str
-    executor: OpenRouterConnectionConfig
+    executor: ModelConnectionConfig
     prompt: PromptConfig
     fallback: Literal["easy", "hard", "raise"]
     max_prompt_chars: int = Field(default=1200, gt=0)
@@ -265,8 +313,26 @@ class StrategyConfig(ConfigModel):
                 if (
                     profile.parameters.max_tokens is not None
                     or profile.parameters.temperature is not None
+                    or profile.parameters.reasoning_effort is not None
                 ):
                     raise ValueError("Hermes generation does not support model tuning parameters")
+
+        if not isinstance(self.generation, OpenAIExecutorConfig):
+            for profile in self.model_profiles:
+                if profile.parameters.reasoning_effort is not None:
+                    raise ValueError(
+                        "reasoning_effort requires an OpenAI generation executor"
+                    )
+
+        classifier = getattr(self.method, "classifier", None)
+        if (
+            classifier is not None
+            and classifier.parameters.reasoning_effort is not None
+            and not isinstance(classifier.executor, OpenAIConnectionConfig)
+        ):
+            raise ValueError(
+                "classifier reasoning_effort requires an OpenAI executor"
+            )
 
         profiles = self.model_profiles
         if len(profiles) == 2 and profiles[0].model == profiles[1].model:

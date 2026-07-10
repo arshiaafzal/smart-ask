@@ -32,6 +32,9 @@ smart-ask --validate-strategy
 # Check the credential used by shipped OpenRouter configurations.
 test -n "$OPENROUTER_API_KEY" && echo "OpenRouter key is set"
 
+# Check the credential used by first-party OpenAI configurations.
+test -n "$OPENAI_API_KEY" && echo "OpenAI key is set"
+
 # Required when the selected strategy uses Hermes generation.
 hermes --version
 ```
@@ -80,6 +83,8 @@ Every advertised alias identifies exactly one YAML. The external adapter only
 translates the wire protocol; SmartAsk selects and invokes the backend from the
 strategy. `builtin:local-qwen` therefore needs Ollama but no OpenRouter key.
 OpenRouter credentials are needed only for strategies that configure it.
+The bundled `python-code-generation-codex-cascade` instead uses
+`OPENAI_API_KEY` with a small-to-large first-party Codex model pair.
 
 ## Choosing a route
 

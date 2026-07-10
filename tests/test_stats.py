@@ -713,6 +713,27 @@ class StatisticsTests(unittest.TestCase):
         self.assertAlmostEqual(opus_read.cost_usd, 0.00005)
         self.assertAlmostEqual(opus_write.cost_usd, 0.000625)
 
+        codex_mini = price_usage(
+            "gpt-5.1-codex-mini",
+            TokenUsage(
+                prompt_tokens=100,
+                completion_tokens=10,
+                cached_input_tokens=0,
+            ),
+            DEFAULT_PRICE_CATALOG,
+        )
+        codex_large = price_usage(
+            "gpt-5.3-codex",
+            TokenUsage(
+                prompt_tokens=100,
+                completion_tokens=10,
+                cached_input_tokens=0,
+            ),
+            DEFAULT_PRICE_CATALOG,
+        )
+        self.assertAlmostEqual(codex_mini.cost_usd, 0.000045)
+        self.assertAlmostEqual(codex_large.cost_usd, 0.000315)
+
     def test_catalog_arithmetic_overflow_is_a_pricing_error(self):
         quote = price_usage(
             "model",
