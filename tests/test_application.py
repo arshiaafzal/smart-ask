@@ -12,6 +12,7 @@ from smart_ask.domain import (
 )
 from smart_ask.metrics import StatsCollector
 from smart_ask.methods import DifficultyRoutingMethod, LLMDifficultyClassifier
+from smart_ask.routing import SmartRouter
 
 
 class OneShotMethod:
@@ -90,6 +91,54 @@ class ClassifierExecutor(UsageExecutor):
 
 
 class ApplicationTests(unittest.TestCase):
+    def test_router_plans_without_generation_and_returns_stats(self):
+        collector = StatsCollector()
+        classifier = LLMDifficultyClassifier(
+            ClassifierExecutor(),
+            stats_collector=collector,
+            model="classifier-model",
+            prompt_prefix="Classify:\n",
+            fallback="raise",
+            max_prompt_chars=1200,
+            max_tokens=20,
+            temperature=0.0,
+        )
+        router = SmartRouter(
+            DifficultyRoutingMethod(
+                classifier,
+                easy_model="easy-model",
+                hard_model="hard-model",
+            ),
+            max_attempts=1,
+            strategy_id="router-strategy",
+            stats_collector=collector,
+        )
+
+        route, stats = router.plan_with_stats(Task("hello", task_id="turn-1"))
+
+        self.assertEqual(route.model, "easy-model")
+        self.assertEqual(stats.task_id, "turn-1")
+        self.assertEqual(stats.strategy_id, "router-strategy")
+        self.assertEqual(stats.interaction_count, 1)
+        self.assertEqual(stats.generation_attempts, 0)
+        self.assertEqual(stats.calls[0].channel, "classifier")
+
+    def test_application_can_compose_an_existing_router(self):
+        collector = StatsCollector()
+        router = SmartRouter(
+            OneShotMethod(),
+            max_attempts=1,
+            strategy_id="router-strategy",
+            stats_collector=collector,
+        )
+
+        app = SmartAsk.from_router(router, UsageExecutor())
+        result, stats = app.run_with_stats(Task("hello"))
+
+        self.assertIs(app.router, router)
+        self.assertEqual(result.text, "answer")
+        self.assertEqual(stats.total_tokens, 10)
+
     def test_application_requires_an_explicit_positive_attempt_limit(self):
         with self.assertRaisesRegex(ValueError, "positive integer"):
             SmartAsk(OneShotMethod(), RecordingExecutor(), max_attempts=True)

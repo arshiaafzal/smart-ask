@@ -8,8 +8,19 @@ import subprocess
 from types import MappingProxyType
 from typing import Any, Literal
 
+import httpx
+
 from ..application import SmartAsk
-from ..executors import HermesExecutor, ModelExecutor, OpenRouterExecutor
+from ..conversation.metrics import ConversationMetricsStore
+from ..conversation.runtime import ConversationRuntime
+from ..executors import (
+    HermesExecutor,
+    ModelExecutor,
+    OllamaExecutor,
+    OllamaConversationExecutor,
+    OpenRouterExecutor,
+    OpenRouterConversationExecutor,
+)
 from ..metrics import DEFAULT_PRICE_CATALOG, StatsCollector
 from ..methods import (
     CascadeRoutingMethod,
@@ -18,6 +29,7 @@ from ..methods import (
     LLMDifficultyClassifier,
     MarkerEscalationPolicy,
 )
+from ..routing import SmartRouter
 from .errors import StrategyBuildError
 from .loader import LoadedStrategy
 from .schema import (
@@ -28,11 +40,13 @@ from .schema import (
     HermesExecutorConfig,
     LLMClassifierConfig,
     ModelProfileConfig,
+    OllamaExecutorConfig,
     OpenRouterConnectionConfig,
     OpenRouterExecutorConfig,
 )
 
 OpenRouterClientFactory = Callable[[str, str], Any]
+OpenRouterConversationClientFactory = Callable[[str, str], httpx.AsyncClient]
 
 
 class StrategyBuilder:
@@ -41,9 +55,11 @@ class StrategyBuilder:
     __slots__ = (
         "_env",
         "_openrouter_client_factory",
+        "_openrouter_conversation_client_factory",
         "_hermes_runner",
         "_stats_collector",
         "_clients",
+        "_conversation_clients",
     )
 
     def __init__(
@@ -51,6 +67,9 @@ class StrategyBuilder:
         *,
         env: Mapping[str, str] | None = None,
         openrouter_client_factory: OpenRouterClientFactory | None = None,
+        openrouter_conversation_client_factory: (
+            OpenRouterConversationClientFactory | None
+        ) = None,
         hermes_runner: Callable[..., Any] | None = None,
         stats_collector: StatsCollector | None = None,
     ):
@@ -60,6 +79,13 @@ class StrategyBuilder:
             openrouter_client_factory
         ):
             raise TypeError("openrouter_client_factory must be callable or None")
+        if (
+            openrouter_conversation_client_factory is not None
+            and not callable(openrouter_conversation_client_factory)
+        ):
+            raise TypeError(
+                "openrouter_conversation_client_factory must be callable or None"
+            )
         if hermes_runner is not None and not callable(hermes_runner):
             raise TypeError("hermes_runner must be callable or None")
         if stats_collector is not None and not isinstance(
@@ -79,6 +105,11 @@ class StrategyBuilder:
             if openrouter_client_factory is None
             else openrouter_client_factory
         )
+        self._openrouter_conversation_client_factory = (
+            self._default_openrouter_conversation_client
+            if openrouter_conversation_client_factory is None
+            else openrouter_conversation_client_factory
+        )
         self._hermes_runner = (
             subprocess.run if hermes_runner is None else hermes_runner
         )
@@ -88,6 +119,7 @@ class StrategyBuilder:
             else StatsCollector(price_catalog=DEFAULT_PRICE_CATALOG)
         )
         self._clients: dict[tuple[str, str], Any] = {}
+        self._conversation_clients: dict[tuple[str, str], httpx.AsyncClient] = {}
 
     @property
     def stats_collector(self) -> StatsCollector:
@@ -102,6 +134,17 @@ class StrategyBuilder:
                 "the openai package is required for OpenRouter strategies"
             ) from exc
         return OpenAI(base_url=base_url, api_key=api_key)
+
+    @staticmethod
+    def _default_openrouter_conversation_client(
+        base_url: str,
+        api_key: str,
+    ) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=base_url.rstrip("/"),
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=httpx.Timeout(300.0),
+        )
 
     def _openrouter_client(
         self,
@@ -120,6 +163,29 @@ class StrategyBuilder:
             )
         return self._clients[key]
 
+    def _openrouter_conversation_client(
+        self,
+        config: OpenRouterConnectionConfig,
+    ) -> httpx.AsyncClient:
+        api_key = self._env.get(config.api_key_env, "")
+        if not api_key.strip():
+            raise StrategyBuildError(
+                f"required environment variable {config.api_key_env} is not set"
+            )
+        key = (config.base_url, api_key)
+        if key not in self._conversation_clients:
+            client = self._openrouter_conversation_client_factory(
+                config.base_url,
+                api_key,
+            )
+            if not isinstance(client, httpx.AsyncClient):
+                raise TypeError(
+                    "openrouter conversation client factory must return "
+                    "httpx.AsyncClient"
+                )
+            self._conversation_clients[key] = client
+        return self._conversation_clients[key]
+
     def _build_executor(
         self,
         config: ExecutorConfig,
@@ -131,11 +197,22 @@ class StrategyBuilder:
                 runner=self._hermes_runner,
             )
 
-        return OpenRouterExecutor(
-            self._openrouter_client(config),
-            default_max_tokens=config.defaults.max_tokens,
-            temperature=config.defaults.temperature,
-        )
+        if isinstance(config, OllamaExecutorConfig):
+            return OllamaExecutor(
+                base_url=config.base_url,
+                default_max_tokens=config.defaults.max_tokens,
+                temperature=config.defaults.temperature,
+                think=config.think,
+                timeout_seconds=config.timeout_seconds,
+            )
+
+        if isinstance(config, OpenRouterExecutorConfig):
+            return OpenRouterExecutor(
+                self._openrouter_client(config),
+                default_max_tokens=config.defaults.max_tokens,
+                temperature=config.defaults.temperature,
+            )
+        raise StrategyBuildError(f"unsupported executor configuration: {config}")
 
     def _build_generation_executor(
         self,
@@ -156,14 +233,27 @@ class StrategyBuilder:
                 max_tokens[profile.model] = profile.parameters.max_tokens
             if profile.parameters.temperature is not None:
                 temperatures[profile.model] = profile.parameters.temperature
-        return OpenRouterExecutor(
-            self._openrouter_client(config),
-            system_prompts=system_prompts,
-            max_tokens=max_tokens,
-            temperatures=temperatures,
-            default_max_tokens=config.defaults.max_tokens,
-            temperature=config.defaults.temperature,
-        )
+        if isinstance(config, OllamaExecutorConfig):
+            return OllamaExecutor(
+                base_url=config.base_url,
+                system_prompts=system_prompts,
+                max_tokens=max_tokens,
+                temperatures=temperatures,
+                default_max_tokens=config.defaults.max_tokens,
+                temperature=config.defaults.temperature,
+                think=config.think,
+                timeout_seconds=config.timeout_seconds,
+            )
+        if isinstance(config, OpenRouterExecutorConfig):
+            return OpenRouterExecutor(
+                self._openrouter_client(config),
+                system_prompts=system_prompts,
+                max_tokens=max_tokens,
+                temperatures=temperatures,
+                default_max_tokens=config.defaults.max_tokens,
+                temperature=config.defaults.temperature,
+            )
+        raise StrategyBuildError(f"unsupported generation configuration: {config}")
 
     def _build_classifier(
         self,
@@ -193,6 +283,63 @@ class StrategyBuilder:
     ) -> SmartAsk:
         """Build the configured application, optionally forcing an easy/hard profile."""
 
+        router, profiles = self._build_router_and_profiles(loaded, force)
+        executor = self._build_generation_executor(loaded, profiles)
+        return SmartAsk.from_router(router, executor)
+
+    def build_router(
+        self,
+        loaded: LoadedStrategy,
+        force: Literal["easy", "hard"] | None = None,
+    ) -> SmartRouter:
+        """Build only the strategy's routing policy and collaborators."""
+
+        router, _profiles = self._build_router_and_profiles(loaded, force)
+        return router
+
+    def build_conversation_runtime(
+        self,
+        loaded: LoadedStrategy,
+        force: Literal["easy", "hard"] | None = None,
+        *,
+        metrics: ConversationMetricsStore | None = None,
+    ) -> ConversationRuntime:
+        """Build the complete harness-neutral structured conversation runtime."""
+
+        router, _profiles = self._build_router_and_profiles(loaded, force)
+        generation = loaded.config.generation
+        if isinstance(generation, OllamaExecutorConfig):
+            executor = OllamaConversationExecutor(
+                base_url=generation.base_url,
+                default_max_tokens=generation.defaults.max_tokens,
+                temperature=generation.defaults.temperature,
+                think=generation.think,
+                timeout_seconds=generation.timeout_seconds,
+            )
+        elif isinstance(generation, OpenRouterExecutorConfig):
+            executor = OpenRouterConversationExecutor(
+                self._openrouter_conversation_client(generation),
+                default_max_tokens=generation.defaults.max_tokens,
+                temperature=generation.defaults.temperature,
+            )
+        else:
+            raise StrategyBuildError(
+                f"generation transport {generation.type!r} does not yet expose "
+                "structured conversation execution"
+            )
+        return ConversationRuntime(
+            loaded_strategy=loaded,
+            router=router,
+            executor=executor,
+            metrics=metrics,
+        )
+
+    def _build_router_and_profiles(
+        self,
+        loaded: LoadedStrategy,
+        force: Literal["easy", "hard"] | None,
+    ) -> tuple[SmartRouter, tuple[ModelProfileConfig, ...]]:
+
         if not isinstance(loaded, LoadedStrategy):
             raise TypeError("loaded must be a LoadedStrategy")
         if force not in (None, "easy", "hard"):
@@ -212,14 +359,14 @@ class StrategyBuilder:
                 "generator" if force == "easy" else "writer",
                 label=f"forced-{force}",
             )
-            executor = self._build_generation_executor(loaded, (profile,))
-            return SmartAsk(
+            profiles = (profile,)
+            router = SmartRouter(
                 method,
-                executor,
                 max_attempts=1,
                 strategy_id=config.name,
                 stats_collector=self._stats_collector,
             )
+            return router, profiles
 
         if isinstance(method_config, FixedMethodConfig):
             method = FixedRoutingMethod(
@@ -266,11 +413,10 @@ class StrategyBuilder:
         else:
             raise StrategyBuildError(f"unsupported method configuration: {method_config}")
 
-        executor = self._build_generation_executor(loaded, profiles)
-        return SmartAsk(
+        router = SmartRouter(
             method,
-            executor,
             max_attempts=2 if isinstance(method_config, CascadeMethodConfig) else 1,
             strategy_id=config.name,
             stats_collector=self._stats_collector,
         )
+        return router, profiles

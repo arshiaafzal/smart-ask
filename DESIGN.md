@@ -15,6 +15,9 @@ and which transports execute classifier and generation calls.
 | `ModelExecutor` | Transport adapter that executes an `ExecutionRequest` |
 | `StrategyConfig` | Complete typed YAML composition for one runnable method |
 | `SmartAsk` | Coordinator that loops between a method and generation executor |
+| `SmartRouter` | Routing-only coordinator shared by task and conversation runtimes |
+| `ConversationRuntime` | Harness-neutral structured conversation coordinator |
+| external protocol adapter | Separately packaged translator that consumes `ConversationRuntime` |
 | benchmark suite | Dataset loader and correctness evaluator |
 
 The term “strategy” refers to the complete YAML composition, not the runtime
@@ -29,6 +32,7 @@ Indentation means “belongs to,” not runtime call order.
 ```text
 Shared application library (`smart_ask/`)
 ├── SmartAsk coordinator
+├── SmartRouter routing-only coordinator
 ├── methods
 │   ├── RoutingMethod protocol
 │   ├── DifficultyRoutingMethod
@@ -42,8 +46,14 @@ Shared application library (`smart_ask/`)
 │       └── MarkerEscalationPolicy
 ├── executors
 │   ├── ModelExecutor protocol
+│   ├── ConversationExecutor protocol
 │   ├── HermesExecutor
-│   └── OpenRouterExecutor
+│   ├── OllamaExecutor / OllamaConversationExecutor
+│   └── OpenRouterExecutor / OpenRouterConversationExecutor
+├── conversation runtime
+│   ├── neutral messages, requests, session context, and events
+│   ├── routing, cascade control, and turn state
+│   └── per-attempt, run, session, and model metrics
 ├── strategy configuration
 │   ├── StrategyConfig schema
 │   ├── load_strategy / LoadedStrategy
@@ -60,6 +70,9 @@ Shared application library (`smart_ask/`)
 Application entrypoints
 ├── product CLI (`smart_ask/cli.py`, installed as `smart-ask`)
 └── benchmark modules (`python -m smart_ask.benchmarks.<suite>`)
+
+External integrations
+└── `integrations/claude_code/` → depends on `smart_ask`, never the reverse
 ```
 
 Classifiers and escalation policies are replaceable collaborators inside a
@@ -78,7 +91,7 @@ StrategyConfig
 │   ├── difficulty: classifier + easy/hard model profiles
 │   ├── cascade: classifier + escalation policy + easy/hard profiles
 │   └── fixed: one model profile + required semantic role
-└── generation: OpenRouter or Hermes executor config
+└── generation: OpenRouter, Ollama, or Hermes executor config
 ```
 
 An LLM classifier has its own executor, prompt source, model, prompt-length
@@ -129,13 +142,47 @@ LoadedStrategy
 The builder derives the closed method bound: fixed and difficulty use one
 attempt; cascade uses two. It is not a strategy knob.
 
+`StrategyBuilder.build_router(loaded)` builds the same validated method and
+classifier graph without constructing a generation executor. `SmartAsk` wraps
+that router for direct tasks and benchmarks.
+
+`StrategyBuilder.build_conversation_runtime(loaded)` composes the router with a
+structured executor selected solely from the strategy. The resulting
+`ConversationRuntime` accepts neutral messages, tools, images, parameters, and
+session correlation values. It owns profile transforms, sticky per-turn route
+decisions, physical attempts, cascade buffering/escalation, and metrics.
+
+## External protocol adapters
+
+Protocol-specific servers do not live in `smart_ask`. An integration is a
+downstream package with this dependency direction:
+
+```text
+harness
+  → external protocol adapter
+      → ConversationRuntime
+          → strategy-configured executor
+```
+
+The adapter owns wire decoding/encoding, authentication, discovery, and server
+limits. It maps each public model alias to one strategy reference, then asks
+`StrategyBuilder` for a complete runtime. It does not inspect generation types,
+provider URLs, credentials, cheap/hard model fields, or routing policy.
+
+`integrations/claude_code/` is one such package. It translates its external
+messages and stream into neutral core values. The core never imports this
+package and contains no ASGI routes, SSE framing, or harness-specific headers.
+
+For a conversation request, SmartAsk projects only the latest human text for
+routing while retaining the complete structured conversation for execution.
+Session and agent correlation values keep difficulty/cascade decisions sticky
+through a tool loop. Fixed and difficulty attempts stream directly. A cascade
+streams tool calls immediately; it buffers only final cheap text until the core
+accepts it or replaces it with an escalated attempt.
+
 OpenRouter clients may be shared by endpoint and credential name, but classifier
-and generation executors remain distinct instances so prompts and model
-parameters cannot leak between roles. Builder dependencies—environment, client
-factory, Hermes runner, and one `StatsCollector`—are injectable for offline
-tests and benchmark metrics. `LLMDifficultyClassifier` owns instrumentation of
-its executor; `SmartAsk` exclusively instruments generation. Both require the
-same collector, so each call is counted exactly once.
+and generation executors remain distinct so prompts and parameters cannot leak
+between roles. Builder dependencies remain injectable for network-free tests.
 
 `StrategyBuilder.build(..., force="easy" | "hard")` replaces the configured
 method with `FixedRoutingMethod` using the corresponding configured profile. It
@@ -354,6 +401,12 @@ product CLI / benchmark CLI
 benchmark runner
   → SmartAsk public behavior and BenchmarkSuite contract
   → core metrics plus artifact/comparison modules
+
+external protocol adapter
+  → SmartAsk conversation API and strategy builder
+
+SmartAsk core
+  ↛ external protocol adapter, ASGI framework, or wire protocol
 ```
 
 Methods do not import concrete executors. Classifiers depend on the executor
@@ -368,6 +421,7 @@ call and run evidence.
 |---|---|
 | `smart_ask/domain.py` | Immutable per-task route, request, response, and audit values |
 | `smart_ask/application.py` | Method/executor coordination and attempt guard |
+| `smart_ask/conversation/` | Harness-neutral conversation domain, runtime, and metrics |
 | `smart_ask/metrics/models.py` | Immutable token/call/run metrics and aggregation |
 | `smart_ask/metrics/collector.py` | Context-scoped call capture and executor instrumentation |
 | `smart_ask/metrics/cost.py` | Versioned prices and cost calculation |
@@ -391,6 +445,7 @@ call and run evidence.
 | `smart_ask/benchmarks/counterfactual.py` | Paired routing quality and regret diagnostics |
 | `smart_ask/benchmarks/humaneval/`, `livebench/` | HumanEval and noncanonical LiveBench public-test evaluation |
 | `benchmark-history/` | Read-only archive of pre-current-schema evidence and its caveats |
+| `integrations/claude_code/` | Separately installed external protocol adapter |
 
 ## Public API
 

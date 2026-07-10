@@ -120,6 +120,28 @@ class OpenRouterExecutorConfig(OpenRouterConnectionConfig):
     )
 
 
+class OllamaExecutorConfig(ConfigModel):
+    """Native local Ollama chat transport with no provider credential."""
+
+    type: Literal["ollama"]
+    base_url: str = "http://127.0.0.1:11434/api"
+    think: bool = False
+    timeout_seconds: float = Field(default=300.0, gt=0)
+    defaults: OpenRouterDefaultsConfig = Field(
+        default_factory=OpenRouterDefaultsConfig
+    )
+
+    @field_validator("base_url")
+    @classmethod
+    def base_url_must_be_http(cls, value: str) -> str:
+        if not value or value != value.strip():
+            raise ValueError("base_url must be non-empty and trimmed")
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError("base_url must be an absolute HTTP(S) URL")
+        return value
+
+
 class HermesExecutorConfig(ConfigModel):
     type: Literal["hermes"]
     command: str = "hermes"
@@ -134,7 +156,7 @@ class HermesExecutorConfig(ConfigModel):
 
 
 ExecutorConfig = Annotated[
-    OpenRouterExecutorConfig | HermesExecutorConfig,
+    OpenRouterExecutorConfig | OllamaExecutorConfig | HermesExecutorConfig,
     Field(discriminator="type"),
 ]
 

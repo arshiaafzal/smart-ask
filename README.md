@@ -78,6 +78,9 @@ python3.11 -m pip install -e .
 
 # In a checkout, install the optional dataset dependency for benchmark tooling.
 python3.11 -m pip install -e '.[bench]'
+
+# Install the separately packaged Claude Code adapter when you need it.
+python3.11 -m pip install -e ./integrations/claude_code
 ```
 
 Configure the credential named by the strategy, which is
@@ -95,6 +98,98 @@ smart-ask --validate-strategy
 ```
 
 An optional short alias is fine: `alias ask=smart-ask`.
+
+## Claude Code adapter
+
+Claude Code support is not part of the `smart_ask` package. The separately
+installable `smart-ask-claude-code` adapter consumes SmartAsk's public,
+harness-neutral conversation runtime:
+
+```text
+Claude Code
+  -> external protocol adapter
+  -> SmartAsk conversation runtime
+  -> strategy YAML
+  -> configured generation executor
+```
+
+The dependency only points inward: `smart-ask-claude-code` depends on
+`smart-ask`; nothing under `smart_ask/` imports or implements the external
+protocol. The adapter translates requests and streaming events. SmartAsk loads
+the YAML, routes the turn, executes the selected backend, handles escalation,
+and records usage.
+
+Each exposed model maps one-to-one to one strategy YAML. Its public alias comes
+from the YAML filename, while the validated strategy name and digest remain in
+SmartAsk metrics:
+
+```text
+claude-smart-ask-python-code-generation-cascade
+  -> builtin:python-code-generation-cascade
+
+claude-smart-ask-python-code-generation-fixed-opus
+  -> builtin:python-code-generation-fixed-opus
+```
+
+Install both packages from a checkout, make sure Ollama is running, and copy or
+edit [`claude-code-adapter.example.yaml`](claude-code-adapter.example.yaml):
+
+```bash
+python3.11 -m pip install -e .
+python3.11 -m pip install -e ./integrations/claude_code
+
+ollama pull qwen3:14b
+ollama serve
+
+export SMART_ASK_CLAUDE_CODE_TOKEN="local-secret"
+smart-ask-claude-code serve --config claude-code-adapter.example.yaml
+```
+
+In another shell, point Claude Code at the adapter and select the strategy
+alias:
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+export ANTHROPIC_API_KEY="$SMART_ASK_CLAUDE_CODE_TOKEN"
+
+claude --model claude-smart-ask-local-qwen
+```
+
+The example exposes `builtin:local-qwen`, so this path needs no OpenRouter key.
+An OpenRouter credential is required only when the selected YAML configures an
+OpenRouter classifier or generation executor.
+
+The adapter implements messages, streaming, token counting, model discovery,
+authentication, request limits, and concurrency limits. It preserves tools,
+images, thinking blocks, session correlation headers, and unknown fields in the
+neutral request. Fixed, difficulty, and cascade behavior stays in SmartAsk.
+Difficulty and cascade decisions remain sticky through one turn's tool loop;
+the next human instruction is routed again. A cascade streams tool calls
+immediately and only buffers a cheap attempt's final text while SmartAsk decides
+whether to accept or escalate it.
+
+Set `metrics.jsonl_path` in the adapter YAML to append one prompt-free SmartAsk
+metrics envelope after every request. Each line contains the run and current
+session aggregate: strategy identity, route path, selected and actual models,
+tokens, estimated/provider cost, timing, tool-call counts, completion, errors,
+and cancellation. Conversation text and tool arguments are not persisted.
+
+For local development, the [launcher](scripts/claude-local-qwen) starts Ollama
+and the adapter in the background, waits for both, and then invokes Claude Code.
+See [scripts/README.md](scripts/README.md) for its encapsulation boundaries and
+process-ownership model. Its first run automatically creates a private Python
+environment and installs both checkout packages; manual adapter installation is
+not required.
+
+```bash
+./scripts/claude-local-qwen                 # interactive
+./scripts/claude-local-qwen -p "your task"  # one-shot
+./scripts/claude-local-qwen status
+./scripts/claude-local-qwen stop
+```
+
+It only stops processes that it started. Logs, PIDs, and its generated local
+adapter token live under `${TMPDIR:-/tmp}/smart-ask-claude-local-qwen`.
 
 ## Product CLI
 
@@ -372,6 +467,7 @@ smart-ask/
 │   ├── cli.py                    installed `smart-ask` entrypoint
 │   ├── application.py            SmartAsk coordinator
 │   ├── domain.py                 immutable per-task values
+│   ├── conversation/             harness-neutral conversation runtime/metrics
 │   ├── metrics/
 │   │   ├── models.py             immutable call/run values and aggregation
 │   │   ├── collector.py          scoped call capture and instrumentation
@@ -385,12 +481,13 @@ smart-ask/
 │   │   ├── fixed.py
 │   │   ├── classifiers/
 │   │   └── escalation/
-│   ├── executors/                Hermes and OpenRouter adapters
+│   ├── executors/                Hermes, Ollama, and OpenRouter executors
 │   ├── strategy/                 YAML schema, loader, and builder
 │   ├── resources/                bundled strategies and prompts
 │   └── benchmarks/               installed suites, runner, artifacts, comparison
 ├── benchmark-history/            immutable pre-current-schema evidence archive
 ├── benchmark-results/            generated run artifacts (ignored)
+├── integrations/claude_code/     separately installable external adapter
 ├── tests/                        network-free tests
 └── pyproject.toml                package and dependency metadata
 ```
