@@ -11,7 +11,10 @@ strategy name from `smart_ask/resources/strategies/`, followed by normal Claude
 Code arguments:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+cp scripts/claude-smart-ask.local.env.example \
+  scripts/claude-smart-ask.local.env
+# Edit the local file and set OPENAI_API_KEY and/or OPENROUTER_API_KEY.
+
 ./scripts/claude-smart-ask \
   --strategy python-code-generation-codex-cascade
 
@@ -35,6 +38,13 @@ prompts, and routing. The launcher passes provider credentials to the adapter
 but removes the strategy's provider-key variables from the Claude Code child
 process. It automatically generates loopback authentication and writes metrics
 to `benchmark-results/claude-code/strategy-runs.jsonl` by default.
+
+Provider keys are loaded automatically from
+`scripts/claude-smart-ask.local.env`. That file is ignored by Git; the tracked
+`.local.env.example` documents the supported entries. Set
+`SMART_ASK_SECRETS_FILE` to use a different local file. Normal exported
+environment variables continue to work when the local file does not override
+them.
 
 The launcher intentionally does not start provider-specific services. For
 `local-qwen`, run `ollama serve` first or use the specialized

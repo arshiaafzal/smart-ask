@@ -31,6 +31,11 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             state_parent = temporary / "state"
             observed_path = temporary / "observed.json"
             metrics_path = temporary / "metrics.jsonl"
+            secrets_path = temporary / "launcher.env"
+            secrets_path.write_text(
+                'OPENAI_API_KEY="test-provider-key"\n',
+                encoding="utf-8",
+            )
             port = unused_port()
             adapter = temporary / "fake-adapter"
             claude = temporary / "fake-claude"
@@ -94,10 +99,11 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                 "SMART_ASK_CLAUDE_CODE_TOKEN": "test-token",
                 "SMART_ASK_START_ATTEMPTS": "40",
                 "SMART_ASK_METRICS_PATH": str(metrics_path),
+                "SMART_ASK_SECRETS_FILE": str(secrets_path),
                 "CLAUDE_BIN": str(claude),
-                "OPENAI_API_KEY": "test-provider-key",
                 "FAKE_CONFIG_COPY": str(observed_path),
             }
+            env.pop("OPENAI_API_KEY", None)
 
             run = subprocess.run(
                 [

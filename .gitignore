@@ -6,6 +6,7 @@ __pycache__/
 htmlcov/
 .venv/
 .env
+scripts/claude-smart-ask.local.env
 .DS_Store
 benchmark-results/
 **/.run.lock

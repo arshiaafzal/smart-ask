@@ -177,7 +177,7 @@ small Codex tier.
 The general launcher generates that adapter configuration automatically:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+# Put OPENAI_API_KEY in the gitignored scripts/claude-smart-ask.local.env.
 ./scripts/claude-smart-ask \
   --strategy python-code-generation-codex-cascade
 ```

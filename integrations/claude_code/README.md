@@ -37,7 +37,7 @@ adapter YAML to expose another `claude-smart-ask-{yaml-stem}` alias.
 To use the bundled first-party OpenAI Codex cascade instead:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+# Set OPENAI_API_KEY in scripts/claude-smart-ask.local.env first.
 ./scripts/claude-smart-ask \
   --strategy python-code-generation-codex-cascade
 ```

@@ -4,6 +4,14 @@ set -euo pipefail
 umask 077
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+SECRETS_FILE=${SMART_ASK_SECRETS_FILE:-$ROOT_DIR/scripts/claude-smart-ask.local.env}
+if [ -f "$SECRETS_FILE" ]; then
+    set -a
+    # This is a local, user-owned shell environment file and is gitignored.
+    # shellcheck disable=SC1090
+    source "$SECRETS_FILE"
+    set +a
+fi
 CALLER_DIR=$PWD
 STATE_PARENT=${SMART_ASK_LAUNCHER_STATE_DIR:-${TMPDIR:-/tmp}}
 START_ATTEMPTS=${SMART_ASK_START_ATTEMPTS:-120}
@@ -24,6 +32,7 @@ launcher starts only the external adapter and Claude Code; provider services
 such as Ollama must already be running.
 
 Environment overrides:
+  SMART_ASK_SECRETS_FILE
   SMART_ASK_CLAUDE_CODE_TOKEN
   SMART_ASK_ADAPTER_BIN, SMART_ASK_PYTHON, SMART_ASK_AUTO_INSTALL
   SMART_ASK_ADAPTER_HOST, SMART_ASK_ADAPTER_PORT
