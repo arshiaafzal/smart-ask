@@ -174,6 +174,17 @@ set `OPENAI_API_KEY`, and select
 model deprecated; this strategy intentionally retains it as the requested old,
 small Codex tier.
 
+The general launcher generates that adapter configuration automatically:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+./scripts/claude-smart-ask \
+  builtin:python-code-generation-codex-cascade
+```
+
+Any additional arguments are passed to Claude Code, for example
+`-p "implement this function"`.
+
 The adapter implements messages, streaming, token counting, model discovery,
 authentication, request limits, and concurrency limits. It preserves tools,
 images, thinking blocks, session correlation headers, and unknown fields in the

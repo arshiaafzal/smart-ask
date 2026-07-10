@@ -38,6 +38,16 @@ To use the bundled first-party OpenAI Codex cascade instead:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
+./scripts/claude-smart-ask \
+  builtin:python-code-generation-codex-cascade
+```
+
+The general launcher creates a private adapter configuration, selects its
+advertised model alias, launches Claude Code, and cleans up the adapter. The
+equivalent manual setup is:
+
+```bash
+export OPENAI_API_KEY="sk-..."
 export SMART_ASK_CLAUDE_CODE_TOKEN="local-secret"
 smart-ask-claude-code serve --config claude-code-openai-codex.example.yaml
 
