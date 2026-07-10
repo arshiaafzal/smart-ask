@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
-from numbers import Integral
 from types import MappingProxyType
 
 from .domain import (
@@ -19,6 +18,7 @@ from .domain import (
 from .executors.base import ModelExecutor
 from .methods.base import RoutingMethod
 from .metrics import RunStats, StatsCapture, StatsCollector
+from .routing import SmartRouter
 
 
 RouteCallback = Callable[[RouteResult, int], None]
@@ -38,73 +38,56 @@ class SmartAsk:
         stats_collector: StatsCollector | None = None,
     ):
         """Configure the routing method, execution backend, and loop guard."""
+        router = SmartRouter(
+            method,
+            max_attempts=max_attempts,
+            strategy_id=strategy_id,
+            stats_collector=stats_collector,
+        )
+        self._initialize(router, executor)
 
-        if not callable(getattr(method, "route", None)):
-            raise TypeError("method must expose a callable route")
-        requires_response_text = getattr(method, "requires_response_text", None)
-        if not isinstance(requires_response_text, bool):
-            raise TypeError("method.requires_response_text must be a boolean")
+    @classmethod
+    def from_router(
+        cls,
+        router: SmartRouter,
+        executor: ModelExecutor,
+    ) -> "SmartAsk":
+        """Compose an already-built router with a generation backend."""
+
+        if not isinstance(router, SmartRouter):
+            raise TypeError("router must be a SmartRouter")
+        application = cls.__new__(cls)
+        application._initialize(router, executor)
+        return application
+
+    def _initialize(self, router: SmartRouter, executor: ModelExecutor) -> None:
         if not callable(getattr(executor, "execute", None)):
             raise TypeError("executor must expose a callable execute")
         captures_output = getattr(executor, "captures_output", None)
         if not isinstance(captures_output, bool):
             raise TypeError("executor.captures_output must be a boolean")
-        if (
-            isinstance(max_attempts, bool)
-            or not isinstance(max_attempts, Integral)
-            or max_attempts < 1
-        ):
-            raise ValueError("max_attempts must be a positive integer")
-        if requires_response_text and not captures_output:
+        if router.method.requires_response_text and not captures_output:
             raise ValueError(
                 "This routing method requires an executor that captures response text"
             )
-        if strategy_id is not None and (
-            not isinstance(strategy_id, str)
-            or not strategy_id
-            or strategy_id != strategy_id.strip()
-        ):
-            raise ValueError("strategy_id must be a non-empty trimmed string or None")
-        if stats_collector is None:
-            stats_collector = StatsCollector()
-        elif not isinstance(stats_collector, StatsCollector):
-            raise TypeError("stats_collector must be a StatsCollector or None")
-        classifier = getattr(method, "classifier", None)
-        classifier_collector = getattr(classifier, "stats_collector", None)
-        if (
-            classifier_collector is not None
-            and classifier_collector is not stats_collector
-        ):
-            raise ValueError(
-                "SmartAsk and its model-backed classifier must share one "
-                "StatsCollector"
-            )
-        # SmartAsk is the sole owner of generation instrumentation. Classifier
-        # collaborators own instrumentation of their hidden executor calls.
-        self._method = method
-        self._executor = stats_collector.wrap(executor, "generation")
+
+        # SmartAsk owns generation instrumentation. Model-backed classifiers
+        # are already instrumented by the shared routing collector.
+        self._router = router
+        self._executor = router.stats_collector.wrap(executor, "generation")
         metrics_executors: dict[str, tuple[ModelExecutor, ...]] = {
             "generation": (self._executor,),
         }
-        if classifier_collector is not None:
-            classifier_executor = getattr(classifier, "executor", None)
-            if not stats_collector.is_instrumented(
-                classifier_executor,
-                channel="classifier",
-            ):
-                raise ValueError(
-                    "a metrics-aware classifier must expose its classifier "
-                    "executor instrumented by the shared StatsCollector"
-                )
-            metrics_executors["classifier"] = (classifier_executor,)
-        self._max_attempts = int(max_attempts)
-        self._strategy_id = strategy_id
-        self._stats_collector = stats_collector
+        metrics_executors.update(router.metrics_executors)
         self._metrics_executors = MappingProxyType(metrics_executors)
 
     @property
     def method(self) -> RoutingMethod:
-        return self._method
+        return self._router.method
+
+    @property
+    def router(self) -> SmartRouter:
+        return self._router
 
     @property
     def executor(self) -> ModelExecutor:
@@ -112,15 +95,15 @@ class SmartAsk:
 
     @property
     def max_attempts(self) -> int:
-        return self._max_attempts
+        return self._router.max_attempts
 
     @property
     def strategy_id(self) -> str | None:
-        return self._strategy_id
+        return self._router.strategy_id
 
     @property
     def stats_collector(self) -> StatsCollector:
-        return self._stats_collector
+        return self._router.stats_collector
 
     @property
     def metrics_executors(self) -> Mapping[str, tuple[ModelExecutor, ...]]:
@@ -130,9 +113,7 @@ class SmartAsk:
 
     def plan(self, task: Task) -> RouteResult:
         """Select a fresh task's initial route without executing generation."""
-
-        self._validate_task(task)
-        return self._select_route(task, Context())
+        return self._router.plan(task)
 
     def run(self, task: Task) -> ModelResult:
         """Route and execute a task, returning its final model response."""
@@ -165,11 +146,7 @@ class SmartAsk:
     @contextmanager
     def capture_stats(self, *, task_id: str | None = None) -> Iterator[StatsCapture]:
         """Capture custom callback/manual workflows and partial failures."""
-
-        with self._stats_collector.capture(
-            strategy_id=self._strategy_id,
-            task_id=task_id,
-        ) as capture:
+        with self._router.capture_stats(task_id=task_id) as capture:
             yield capture
 
     def run_detailed(
@@ -187,7 +164,7 @@ class SmartAsk:
         context = Context()
         route = self._select_route(task, context)
 
-        for attempt_number in range(1, self._max_attempts + 1):
+        for attempt_number in range(1, self.max_attempts + 1):
             routing_events = context.routing_events + route.routing_events
             context = Context(
                 attempts=context.attempts,
@@ -226,7 +203,7 @@ class SmartAsk:
             routing_events = context.routing_events + route.routing_events
             return RunResult(task, context.attempts, routing_events)
         raise RuntimeError(
-            f"Routing method exceeded the {self._max_attempts}-attempt safety limit"
+            f"Routing method exceeded the {self.max_attempts}-attempt safety limit"
         )
 
     @staticmethod
@@ -235,7 +212,4 @@ class SmartAsk:
             raise TypeError("task must be a Task")
 
     def _select_route(self, task: Task, context: Context) -> RouteResult:
-        route = self._method.route(task, context)
-        if not isinstance(route, RouteResult):
-            raise TypeError("method.route must return a RouteResult")
-        return route
+        return self._router.route(task, context)

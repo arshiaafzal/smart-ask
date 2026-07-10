@@ -29,7 +29,8 @@ def _build_file_context(files: list[str]) -> str:
     return "\n".join(parts) + "\n" if parts else ""
 
 # ── Main ──────────────────────────────────────────────────────────────
-def main():
+def main(argv: list[str] | None = None):
+    argv = list(sys.argv[1:] if argv is None else argv)
     p = argparse.ArgumentParser(
         description="Run tasks through a configured model-routing strategy",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -49,7 +50,7 @@ def main():
     p.add_argument("--validate-strategy", action="store_true")
     p.add_argument("--dry-run",        action="store_true")
     p.add_argument("-h", "--help",     action="store_true")
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
     try:
         loaded_strategy = load_strategy(args.strategy)

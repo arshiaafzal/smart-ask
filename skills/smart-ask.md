@@ -7,7 +7,8 @@ description: Route AI tasks through a configurable smart-ask strategy
 
 Use this skill when the user asks to run a task through smart-ask, validate or
 select a smart-ask strategy, force one of its configured routes, or compare
-several strategy YAMLs on a benchmark suite.
+several strategy YAMLs on a benchmark suite. Also use the separately installed
+adapter to expose strategies as selectable Claude Code models.
 
 ## Default behavior
 
@@ -39,6 +40,9 @@ Install the runtime and command if needed:
 
 ```bash
 python3.11 -m pip install .
+
+# Install the external Claude Code adapter only when needed.
+python3.11 -m pip install -e ./integrations/claude_code
 ```
 
 ## Product commands
@@ -59,6 +63,23 @@ smart-ask                                        # prompt for independent tasks
 Force flags use profiles from the loaded YAML. Do not assume they always mean
 Gemini or Opus when a custom strategy is selected. A fixed strategy has only its
 declared profile and does not accept force overrides.
+
+## Claude Code harness
+
+```bash
+ollama serve
+export SMART_ASK_CLAUDE_CODE_TOKEN="local-secret"
+smart-ask-claude-code serve --config claude-code-adapter.example.yaml
+
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+export ANTHROPIC_API_KEY="$SMART_ASK_CLAUDE_CODE_TOKEN"
+claude --model claude-smart-ask-local-qwen
+```
+
+Every advertised alias identifies exactly one YAML. The external adapter only
+translates the wire protocol; SmartAsk selects and invokes the backend from the
+strategy. `builtin:local-qwen` therefore needs Ollama but no OpenRouter key.
+OpenRouter credentials are needed only for strategies that configure it.
 
 ## Choosing a route
 
@@ -121,6 +142,7 @@ and turn/session token and cost accounting when those values are observable.
 | Product routing cost is `unknown` | The configured classifier has no local price entry; token usage is still retained |
 | Benchmark rejects a model price | Add that configured model to the benchmark price catalog before running |
 | Resume manifest mismatch | Use the original suite/evaluator/strategies/cases/pricing/metrics schema or start a new output directory |
+| Claude Code cannot reach SmartAsk | Verify the external adapter is running, its token matches `ANTHROPIC_API_KEY`, and the selected alias is configured |
 
 ## Installation for a new checkout
 

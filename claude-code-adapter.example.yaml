@@ -1,0 +1,25 @@
+schema_version: 1
+
+listen:
+  host: 127.0.0.1
+  port: 8787
+
+auth:
+  token_env: SMART_ASK_CLAUDE_CODE_TOKEN
+  required_on_loopback: true
+
+strategies:
+  - builtin:local-qwen
+
+limits:
+  max_request_bytes: 33554432
+  max_concurrent_requests: 32
+  # Claude Code currently requests a large output allowance. SmartAsk's
+  # selected model profile still applies its own, usually smaller, limit.
+  max_output_tokens: 65536
+
+metrics:
+  jsonl_path: benchmark-results/claude-code/metrics.jsonl
+
+security:
+  allowed_strategy_roots: []

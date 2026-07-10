@@ -1,0 +1,313 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+CALLER_DIR=$PWD
+STATE_DIR=${SMART_ASK_LAUNCHER_STATE_DIR:-${TMPDIR:-/tmp}/smart-ask-claude-local-qwen}
+CONFIG=${SMART_ASK_CLAUDE_CONFIG:-$ROOT_DIR/claude-code-adapter.example.yaml}
+MODEL=${SMART_ASK_CLAUDE_MODEL:-claude-smart-ask-local-qwen}
+OLLAMA_URL=${SMART_ASK_OLLAMA_URL:-http://127.0.0.1:11434}
+ADAPTER_URL=${SMART_ASK_ADAPTER_URL:-http://127.0.0.1:8787}
+START_ATTEMPTS=${SMART_ASK_START_ATTEMPTS:-120}
+
+OLLAMA_PID_FILE=$STATE_DIR/ollama.pid
+ADAPTER_PID_FILE=$STATE_DIR/adapter.pid
+TOKEN_FILE=$STATE_DIR/token
+OLLAMA_LOG=$STATE_DIR/ollama.log
+ADAPTER_LOG=$STATE_DIR/adapter.log
+LAUNCHER_VENV=$STATE_DIR/venv
+
+umask 077
+mkdir -p "$STATE_DIR"
+
+usage() {
+    cat <<'EOF'
+Usage:
+  scripts/claude-local-qwen                 Start services and open Claude Code
+  scripts/claude-local-qwen -p "prompt"     Start services and run one prompt
+  scripts/claude-local-qwen start           Start background services only
+  scripts/claude-local-qwen status          Show service ownership and health
+  scripts/claude-local-qwen logs            Follow service logs
+  scripts/claude-local-qwen stop            Stop services started by this script
+
+Environment overrides:
+  SMART_ASK_CLAUDE_CONFIG, SMART_ASK_CLAUDE_MODEL
+  SMART_ASK_CLAUDE_CODE_TOKEN
+  SMART_ASK_OLLAMA_BIN, SMART_ASK_ADAPTER_BIN, CLAUDE_BIN
+  SMART_ASK_PYTHON, SMART_ASK_AUTO_INSTALL
+  SMART_ASK_OLLAMA_URL, SMART_ASK_ADAPTER_URL
+  SMART_ASK_LAUNCHER_STATE_DIR
+EOF
+}
+
+fail() {
+    echo "error: $*" >&2
+    exit 1
+}
+
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
+}
+
+resolve_ollama() {
+    if [ -n "${SMART_ASK_OLLAMA_BIN:-}" ]; then
+        printf '%s\n' "$SMART_ASK_OLLAMA_BIN"
+    elif command -v ollama >/dev/null 2>&1; then
+        command -v ollama
+    elif [ -x /Applications/Ollama.app/Contents/Resources/ollama ]; then
+        printf '%s\n' /Applications/Ollama.app/Contents/Resources/ollama
+    else
+        return 1
+    fi
+}
+
+resolve_adapter() {
+    if [ -n "${SMART_ASK_ADAPTER_BIN:-}" ]; then
+        printf '%s\n' "$SMART_ASK_ADAPTER_BIN"
+    elif command -v smart-ask-claude-code >/dev/null 2>&1; then
+        command -v smart-ask-claude-code
+    elif [ -x "$ROOT_DIR/.venv/bin/smart-ask-claude-code" ]; then
+        printf '%s\n' "$ROOT_DIR/.venv/bin/smart-ask-claude-code"
+    elif [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ]; then
+        printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask-claude-code"
+    elif [ "${SMART_ASK_AUTO_INSTALL:-1}" != "0" ]; then
+        bootstrap_adapter
+    else
+        return 1
+    fi
+}
+
+resolve_python() {
+    local candidate
+    if [ -n "${SMART_ASK_PYTHON:-}" ]; then
+        candidate=$SMART_ASK_PYTHON
+        "$candidate" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))' \
+            >/dev/null 2>&1 || return 1
+        printf '%s\n' "$candidate"
+        return
+    fi
+    for candidate in python3.13 python3.12 python3.11 python3; do
+        if command -v "$candidate" >/dev/null 2>&1 && \
+            "$candidate" -c \
+                'import sys; raise SystemExit(sys.version_info < (3, 11))' \
+                >/dev/null 2>&1; then
+            command -v "$candidate"
+            return
+        fi
+    done
+    return 1
+}
+
+bootstrap_adapter() {
+    local python
+    python=$(resolve_python) || fail \
+        "Python 3.11+ was not found; install it or set SMART_ASK_PYTHON"
+    echo "First run: preparing the SmartAsk adapter environment..." >&2
+    if [ ! -x "$LAUNCHER_VENV/bin/python" ]; then
+        "$python" -m venv "$LAUNCHER_VENV" >&2
+    fi
+    "$LAUNCHER_VENV/bin/python" -m pip install \
+        --disable-pip-version-check \
+        --quiet \
+        --editable "$ROOT_DIR" \
+        --editable "$ROOT_DIR/integrations/claude_code" >&2
+    [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ] || return 1
+    printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask-claude-code"
+}
+
+resolve_claude() {
+    if [ -n "${CLAUDE_BIN:-}" ]; then
+        printf '%s\n' "$CLAUDE_BIN"
+    elif command -v claude >/dev/null 2>&1; then
+        command -v claude
+    else
+        return 1
+    fi
+}
+
+read_token() {
+    if [ -n "${SMART_ASK_CLAUDE_CODE_TOKEN:-}" ]; then
+        printf '%s\n' "$SMART_ASK_CLAUDE_CODE_TOKEN" >"$TOKEN_FILE"
+        printf '%s\n' "$SMART_ASK_CLAUDE_CODE_TOKEN"
+        return
+    fi
+    if [ -s "$TOKEN_FILE" ]; then
+        cat "$TOKEN_FILE"
+        return
+    fi
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 24 >"$TOKEN_FILE"
+    else
+        printf 'local-%s-%s-%s\n' "$RANDOM" "$RANDOM" "$$" >"$TOKEN_FILE"
+    fi
+    cat "$TOKEN_FILE"
+}
+
+pid_is_alive() {
+    local pid_file=$1
+    local pid
+    [ -s "$pid_file" ] || return 1
+    pid=$(cat "$pid_file")
+    case "$pid" in
+        *[!0-9]*|'') return 1 ;;
+    esac
+    kill -0 "$pid" 2>/dev/null
+}
+
+http_ready() {
+    curl --silent --fail --max-time 1 "$1" >/dev/null 2>&1
+}
+
+adapter_ready() {
+    local token=$1
+    local response
+    response=$(curl \
+        --silent \
+        --fail \
+        --max-time 2 \
+        --header "x-api-key: $token" \
+        "$ADAPTER_URL/v1/models" 2>/dev/null) || return 1
+    printf '%s' "$response" | grep -Fq "\"$MODEL\""
+}
+
+wait_until() {
+    local description=$1
+    shift
+    local attempt=0
+    while [ "$attempt" -lt "$START_ATTEMPTS" ]; do
+        if "$@"; then
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        sleep 0.25
+    done
+    fail "$description did not become ready; inspect $STATE_DIR/*.log"
+}
+
+start_ollama() {
+    if http_ready "$OLLAMA_URL/api/version"; then
+        return
+    fi
+    local ollama_bin
+    ollama_bin=$(resolve_ollama) || fail \
+        "Ollama was not found; install it or set SMART_ASK_OLLAMA_BIN"
+    nohup "$ollama_bin" serve >"$OLLAMA_LOG" 2>&1 &
+    printf '%s\n' "$!" >"$OLLAMA_PID_FILE"
+    wait_until "Ollama" http_ready "$OLLAMA_URL/api/version"
+}
+
+start_adapter() {
+    local token=$1
+    if http_ready "$ADAPTER_URL/healthz"; then
+        adapter_ready "$token" || fail \
+            "an adapter is already listening at $ADAPTER_URL but its token or model differs"
+        return
+    fi
+    [ -f "$CONFIG" ] || fail "adapter config not found: $CONFIG"
+    local adapter_bin
+    adapter_bin=$(resolve_adapter) || fail \
+        "adapter was not found and automatic installation failed"
+    (
+        cd "$ROOT_DIR"
+        exec env -u OPENROUTER_API_KEY \
+            SMART_ASK_CLAUDE_CODE_TOKEN="$token" \
+            "$adapter_bin" serve --config "$CONFIG"
+    ) >"$ADAPTER_LOG" 2>&1 &
+    printf '%s\n' "$!" >"$ADAPTER_PID_FILE"
+    wait_until "SmartAsk adapter" adapter_ready "$token"
+}
+
+start_stack() {
+    require_command curl
+    local token
+    token=$(read_token)
+    start_ollama
+    start_adapter "$token"
+    echo "ready: $MODEL via $ADAPTER_URL"
+}
+
+stop_owned() {
+    local name=$1
+    local pid_file=$2
+    if ! pid_is_alive "$pid_file"; then
+        rm -f "$pid_file"
+        echo "$name: not owned/running"
+        return
+    fi
+    local pid
+    pid=$(cat "$pid_file")
+    kill "$pid"
+    local attempt=0
+    while kill -0 "$pid" 2>/dev/null && [ "$attempt" -lt 40 ]; do
+        attempt=$((attempt + 1))
+        sleep 0.1
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        fail "$name did not stop after 4 seconds (pid $pid)"
+    fi
+    rm -f "$pid_file"
+    echo "$name: stopped"
+}
+
+show_status() {
+    local token
+    token=$(read_token)
+    if http_ready "$OLLAMA_URL/api/version"; then
+        if pid_is_alive "$OLLAMA_PID_FILE"; then
+            echo "Ollama: ready (started here, pid $(cat "$OLLAMA_PID_FILE"))"
+        else
+            echo "Ollama: ready (external process)"
+        fi
+    else
+        echo "Ollama: stopped"
+    fi
+    if adapter_ready "$token"; then
+        if pid_is_alive "$ADAPTER_PID_FILE"; then
+            echo "Adapter: ready (started here, pid $(cat "$ADAPTER_PID_FILE"))"
+        else
+            echo "Adapter: ready (external process)"
+        fi
+    else
+        echo "Adapter: stopped or not configured for $MODEL"
+    fi
+    echo "State: $STATE_DIR"
+}
+
+case "${1:-}" in
+    start)
+        start_stack
+        exit 0
+        ;;
+    stop)
+        stop_owned "Adapter" "$ADAPTER_PID_FILE"
+        stop_owned "Ollama" "$OLLAMA_PID_FILE"
+        exit 0
+        ;;
+    status)
+        require_command curl
+        show_status
+        exit 0
+        ;;
+    logs)
+        if ! ls "$STATE_DIR"/*.log >/dev/null 2>&1; then
+            fail "no logs exist under $STATE_DIR"
+        fi
+        tail -n 80 -f "$STATE_DIR"/*.log
+        exit 0
+        ;;
+    help|-h|--help)
+        usage
+        exit 0
+        ;;
+esac
+
+start_stack
+TOKEN=$(read_token)
+CLAUDE=$(resolve_claude) || fail "Claude Code was not found; install it or set CLAUDE_BIN"
+cd "$CALLER_DIR"
+exec env -u OPENROUTER_API_KEY \
+    ANTHROPIC_BASE_URL="$ADAPTER_URL" \
+    ANTHROPIC_API_KEY="$TOKEN" \
+    ANTHROPIC_AUTH_TOKEN="$TOKEN" \
+    "$CLAUDE" --model "$MODEL" "$@"

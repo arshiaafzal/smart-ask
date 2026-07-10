@@ -1,6 +1,16 @@
 """Public interfaces for the smart-ask routing application."""
 
 from .application import SmartAsk
+from .routing import SmartRouter
+from .conversation import (
+    ConversationEvent,
+    ConversationExecutionRequest,
+    ConversationExecutor,
+    ConversationMessage,
+    ConversationMetricsStore,
+    ConversationRequest,
+    SessionContext,
+)
 from .domain import (
     Attempt,
     Context,
@@ -11,7 +21,14 @@ from .domain import (
     RunResult,
     Task,
 )
-from .executors import HermesExecutor, ModelExecutor, OpenRouterExecutor
+from .executors import (
+    HermesExecutor,
+    ModelExecutor,
+    OllamaConversationExecutor,
+    OllamaExecutor,
+    OpenRouterConversationExecutor,
+    OpenRouterExecutor,
+)
 from .methods import (
     CascadeRoutingMethod,
     DifficultyClassification,
@@ -49,6 +66,13 @@ __all__ = [
     "CallStats",
     "CascadeRoutingMethod",
     "Context",
+    "ConversationEvent",
+    "ConversationExecutionRequest",
+    "ConversationExecutor",
+    "ConversationMessage",
+    "ConversationMetricsStore",
+    "ConversationRequest",
+    "ConversationRuntime",
     "DifficultyClassification",
     "DifficultyClassifier",
     "DifficultyRoutingMethod",
@@ -63,6 +87,9 @@ __all__ = [
     "ModelExecutor",
     "ModelResult",
     "OpenRouterExecutor",
+    "OpenRouterConversationExecutor",
+    "OllamaConversationExecutor",
+    "OllamaExecutor",
     "RouteResult",
     "RoutingEvent",
     "RoutingMethod",
@@ -70,6 +97,8 @@ __all__ = [
     "RunStats",
     "ResourceReport",
     "SmartAsk",
+    "SmartRouter",
+    "SessionContext",
     "StrategyBuildError",
     "StrategyBuilder",
     "StrategyConfig",
@@ -83,3 +112,11 @@ __all__ = [
     "aggregate_resources",
     "load_strategy",
 ]
+
+
+def __getattr__(name):
+    if name == "ConversationRuntime":
+        from .conversation import ConversationRuntime
+
+        return ConversationRuntime
+    raise AttributeError(name)
