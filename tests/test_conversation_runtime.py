@@ -14,6 +14,7 @@ from smart_ask.conversation import (
     SessionContext,
 )
 from smart_ask.executors import (
+    GroqConversationExecutor,
     OllamaConversationExecutor,
     OpenAIConversationExecutor,
     OpenRouterConversationExecutor,
@@ -644,6 +645,63 @@ class OpenAIConversationExecutorTests(unittest.IsolatedAsyncioTestCase):
                     request(),
                 )
             )]
+
+
+class GroqConversationExecutorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_uses_responses_stream_without_openai_only_store_field(self):
+        observed = {}
+
+        async def handler(http_request):
+            observed["body"] = json.loads(http_request.content)
+            completed = {
+                "type": "response.completed",
+                "response": {
+                    "model": "openai/gpt-oss-20b",
+                    "status": "completed",
+                    "usage": {
+                        "input_tokens": 2,
+                        "output_tokens": 1,
+                        "total_tokens": 3,
+                    },
+                },
+            }
+            data = (
+                b'data: {"type":"response.output_text.delta",'
+                b'"delta":"ok","output_index":0}\n\n'
+                + b"data: "
+                + json.dumps(completed).encode()
+                + b"\n\ndata: [DONE]\n\n"
+            )
+            return httpx.Response(200, content=data)
+
+        client = httpx.AsyncClient(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.groq.test/openai/v1",
+        )
+        self.addAsyncCleanup(client.aclose)
+        executor = GroqConversationExecutor(
+            client,
+            default_max_tokens=100,
+            reasoning_effort="low",
+        )
+
+        events = [event async for event in executor.stream(
+            ConversationExecutionRequest(
+                "openai/gpt-oss-20b",
+                "writer",
+                request(),
+            )
+        )]
+
+        self.assertNotIn("store", observed["body"])
+        self.assertEqual(
+            "".join(
+                event.data["delta"]["text"]
+                for event in events
+                if event.kind == "content_delta"
+            ),
+            "ok",
+        )
 
 
 if __name__ == "__main__":

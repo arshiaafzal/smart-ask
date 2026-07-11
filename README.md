@@ -65,6 +65,7 @@ OpenRouter generation, as the shipped direct-execution strategies do.
 - Hermes for strategies whose generation executor is `hermes`
 - An OpenRouter API key for any OpenRouter classifier or generation executor
 - An OpenAI API key for any first-party OpenAI classifier or generation executor
+- A Groq API key for any Groq classifier or generation executor
 
 The project declares its runtime dependencies—OpenAI, Pydantic, and PyYAML—in
 [`pyproject.toml`](pyproject.toml). From the repository root, install the exact
@@ -86,11 +87,12 @@ python3.11 -m pip install -e ./integrations/claude_code
 
 Configure the credential named by the strategy, which is
 `OPENROUTER_API_KEY` in OpenRouter configurations or `OPENAI_API_KEY` in
-first-party OpenAI configurations:
+first-party OpenAI configurations. Groq configurations use `GROQ_API_KEY`:
 
 ```bash
 export OPENROUTER_API_KEY="sk-or-..."
 export OPENAI_API_KEY="sk-..."
+export GROQ_API_KEY="gsk_..."
 ```
 
 If that environment's `bin` directory is on `PATH`, verify the installed
@@ -401,6 +403,10 @@ Shipped configurations are addressable after installation as:
   `builtin:python-code-generation-fixed-opus`
 - `builtin:python-code-generation-codex-cascade` — direct OpenAI Codex
   small-to-large cascade
+- `builtin:python-code-generation-groq-cascade` — Groq GPT-OSS 20B-to-120B
+  cascade
+- `builtin:claude-code-groq-difficulty` — compact Groq GPT-OSS routing for
+  Claude Code sessions with a reduced system prompt and tool set
 
 Reusable strategy and prompt names describe their task/output contract rather
 than the benchmark that happens to exercise them. The same strategy can be

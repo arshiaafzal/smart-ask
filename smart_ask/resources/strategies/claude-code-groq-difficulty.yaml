@@ -1,0 +1,33 @@
+schema_version: 2
+name: claude-code-groq-difficulty-v1
+method:
+  type: difficulty
+  classifier:
+    type: llm
+    model: openai/gpt-oss-20b
+    executor:
+      type: groq
+    prompt:
+      type: file
+      path: ../prompts/difficulty-v1.txt
+    fallback: easy
+    max_prompt_chars: 1200
+    parameters:
+      max_tokens: 256
+      temperature: 0.0
+      reasoning_effort: low
+  easy:
+    model: openai/gpt-oss-20b
+    parameters:
+      max_tokens: 4096
+      reasoning_effort: low
+  hard:
+    model: openai/gpt-oss-120b
+    parameters:
+      max_tokens: 4096
+      reasoning_effort: high
+generation:
+  type: groq
+  defaults:
+    max_tokens: 4096
+    reasoning_effort: medium

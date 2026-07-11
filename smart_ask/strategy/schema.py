@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
 
 
@@ -149,7 +150,7 @@ class OpenAIConnectionConfig(ConfigModel):
         return value
 
 
-class OpenAIDefaultsConfig(ConfigModel):
+class ResponsesDefaultsConfig(ConfigModel):
     max_tokens: int = Field(default=8192, gt=0)
     reasoning_effort: ReasoningEffort = "medium"
 
@@ -157,7 +158,46 @@ class OpenAIDefaultsConfig(ConfigModel):
 class OpenAIExecutorConfig(OpenAIConnectionConfig):
     """First-party OpenAI generation settings."""
 
-    defaults: OpenAIDefaultsConfig = Field(default_factory=OpenAIDefaultsConfig)
+    defaults: ResponsesDefaultsConfig = Field(default_factory=ResponsesDefaultsConfig)
+
+
+class GroqConnectionConfig(ConfigModel):
+    """Connection settings for Groq's Responses-compatible API."""
+
+    type: Literal["groq"]
+    base_url: str = DEFAULT_GROQ_BASE_URL
+    api_key_env: str = "GROQ_API_KEY"
+
+    @field_validator("base_url")
+    @classmethod
+    def base_url_must_be_http(cls, value: str) -> str:
+        if not value or value != value.strip():
+            raise ValueError("base_url must be non-empty and trimmed")
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError("base_url must be an absolute HTTP(S) URL")
+        return value
+
+    @field_validator("api_key_env")
+    @classmethod
+    def env_name_must_be_valid(cls, value: str) -> str:
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+            raise ValueError("api_key_env must be a valid environment-variable name")
+        return value
+
+
+class GroqExecutorConfig(GroqConnectionConfig):
+    """Groq generation settings."""
+
+    defaults: ResponsesDefaultsConfig = Field(default_factory=ResponsesDefaultsConfig)
+
+    @model_validator(mode="after")
+    def reasoning_effort_must_be_supported(self):
+        if self.defaults.reasoning_effort not in ("low", "medium", "high"):
+            raise ValueError(
+                "Groq reasoning_effort must be low, medium, or high"
+            )
+        return self
 
 
 class OllamaExecutorConfig(ConfigModel):
@@ -198,13 +238,14 @@ class HermesExecutorConfig(ConfigModel):
 ExecutorConfig = Annotated[
     OpenRouterExecutorConfig
     | OpenAIExecutorConfig
+    | GroqExecutorConfig
     | OllamaExecutorConfig
     | HermesExecutorConfig,
     Field(discriminator="type"),
 ]
 
 ModelConnectionConfig = Annotated[
-    OpenRouterConnectionConfig | OpenAIConnectionConfig,
+    OpenRouterConnectionConfig | OpenAIConnectionConfig | GroqConnectionConfig,
     Field(discriminator="type"),
 ]
 
@@ -317,21 +358,48 @@ class StrategyConfig(ConfigModel):
                 ):
                     raise ValueError("Hermes generation does not support model tuning parameters")
 
-        if not isinstance(self.generation, OpenAIExecutorConfig):
+        if not isinstance(
+            self.generation,
+            (OpenAIExecutorConfig, GroqExecutorConfig),
+        ):
             for profile in self.model_profiles:
                 if profile.parameters.reasoning_effort is not None:
                     raise ValueError(
-                        "reasoning_effort requires an OpenAI generation executor"
+                        "reasoning_effort requires a Responses generation executor"
+                    )
+
+        if isinstance(self.generation, GroqExecutorConfig):
+            for profile in self.model_profiles:
+                effort = profile.parameters.reasoning_effort
+                if effort is not None and effort not in ("low", "medium", "high"):
+                    raise ValueError(
+                        "Groq reasoning_effort must be low, medium, or high"
                     )
 
         classifier = getattr(self.method, "classifier", None)
         if (
             classifier is not None
             and classifier.parameters.reasoning_effort is not None
-            and not isinstance(classifier.executor, OpenAIConnectionConfig)
+            and not isinstance(
+                classifier.executor,
+                (OpenAIConnectionConfig, GroqConnectionConfig),
+            )
         ):
             raise ValueError(
-                "classifier reasoning_effort requires an OpenAI executor"
+                "classifier reasoning_effort requires a Responses executor"
+            )
+        if (
+            classifier is not None
+            and isinstance(classifier.executor, GroqConnectionConfig)
+            and classifier.parameters.reasoning_effort not in (
+                None,
+                "low",
+                "medium",
+                "high",
+            )
+        ):
+            raise ValueError(
+                "Groq classifier reasoning_effort must be low, medium, or high"
             )
 
         profiles = self.model_profiles
