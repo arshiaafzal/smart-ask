@@ -13,12 +13,13 @@ Code arguments:
 ```bash
 cp scripts/claude-smart-ask.local.env.example \
   scripts/claude-smart-ask.local.env
-# Edit the local file and set OPENAI_API_KEY and/or OPENROUTER_API_KEY.
+# Edit the local file and set the key required by your strategy.
 
 ./scripts/claude-smart-ask \
   --strategy python-code-generation-codex-cascade
 
 ./scripts/claude-smart-ask --strategy local-qwen -p "hello"
+./scripts/claude-smart-ask --strategy python-code-generation-groq-cascade
 ```
 
 For each invocation it:

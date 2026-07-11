@@ -734,6 +734,27 @@ class StatisticsTests(unittest.TestCase):
         self.assertAlmostEqual(codex_mini.cost_usd, 0.000045)
         self.assertAlmostEqual(codex_large.cost_usd, 0.000315)
 
+        groq_small = price_usage(
+            "openai/gpt-oss-20b",
+            TokenUsage(
+                prompt_tokens=100,
+                completion_tokens=10,
+                cached_input_tokens=0,
+            ),
+            DEFAULT_PRICE_CATALOG,
+        )
+        groq_large = price_usage(
+            "openai/gpt-oss-120b",
+            TokenUsage(
+                prompt_tokens=100,
+                completion_tokens=10,
+                cached_input_tokens=0,
+            ),
+            DEFAULT_PRICE_CATALOG,
+        )
+        self.assertAlmostEqual(groq_small.cost_usd, 0.0000105)
+        self.assertAlmostEqual(groq_large.cost_usd, 0.000021)
+
     def test_catalog_arithmetic_overflow_is_a_pricing_error(self):
         quote = price_usage(
             "model",

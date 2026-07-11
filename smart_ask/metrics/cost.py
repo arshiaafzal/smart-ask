@@ -173,7 +173,8 @@ DEFAULT_PRICE_CATALOG = PriceCatalog(
     effective_date="2026-07-10",
     source=(
         "https://openrouter.ai/api/v1/models; "
-        "https://developers.openai.com/api/docs/models/all"
+        "https://developers.openai.com/api/docs/models/all; "
+        "https://groq.com/pricing"
     ),
     prices={
         "google/gemini-2.5-flash-lite": {
@@ -198,6 +199,16 @@ DEFAULT_PRICE_CATALOG = PriceCatalog(
             "input": 0.00000175,
             "output": 0.000014,
             "input_cache_read": 0.000000175,
+        },
+        "openai/gpt-oss-20b": {
+            "input": 0.000000075,
+            "output": 0.0000003,
+            "input_cache_read": 0.0000000375,
+        },
+        "openai/gpt-oss-120b": {
+            "input": 0.00000015,
+            "output": 0.0000006,
+            "input_cache_read": 0.000000075,
         },
     },
 )

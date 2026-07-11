@@ -214,6 +214,26 @@ class StrategyLoaderTests(unittest.TestCase):
             "high",
         )
 
+    def test_groq_cascade_is_first_class_and_model_specific(self):
+        loaded = load_strategy(
+            "builtin:python-code-generation-groq-cascade"
+        )
+
+        self.assertEqual(loaded.config.generation.type, "groq")
+        self.assertEqual(loaded.config.generation.api_key_env, "GROQ_API_KEY")
+        self.assertEqual(
+            loaded.config.method.classifier.executor.type,
+            "groq",
+        )
+        self.assertEqual(
+            loaded.config.method.easy.model,
+            "openai/gpt-oss-20b",
+        )
+        self.assertEqual(
+            loaded.config.method.hard.model,
+            "openai/gpt-oss-120b",
+        )
+
     def test_shipped_counterfactual_baselines_match_routed_profiles(self):
         for contract in (
             "python-function-completion",
@@ -313,7 +333,7 @@ class StrategyLoaderTests(unittest.TestCase):
         wrong_reasoning_transport["method"]["easy"]["parameters"] = {
             "reasoning_effort": "low",
         }
-        with self.assertRaisesRegex(ValueError, "OpenAI generation"):
+        with self.assertRaisesRegex(ValueError, "Responses generation"):
             StrategyConfig.model_validate(wrong_reasoning_transport)
 
     def test_file_prompt_paths_are_portable_relative_declarations(self):
@@ -457,6 +477,26 @@ surprise: true
             with self.assertRaisesRegex(StrategyConfigError, "surprise"):
                 load_strategy(unknown)
 
+    def test_groq_rejects_unsupported_reasoning_efforts(self):
+        defaults = difficulty_config()
+        defaults["generation"] = {
+            "type": "groq",
+            "defaults": {"reasoning_effort": "xhigh"},
+        }
+        with self.assertRaisesRegex(ValueError, "Groq reasoning_effort"):
+            StrategyConfig.model_validate(defaults)
+
+        classifier = difficulty_config()
+        classifier["method"]["classifier"]["executor"] = {"type": "groq"}
+        classifier["method"]["classifier"]["parameters"] = {
+            "reasoning_effort": "minimal",
+        }
+        with self.assertRaisesRegex(
+            ValueError,
+            "Groq classifier reasoning_effort",
+        ):
+            StrategyConfig.model_validate(classifier)
+
 
 class StrategyBuilderTests(unittest.TestCase):
     def test_force_override_is_closed(self):
@@ -591,6 +631,36 @@ class StrategyBuilderTests(unittest.TestCase):
         self.assertEqual(generation_call["reasoning"], {"effort": "low"})
         self.assertNotIn("temperature", classifier_call)
         self.assertNotIn("temperature", generation_call)
+
+    def test_builder_uses_groq_key_for_gpt_oss_cascade(self):
+        client = FakeClient([
+            responses_response('{"d":"easy"}', model="openai/gpt-oss-20b"),
+            responses_response("answer", model="openai/gpt-oss-20b"),
+        ])
+        factory_calls = []
+
+        def factory(base_url, api_key):
+            factory_calls.append((base_url, api_key))
+            return client
+
+        app = StrategyBuilder(
+            env={"GROQ_API_KEY": "test-groq-key"},
+            groq_client_factory=factory,
+        ).build(load_strategy(
+            "builtin:python-code-generation-groq-cascade"
+        ))
+
+        run = app.run_detailed(Task("write a small function"))
+
+        self.assertEqual(run.final_result.text, "answer")
+        self.assertEqual(factory_calls, [
+            ("https://api.groq.com/openai/v1", "test-groq-key"),
+        ])
+        classifier_call, generation_call = client.responses.calls
+        self.assertEqual(classifier_call["model"], "openai/gpt-oss-20b")
+        self.assertEqual(classifier_call["max_output_tokens"], 256)
+        self.assertEqual(generation_call["model"], "openai/gpt-oss-20b")
+        self.assertEqual(generation_call["max_output_tokens"], 8192)
 
     def test_forced_product_route_does_not_require_classifier_credentials(self):
         calls = []

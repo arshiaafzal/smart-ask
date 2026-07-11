@@ -91,7 +91,7 @@ StrategyConfig
 │   ├── difficulty: classifier + easy/hard model profiles
 │   ├── cascade: classifier + escalation policy + easy/hard profiles
 │   └── fixed: one model profile + required semantic role
-└── generation: OpenAI, OpenRouter, Ollama, or Hermes executor config
+└── generation: OpenAI, Groq, OpenRouter, Ollama, or Hermes executor config
 ```
 
 An LLM classifier has its own executor, prompt source, model, prompt-length

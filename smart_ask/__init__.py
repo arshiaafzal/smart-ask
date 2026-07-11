@@ -22,6 +22,8 @@ from .domain import (
     Task,
 )
 from .executors import (
+    GroqConversationExecutor,
+    GroqExecutor,
     HermesExecutor,
     ModelExecutor,
     OllamaConversationExecutor,
@@ -82,6 +84,8 @@ __all__ = [
     "EscalationPolicy",
     "ExecutionRequest",
     "FixedRoutingMethod",
+    "GroqConversationExecutor",
+    "GroqExecutor",
     "HermesExecutor",
     "LLMDifficultyClassifier",
     "LoadedStrategy",

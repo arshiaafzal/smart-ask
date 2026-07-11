@@ -14,6 +14,8 @@ from ..application import SmartAsk
 from ..conversation.metrics import ConversationMetricsStore
 from ..conversation.runtime import ConversationRuntime
 from ..executors import (
+    GroqExecutor,
+    GroqConversationExecutor,
     HermesExecutor,
     ModelExecutor,
     OllamaExecutor,
@@ -39,6 +41,8 @@ from .schema import (
     DifficultyMethodConfig,
     ExecutorConfig,
     FixedMethodConfig,
+    GroqConnectionConfig,
+    GroqExecutorConfig,
     HermesExecutorConfig,
     LLMClassifierConfig,
     ModelProfileConfig,
@@ -53,6 +57,8 @@ OpenRouterClientFactory = Callable[[str, str], Any]
 OpenRouterConversationClientFactory = Callable[[str, str], httpx.AsyncClient]
 OpenAIClientFactory = Callable[[str, str], Any]
 OpenAIConversationClientFactory = Callable[[str, str], httpx.AsyncClient]
+GroqClientFactory = Callable[[str, str], Any]
+GroqConversationClientFactory = Callable[[str, str], httpx.AsyncClient]
 
 
 class StrategyBuilder:
@@ -64,6 +70,8 @@ class StrategyBuilder:
         "_openrouter_conversation_client_factory",
         "_openai_client_factory",
         "_openai_conversation_client_factory",
+        "_groq_client_factory",
+        "_groq_conversation_client_factory",
         "_hermes_runner",
         "_stats_collector",
         "_clients",
@@ -81,6 +89,10 @@ class StrategyBuilder:
         openai_client_factory: OpenAIClientFactory | None = None,
         openai_conversation_client_factory: (
             OpenAIConversationClientFactory | None
+        ) = None,
+        groq_client_factory: GroqClientFactory | None = None,
+        groq_conversation_client_factory: (
+            GroqConversationClientFactory | None
         ) = None,
         hermes_runner: Callable[..., Any] | None = None,
         stats_collector: StatsCollector | None = None,
@@ -106,6 +118,15 @@ class StrategyBuilder:
         ):
             raise TypeError(
                 "openai_conversation_client_factory must be callable or None"
+            )
+        if groq_client_factory is not None and not callable(groq_client_factory):
+            raise TypeError("groq_client_factory must be callable or None")
+        if (
+            groq_conversation_client_factory is not None
+            and not callable(groq_conversation_client_factory)
+        ):
+            raise TypeError(
+                "groq_conversation_client_factory must be callable or None"
             )
         if hermes_runner is not None and not callable(hermes_runner):
             raise TypeError("hermes_runner must be callable or None")
@@ -140,6 +161,16 @@ class StrategyBuilder:
             self._default_openai_conversation_client
             if openai_conversation_client_factory is None
             else openai_conversation_client_factory
+        )
+        self._groq_client_factory = (
+            self._default_groq_client
+            if groq_client_factory is None
+            else groq_client_factory
+        )
+        self._groq_conversation_client_factory = (
+            self._default_groq_conversation_client
+            if groq_conversation_client_factory is None
+            else groq_conversation_client_factory
         )
         self._hermes_runner = (
             subprocess.run if hermes_runner is None else hermes_runner
@@ -189,6 +220,27 @@ class StrategyBuilder:
 
     @staticmethod
     def _default_openai_conversation_client(
+        base_url: str,
+        api_key: str,
+    ) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=base_url.rstrip("/"),
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=httpx.Timeout(300.0),
+        )
+
+    @staticmethod
+    def _default_groq_client(base_url: str, api_key: str):
+        try:
+            from openai import OpenAI
+        except ImportError as exc:
+            raise StrategyBuildError(
+                "the openai package is required for Groq strategies"
+            ) from exc
+        return OpenAI(base_url=base_url, api_key=api_key)
+
+    @staticmethod
+    def _default_groq_conversation_client(
         base_url: str,
         api_key: str,
     ) -> httpx.AsyncClient:
@@ -274,6 +326,42 @@ class StrategyBuilder:
             self._conversation_clients[key] = client
         return self._conversation_clients[key]
 
+    def _groq_client(self, config: GroqConnectionConfig):
+        api_key = self._env.get(config.api_key_env, "")
+        if not api_key.strip():
+            raise StrategyBuildError(
+                f"required environment variable {config.api_key_env} is not set"
+            )
+        key = ("groq", config.base_url, api_key)
+        if key not in self._clients:
+            self._clients[key] = self._groq_client_factory(
+                config.base_url,
+                api_key,
+            )
+        return self._clients[key]
+
+    def _groq_conversation_client(
+        self,
+        config: GroqConnectionConfig,
+    ) -> httpx.AsyncClient:
+        api_key = self._env.get(config.api_key_env, "")
+        if not api_key.strip():
+            raise StrategyBuildError(
+                f"required environment variable {config.api_key_env} is not set"
+            )
+        key = ("groq", config.base_url, api_key)
+        if key not in self._conversation_clients:
+            client = self._groq_conversation_client_factory(
+                config.base_url,
+                api_key,
+            )
+            if not isinstance(client, httpx.AsyncClient):
+                raise TypeError(
+                    "groq conversation client factory must return httpx.AsyncClient"
+                )
+            self._conversation_clients[key] = client
+        return self._conversation_clients[key]
+
     def _build_executor(
         self,
         config: ExecutorConfig,
@@ -303,6 +391,12 @@ class StrategyBuilder:
         if isinstance(config, OpenAIExecutorConfig):
             return OpenAIExecutor(
                 self._openai_client(config),
+                default_max_tokens=config.defaults.max_tokens,
+                reasoning_effort=config.defaults.reasoning_effort,
+            )
+        if isinstance(config, GroqExecutorConfig):
+            return GroqExecutor(
+                self._groq_client(config),
                 default_max_tokens=config.defaults.max_tokens,
                 reasoning_effort=config.defaults.reasoning_effort,
             )
@@ -361,6 +455,15 @@ class StrategyBuilder:
                 default_max_tokens=config.defaults.max_tokens,
                 reasoning_effort=config.defaults.reasoning_effort,
             )
+        if isinstance(config, GroqExecutorConfig):
+            return GroqExecutor(
+                self._groq_client(config),
+                system_prompts=system_prompts,
+                max_tokens=max_tokens,
+                reasoning_efforts=reasoning_efforts,
+                default_max_tokens=config.defaults.max_tokens,
+                reasoning_effort=config.defaults.reasoning_effort,
+            )
         raise StrategyBuildError(f"unsupported generation configuration: {config}")
 
     def _build_classifier(
@@ -381,6 +484,12 @@ class StrategyBuilder:
                 reasoning_effort=(
                     config.parameters.reasoning_effort or "low"
                 ),
+            )
+        elif isinstance(config.executor, GroqConnectionConfig):
+            executor = GroqExecutor(
+                self._groq_client(config.executor),
+                default_max_tokens=config.parameters.max_tokens,
+                reasoning_effort=(config.parameters.reasoning_effort or "low"),
             )
         else:
             raise StrategyBuildError(
@@ -446,6 +555,12 @@ class StrategyBuilder:
         elif isinstance(generation, OpenAIExecutorConfig):
             executor = OpenAIConversationExecutor(
                 self._openai_conversation_client(generation),
+                default_max_tokens=generation.defaults.max_tokens,
+                reasoning_effort=generation.defaults.reasoning_effort,
+            )
+        elif isinstance(generation, GroqExecutorConfig):
+            executor = GroqConversationExecutor(
+                self._groq_conversation_client(generation),
                 default_max_tokens=generation.defaults.max_tokens,
                 reasoning_effort=generation.defaults.reasoning_effort,
             )

@@ -35,6 +35,9 @@ test -n "$OPENROUTER_API_KEY" && echo "OpenRouter key is set"
 # Check the credential used by first-party OpenAI configurations.
 test -n "$OPENAI_API_KEY" && echo "OpenAI key is set"
 
+# Check the credential used by Groq configurations.
+test -n "$GROQ_API_KEY" && echo "Groq key is set"
+
 # Required when the selected strategy uses Hermes generation.
 hermes --version
 ```
