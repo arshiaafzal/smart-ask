@@ -405,6 +405,8 @@ Shipped configurations are addressable after installation as:
   small-to-large cascade
 - `builtin:python-code-generation-groq-cascade` — Groq GPT-OSS 20B-to-120B
   cascade
+- `builtin:claude-code-groq-difficulty` — compact Groq GPT-OSS routing for
+  Claude Code sessions with a reduced system prompt and tool set
 
 Reusable strategy and prompt names describe their task/output contract rather
 than the benchmark that happens to exercise them. The same strategy can be

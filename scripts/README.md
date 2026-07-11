@@ -20,6 +20,7 @@ cp scripts/claude-smart-ask.local.env.example \
 
 ./scripts/claude-smart-ask --strategy local-qwen -p "hello"
 ./scripts/claude-smart-ask --strategy python-code-generation-groq-cascade
+./scripts/claude-smart-ask --strategy claude-code-groq-difficulty
 ```
 
 For each invocation it:

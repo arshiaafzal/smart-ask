@@ -234,6 +234,15 @@ class StrategyLoaderTests(unittest.TestCase):
             "openai/gpt-oss-120b",
         )
 
+    def test_claude_code_groq_strategy_fits_compact_session_budget(self):
+        loaded = load_strategy("builtin:claude-code-groq-difficulty")
+
+        self.assertEqual(loaded.config.method.type, "difficulty")
+        self.assertIsNone(loaded.config.method.easy.system_prompt)
+        self.assertIsNone(loaded.config.method.hard.system_prompt)
+        self.assertEqual(loaded.config.method.easy.parameters.max_tokens, 4096)
+        self.assertEqual(loaded.config.method.hard.parameters.max_tokens, 4096)
+
     def test_shipped_counterfactual_baselines_match_routed_profiles(self):
         for contract in (
             "python-function-completion",
