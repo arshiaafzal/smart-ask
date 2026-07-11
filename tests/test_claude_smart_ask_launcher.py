@@ -132,6 +132,10 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             self.assertEqual(payload["base_url"], f"http://127.0.0.1:{port}")
             self.assertEqual(payload["api_key"], "test-token")
             self.assertIsNone(payload["openai_key"])
+            self.assertIn(
+                f"metrics: {metrics_path.resolve()}",
+                run.stderr,
+            )
 
             observed = json.loads(observed_path.read_text(encoding="utf-8"))
             self.assertEqual(observed["openai_key"], "test-provider-key")

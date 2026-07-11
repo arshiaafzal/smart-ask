@@ -39,7 +39,8 @@ The strategy remains the source of truth for the backend, models, credentials,
 prompts, and routing. The launcher passes provider credentials to the adapter
 but removes the strategy's provider-key variables from the Claude Code child
 process. It automatically generates loopback authentication and writes metrics
-to `benchmark-results/claude-code/strategy-runs.jsonl` by default.
+to `benchmark-results/claude-code/strategy-runs.jsonl` by default. The resolved
+metrics path is printed immediately before Claude Code starts.
 
 Provider keys are loaded automatically from
 `scripts/claude-smart-ask.local.env`. That file is ignored by Git; the tracked

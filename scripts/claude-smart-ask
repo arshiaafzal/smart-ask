@@ -193,6 +193,7 @@ METRICS_PATH=${SMART_ASK_METRICS_PATH:-$ROOT_DIR/benchmark-results/claude-code/s
 ADAPTER_PID=
 trap cleanup EXIT INT TERM
 
+METRICS_PATH=$(
 "$PYTHON" - "$STRATEGY_NAME" "$CONFIG" "$PROVIDER_ENVS" "$ADAPTER_HOST" "$PORT" "$METRICS_PATH" <<'PY'
 import json
 from pathlib import Path
@@ -211,6 +212,7 @@ if name.endswith(".yaml"):
     name = name[:-5]
 reference = "builtin:" + name
 loaded = load_strategy(reference)
+resolved_metrics_path = str(Path(metrics_path).expanduser().resolve())
 
 credential_names = set()
 generation = loaded.config.generation
@@ -236,7 +238,7 @@ config = {
         "max_concurrent_requests": 32,
         "max_output_tokens": 65536,
     },
-    "metrics": {"jsonl_path": str(Path(metrics_path).expanduser().resolve())},
+    "metrics": {"jsonl_path": resolved_metrics_path},
     "security": {"allowed_strategy_roots": []},
 }
 Path(config_path).write_text(json.dumps(config), encoding="utf-8")
@@ -244,7 +246,9 @@ Path(env_path).write_text(
     "".join(name + "\n" for name in sorted(credential_names)),
     encoding="utf-8",
 )
+print(resolved_metrics_path)
 PY
+)
 
 (
     cd "$ROOT_DIR"
@@ -297,6 +301,7 @@ CLAUDE_ENV+=(
     ANTHROPIC_AUTH_TOKEN="$TOKEN"
 )
 
+echo "metrics: $METRICS_PATH" >&2
 echo "ready: $MODEL via $ADAPTER_URL" >&2
 cd "$CALLER_DIR"
 "${CLAUDE_ENV[@]}" "$CLAUDE" --model "$MODEL" "$@"
