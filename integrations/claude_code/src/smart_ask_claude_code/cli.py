@@ -12,6 +12,7 @@ from .app import create_app
 from .catalog import StrategyCatalog
 from .config import AdapterConfigError, load_adapter_config
 from .metrics import JsonlSink
+from .trace import JsonlTraceSink
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -35,7 +36,7 @@ def main(argv: list[str] | None = None) -> None:
         if config.metrics.jsonl_path is not None:
             metrics_sink = JsonlSink(config.metrics.jsonl_path)
         if config.metrics.trace_jsonl_path is not None:
-            trace_sink = JsonlSink(config.metrics.trace_jsonl_path)
+            trace_sink = JsonlTraceSink(config.metrics.trace_jsonl_path)
         metrics = ConversationMetricsStore(
             sink=None if metrics_sink is None else metrics_sink.write,
         )

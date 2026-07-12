@@ -68,7 +68,10 @@ For routing debugging, `metrics.trace_jsonl_path` enables a separate opt-in
 conversation trace. Each JSONL line is one semantic event: a context block,
 strategy context change, route decision, attempt boundary, output chunk, or run
 boundary. The original context is written once and attempt-specific changes are
-recorded as patches, avoiding repeated copies of the whole conversation.
+recorded as patches, avoiding repeated copies of the whole conversation. A
+single file header declares the schema. Each run's full ID appears only on its
+`run_start`; later events use a small local `run` number so concurrent hidden
+requests can still be distinguished without repeating UUIDs.
 Traces can contain source code, tool results, system prompts, and secrets; keep
 the file local and access-restricted.
 

@@ -59,6 +59,8 @@ destination is preferred.
 The trace is event-oriented JSONL rather than one large object per request.
 Context blocks are written once, strategy changes are separate patch events,
 and long text/output fields are split into chunks of at most 4,000 characters.
+The schema appears once in the file header. Full run IDs appear only on
+`run_start`; subsequent rows use compact per-file run numbers.
 
 Provider keys are loaded automatically from
 `scripts/claude-smart-ask.local.env`. That file is ignored by Git; the tracked

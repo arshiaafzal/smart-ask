@@ -11,6 +11,7 @@ from smart_ask_claude_code import (
     AdapterConfig,
     AdapterConfigError,
     JsonlSink,
+    JsonlTraceSink,
     StrategyCatalog,
     create_app,
 )
@@ -241,6 +242,61 @@ class DependencyBoundaryTests(unittest.TestCase):
                 jsonl_path="/tmp/combined.jsonl",
                 trace_jsonl_path="/tmp/combined.jsonl",
             )
+
+    def test_trace_sink_uses_one_schema_header_and_small_run_references(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            sink = JsonlTraceSink(str(path))
+            sink.write({
+                "schema": "smart-ask.conversation-trace-event/v1",
+                "run_id": "full-run-id-one",
+                "sequence": 1,
+                "event": "run_start",
+                "session_id": "session",
+            })
+            sink.write({
+                "schema": "smart-ask.conversation-trace-event/v1",
+                "run_id": "full-run-id-one",
+                "sequence": 2,
+                "event": "context_block",
+                "text": "hello",
+            })
+            sink.write({
+                "schema": "smart-ask.conversation-trace-event/v1",
+                "run_id": "full-run-id-two",
+                "sequence": 1,
+                "event": "run_start",
+                "session_id": "session",
+            })
+            sink.write({
+                "schema": "smart-ask.conversation-trace-event/v1",
+                "run_id": "full-run-id-one",
+                "sequence": 3,
+                "event": "route",
+                "route": {"action": "execute"},
+            })
+            sink.close()
+
+            rows = [
+                json.loads(line)
+                for line in path.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(rows[0], {
+                "event": "trace_start",
+                "schema": "smart-ask.conversation-trace-log/v1",
+            })
+            self.assertEqual(rows[1]["run"], 1)
+            self.assertEqual(rows[1]["run_id"], "full-run-id-one")
+            self.assertEqual(rows[2], {
+                "event": "context_block",
+                "run": 1,
+                "text": "hello",
+            })
+            self.assertEqual(rows[3]["run"], 2)
+            self.assertEqual(rows[4]["run"], 1)
+            self.assertNotIn("schema", rows[4])
+            self.assertNotIn("run_id", rows[4])
+            self.assertNotIn("sequence", rows[4])
 
     def test_custom_strategy_cannot_escape_prompt_allowlist(self):
         with tempfile.TemporaryDirectory() as directory:
