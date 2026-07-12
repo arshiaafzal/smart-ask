@@ -267,26 +267,45 @@ class ConversationRuntimeTests(unittest.IsolatedAsyncioTestCase):
             SessionContext(session_id="trace-session"),
         )]
 
-        self.assertEqual(len(traces), 1)
-        trace = traces[0]
-        self.assertEqual(trace["schema"], "smart-ask.conversation-trace/v1")
-        self.assertEqual(trace["session_id"], "trace-session")
-        self.assertEqual(trace["routing_task"], "secret prompt")
-        self.assertEqual(len(trace["attempts"]), 2)
+        self.assertGreater(len(traces), 8)
+        self.assertTrue(all(
+            event["schema"] == "smart-ask.conversation-trace-event/v1"
+            for event in traces
+        ))
+        self.assertEqual(traces[0]["event"], "run_start")
+        self.assertEqual(traces[0]["session_id"], "trace-session")
+        self.assertEqual(
+            [event["sequence"] for event in traces],
+            list(range(1, len(traces) + 1)),
+        )
         self.assertIn(
             "secret prompt",
-            json.dumps(trace["attempts"][0]["effective_context"]),
+            json.dumps([
+                event for event in traces
+                if event["event"] == "context_block"
+            ]),
+        )
+        output = next(
+            event for event in traces
+            if event["event"] == "attempt_output"
+            and event["phase"] == "initial-easy"
         )
         self.assertEqual(
-            trace["attempts"][0]["output_text"],
+            output["text"],
             "draft\nESCALATE_NOW\n",
         )
-        self.assertEqual(trace["routes"][1]["action"], "execute")
-        self.assertEqual(trace["routes"][1]["phase"], "escalation")
+        routes = [event["route"] for event in traces if event["event"] == "route"]
+        self.assertEqual(routes[1]["action"], "execute")
+        self.assertEqual(routes[1]["phase"], "escalation")
         self.assertEqual(
-            trace["routes"][1]["events"][0]["reason"],
+            routes[1]["events"][0]["reason"],
             "Response emitted ESCALATE_NOW",
         )
+        changes = [
+            event for event in traces if event["event"] == "context_change"
+        ]
+        self.assertIn("SMART-ASK SELF-CHECK", json.dumps(changes))
+        self.assertEqual(traces[-1]["event"], "run_end")
 
         def broken_trace(_value):
             raise OSError("trace disk unavailable")
@@ -301,6 +320,49 @@ class ConversationRuntimeTests(unittest.IsolatedAsyncioTestCase):
         )
         _events = [event async for event in runtime.stream(request())]
         self.assertEqual(runtime.trace_errors, ("OSError: trace disk unavailable",))
+
+    async def test_trace_chunks_long_content_instead_of_repeating_context(self):
+        traces = []
+        loaded = load_strategy("builtin:local-qwen")
+        runtime = ConversationRuntime(
+            loaded_strategy=loaded,
+            router=StrategyBuilder(env={}).build_router(loaded),
+            executor=FakeConversationExecutor([
+                text_events("o" * 9001, "qwen3:14b"),
+            ]),
+            trace_sink=traces.append,
+        )
+        conversation = ConversationRequest(
+            system=({"type": "text", "text": "s" * 9001},),
+            messages=(ConversationMessage(
+                "user",
+                ({"type": "text", "text": "u" * 9001},),
+            ),),
+        )
+
+        _events = [event async for event in runtime.stream(conversation)]
+
+        self.assertLess(max(len(json.dumps(event)) for event in traces), 5000)
+        system_chunks = [
+            event for event in traces
+            if event["event"] == "context_block"
+            and event["scope"] == "system"
+        ]
+        user_chunks = [
+            event for event in traces
+            if event["event"] == "context_block"
+            and event["scope"] == "message"
+        ]
+        output_chunks = [
+            event for event in traces if event["event"] == "attempt_output"
+        ]
+        self.assertEqual(len(system_chunks), 3)
+        self.assertEqual(len(user_chunks), 3)
+        self.assertEqual(len(output_chunks), 3)
+        self.assertEqual(
+            sum(len(event["text"]) for event in output_chunks),
+            9001,
+        )
 
     async def test_cancellation_is_recorded_and_propagated(self):
         started = asyncio.Event()

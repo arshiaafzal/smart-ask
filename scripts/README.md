@@ -53,6 +53,10 @@ escalation evidence. It is opt-in because that content may include source code
 or secrets. Use `--trace-path PATH` or `SMART_ASK_TRACE_PATH` when one explicit
 destination is preferred.
 
+The trace is event-oriented JSONL rather than one large object per request.
+Context blocks are written once, strategy changes are separate patch events,
+and long text/output fields are split into chunks of at most 4,000 characters.
+
 Provider keys are loaded automatically from
 `scripts/claude-smart-ask.local.env`. That file is ignored by Git; the tracked
 `.local.env.example` documents the supported entries. Set

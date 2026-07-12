@@ -19,7 +19,6 @@ from .domain import (
     ConversationExecutionRequest,
     ConversationRequest,
     SessionContext,
-    thaw_value,
 )
 from .executor import ConversationExecutor
 from .metrics import (
@@ -27,6 +26,7 @@ from .metrics import (
     ConversationMetricsStore,
     ConversationRunMeasurement,
 )
+from .trace import ConversationTraceWriter
 
 
 @dataclass(frozen=True)
@@ -97,23 +97,6 @@ def _routing_event(event: RoutingEvent) -> dict[str, str | None]:
     }
 
 
-def _conversation_value(request: ConversationRequest) -> dict[str, Any]:
-    return {
-        "system": thaw_value(request.system),
-        "messages": [
-            {
-                "role": message.role,
-                "content": thaw_value(message.content),
-                "extensions": thaw_value(message.extensions),
-            }
-            for message in request.messages
-        ],
-        "tools": thaw_value(request.tools),
-        "parameters": thaw_value(request.parameters),
-        "extensions": thaw_value(request.extensions),
-    }
-
-
 def _route_value(route: RouteResult) -> dict[str, Any]:
     return {
         "action": route.action,
@@ -121,7 +104,6 @@ def _route_value(route: RouteResult) -> dict[str, Any]:
         "role": route.role,
         "phase": route.phase,
         "label": route.label,
-        "routing_prompt": route.prompt,
         "events": [_routing_event(event) for event in route.routing_events],
     }
 
@@ -228,6 +210,7 @@ class ConversationRuntime:
         self,
         request: ConversationRequest,
         route: RouteResult,
+        changes: list[dict[str, Any]] | None = None,
     ) -> ConversationRequest:
         prepared = request
         profile = next(
@@ -236,9 +219,10 @@ class ConversationRuntime:
             if profile.model == route.model
         )
         if profile.system_prompt is not None:
-            prepared = prepared.with_system_text(
-                self._loaded.resolve_prompt(profile.system_prompt)
-            )
+            text = self._loaded.resolve_prompt(profile.system_prompt)
+            prepared = prepared.with_system_text(text)
+            if changes is not None:
+                changes.append({"operation": "append_system", "text": text})
         parameter_updates = {}
         if profile.parameters.max_tokens is not None:
             parameter_updates["max_tokens"] = profile.parameters.max_tokens
@@ -250,33 +234,62 @@ class ConversationRuntime:
             )
         if parameter_updates:
             prepared = prepared.with_parameters(parameter_updates)
+            if changes is not None:
+                changes.append({
+                    "operation": "set_parameters",
+                    "values": dict(parameter_updates),
+                })
         method = self._loaded.config.method
         if isinstance(method, FixedMethodConfig):
             if method.prompt_prefix is not None:
+                text = self._loaded.resolve_prompt(method.prompt_prefix)
                 prepared = prepared.with_latest_human_text(
-                    self._loaded.resolve_prompt(method.prompt_prefix),
+                    text,
                     before=True,
                 )
+                if changes is not None:
+                    changes.append({
+                        "operation": "prepend_latest_user",
+                        "text": text,
+                    })
             if method.prompt_suffix is not None:
+                text = self._loaded.resolve_prompt(method.prompt_suffix)
                 prepared = prepared.with_latest_human_text(
-                    self._loaded.resolve_prompt(method.prompt_suffix),
+                    text,
                     before=False,
                 )
+                if changes is not None:
+                    changes.append({
+                        "operation": "append_latest_user",
+                        "text": text,
+                    })
         elif isinstance(method, CascadeMethodConfig):
             if route.phase == "initial-easy":
+                text = self._loaded.resolve_prompt(
+                    method.escalation.self_check_suffix
+                )
                 prepared = prepared.with_latest_human_text(
-                    self._loaded.resolve_prompt(
-                        method.escalation.self_check_suffix
-                    ),
+                    text,
                     before=False,
                 )
+                if changes is not None:
+                    changes.append({
+                        "operation": "append_latest_user",
+                        "text": text,
+                    })
             elif route.phase == "escalation":
+                text = self._loaded.resolve_prompt(
+                    method.escalation.escalation_prefix
+                )
                 prepared = prepared.with_latest_human_text(
-                    self._loaded.resolve_prompt(
-                        method.escalation.escalation_prefix
-                    ),
+                    text,
                     before=True,
                 )
+                if changes is not None:
+                    changes.append({
+                        "operation": "prepend_latest_user",
+                        "text": text,
+                    })
         return prepared
 
     async def _events_for_attempt(
@@ -284,7 +297,7 @@ class ConversationRuntime:
         route: RouteResult,
         prepared: ConversationRequest,
         measurement: ConversationAttemptMeasurement,
-        trace_events: list[dict[str, Any]] | None = None,
+        trace_emit: Callable[..., None] | None = None,
     ) -> AsyncIterator[ConversationEvent]:
         if route.model is None or route.role is None:
             raise RuntimeError("execute route lost model or role")
@@ -298,11 +311,6 @@ class ConversationRuntime:
                 if not isinstance(event, ConversationEvent):
                     raise TypeError("conversation executors must emit ConversationEvent")
                 measurement.observe(event)
-                if trace_events is not None and event.kind != "heartbeat":
-                    trace_events.append({
-                        "kind": event.kind,
-                        "data": thaw_value(event.data),
-                    })
                 yield event
         except asyncio.CancelledError:
             measurement.finish(error="conversation cancelled", cancelled=True)
@@ -312,6 +320,18 @@ class ConversationRuntime:
             raise
         else:
             measurement.finish()
+        finally:
+            if trace_emit is not None:
+                trace_emit(
+                    phase=route.phase,
+                    role=route.role,
+                    selected_model=route.model,
+                    actual_model=measurement.actual_model,
+                    output_text=measurement.text,
+                    stop_reason=measurement.stop_reason,
+                    error=measurement.error,
+                    cancelled=measurement.cancelled,
+                )
 
     async def _with_heartbeats(
         self,
@@ -365,32 +385,24 @@ class ConversationRuntime:
             agent_id=session.agent_id,
             parent_agent_id=session.parent_agent_id,
         )
-        trace = None
-        if self._trace_sink is not None:
-            trace = {
-                "schema": "smart-ask.conversation-trace/v1",
-                "run_id": run.run_id,
-                "strategy": {
-                    "name": self.strategy_name,
-                    "digest": self.strategy_digest,
-                },
-                "session_id": session.session_id,
-                "agent_id": session.agent_id,
-                "parent_agent_id": session.parent_agent_id,
-                "request": _conversation_value(request),
-                "routing_task": None,
-                "routes": [],
-                "attempts": [],
-            }
+        trace = ConversationTraceWriter(
+            sink=self._trace_sink,
+            run_id=run.run_id,
+            errors=self._trace_errors,
+        )
+        trace.start(
+            strategy_name=self.strategy_name,
+            strategy_digest=self.strategy_digest,
+            session=session,
+            request=request,
+        )
         recorded = False
         try:
             task, route, classifier_stats, fingerprint, key = await self._select(
                 request,
                 session,
             )
-            if trace is not None:
-                trace["routing_task"] = task.prompt
-                trace["routes"].append(_route_value(route))
+            trace.route(_route_value(route))
             run.classifier_stats = classifier_stats
             run.routing_events.extend(
                 _routing_event(event) for event in route.routing_events
@@ -404,23 +416,20 @@ class ConversationRuntime:
                 isinstance(self._router.method, CascadeRoutingMethod)
                 and route.phase == "initial-easy"
             )
-            first_prepared = self._prepare(request, route)
-            first_trace = None
-            if trace is not None:
-                first_trace = {
-                    "phase": route.phase,
-                    "role": route.role,
-                    "selected_model": route.model,
-                    "effective_context": _conversation_value(first_prepared),
-                    "output_events": [],
-                }
-                trace["attempts"].append(first_trace)
+            first_changes: list[dict[str, Any]] = []
+            first_prepared = self._prepare(request, route, first_changes)
+            trace.attempt_start(
+                phase=route.phase,
+                role=route.role,
+                selected_model=route.model,
+                context_changes=first_changes,
+            )
             if not cascade_candidate:
                 async for event in self._events_for_attempt(
                     route,
                     first_prepared,
                     first,
-                    None if first_trace is None else first_trace["output_events"],
+                    trace.attempt_end if trace.enabled else None,
                 ):
                     yield event
                 return
@@ -432,7 +441,7 @@ class ConversationRuntime:
                     route,
                     first_prepared,
                     first,
-                    None if first_trace is None else first_trace["output_events"],
+                    trace.attempt_end if trace.enabled else None,
                 )
             ):
                 if event.kind == "heartbeat":
@@ -475,8 +484,7 @@ class ConversationRuntime:
                 routing_events=route.routing_events,
             )
             next_route = self._router.route(task, context)
-            if trace is not None:
-                trace["routes"].append(_route_value(next_route))
+            trace.route(_route_value(next_route))
             run.routing_events.extend(
                 _routing_event(event) for event in next_route.routing_events
             )
@@ -490,22 +498,19 @@ class ConversationRuntime:
                 role=next_route.role or "generation",
                 model=next_route.model or "unknown",
             )
-            second_prepared = self._prepare(request, next_route)
-            second_trace = None
-            if trace is not None:
-                second_trace = {
-                    "phase": next_route.phase,
-                    "role": next_route.role,
-                    "selected_model": next_route.model,
-                    "effective_context": _conversation_value(second_prepared),
-                    "output_events": [],
-                }
-                trace["attempts"].append(second_trace)
+            second_changes: list[dict[str, Any]] = []
+            second_prepared = self._prepare(request, next_route, second_changes)
+            trace.attempt_start(
+                phase=next_route.phase,
+                role=next_route.role,
+                selected_model=next_route.model,
+                context_changes=second_changes,
+            )
             async for event in self._events_for_attempt(
                 next_route,
                 second_prepared,
                 second,
-                None if second_trace is None else second_trace["output_events"],
+                trace.attempt_end if trace.enabled else None,
             ):
                 yield event
         except asyncio.CancelledError:
@@ -519,23 +524,10 @@ class ConversationRuntime:
             if not recorded:
                 self._metrics.record(run)
                 recorded = True
-            if trace is not None:
-                trace["routing_events"] = list(run.routing_events)
-                trace["error"] = run.error
-                trace["cancelled"] = run.cancelled
-                for attempt_trace, measurement in zip(
-                    trace["attempts"],
-                    run.attempts,
-                ):
-                    attempt_trace["actual_model"] = measurement.actual_model
-                    attempt_trace["output_text"] = measurement.text
-                    attempt_trace["stop_reason"] = measurement.stop_reason
-                    attempt_trace["error"] = measurement.error
-                    attempt_trace["cancelled"] = measurement.cancelled
-                try:
-                    self._trace_sink(trace)
-                except Exception as exc:
-                    self._trace_errors.append(f"{type(exc).__name__}: {exc}")
+            trace.run_end(
+                error=run.error,
+                cancelled=run.cancelled,
+            )
 
     async def count_tokens(
         self,

@@ -65,10 +65,12 @@ and session metrics envelopes produced by SmartAsk. It does not calculate or
 reinterpret provider usage itself.
 
 For routing debugging, `metrics.trace_jsonl_path` enables a separate opt-in
-conversation trace. Each line contains the original structured request, the
-effective context sent on every attempt, model output events, route decisions,
-and escalation reasons. Traces can contain source code, tool results, system
-prompts, and secrets; keep the file local and access-restricted.
+conversation trace. Each JSONL line is one semantic event: a context block,
+strategy context change, route decision, attempt boundary, output chunk, or run
+boundary. The original context is written once and attempt-specific changes are
+recorded as patches, avoiding repeated copies of the whole conversation.
+Traces can contain source code, tool results, system prompts, and secrets; keep
+the file local and access-restricted.
 
 For the bundled local-Qwen setup, `../../scripts/claude-local-qwen` provides a
 single-command development launcher plus `start`, `status`, `logs`, and `stop`
