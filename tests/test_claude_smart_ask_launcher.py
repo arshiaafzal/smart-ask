@@ -164,6 +164,8 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             with socket.socket() as sock:
                 self.assertNotEqual(sock.connect_ex(("127.0.0.1", port)), 0)
 
+            default_env = dict(env)
+            default_env.pop("SMART_ASK_METRICS_PATH")
             traced = subprocess.run(
                 [
                     str(LAUNCHER),
@@ -174,7 +176,7 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                     "hello",
                 ],
                 cwd=temporary,
-                env=env,
+                env=default_env,
                 text=True,
                 capture_output=True,
                 check=True,
@@ -188,13 +190,17 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             )
             self.assertEqual(
                 generated_trace.parent,
-                ROOT / "benchmark-results" / "claude-code" / "traces",
+                ROOT / ".smart-ask" / "claude-code" / "traces",
             )
             self.assertRegex(
                 generated_trace.name,
                 r"^\d{8}T\d{6}Z-[0-9a-f]{8}\.jsonl$",
             )
             self.assertIn(f"trace: {generated_trace}", traced.stderr)
+            self.assertEqual(
+                Path(traced_config["metrics"]["jsonl_path"]),
+                ROOT / ".smart-ask" / "claude-code" / "metrics.jsonl",
+            )
 
 
 if __name__ == "__main__":

@@ -40,18 +40,21 @@ The strategy remains the source of truth for the backend, models, credentials,
 prompts, and routing. The launcher passes provider credentials to the adapter
 but removes the strategy's provider-key variables from the Claude Code child
 process. It automatically generates loopback authentication and writes metrics
-to `benchmark-results/claude-code/strategy-runs.jsonl` by default. The resolved
-metrics path is printed immediately before Claude Code starts.
+to `.smart-ask/claude-code/metrics.jsonl` by default. The resolved metrics path
+is printed immediately before Claude Code starts.
 
 Pass `--trace` immediately after the strategy name to also write full
 conversation traces to a unique file under
-`benchmark-results/claude-code/traces/`. The launcher prints the exact path;
+`.smart-ask/claude-code/traces/`. The launcher prints the exact path;
 that file contains every user turn, retry, escalation, and hidden Claude Code
 request handled during that launcher session. Unlike metrics, it includes
 prompts, complete session context, tool inputs/results, model outputs, and
 escalation evidence. It is opt-in because that content may include source code
 or secrets. Use `--trace-path PATH` or `SMART_ASK_TRACE_PATH` when one explicit
 destination is preferred.
+
+`.smart-ask/` is ignored by Git and contains local operational data only.
+`benchmark-results/` remains reserved for deliberate benchmark artifacts.
 
 The trace is event-oriented JSONL rather than one large object per request.
 Context blocks are written once, strategy changes are separate patch events,

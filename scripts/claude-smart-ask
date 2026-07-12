@@ -182,7 +182,7 @@ PYTHON=$(resolve_python) || fail \
 if [ "$GENERATE_TRACE_PATH" = "1" ]; then
     TRACE_NAME=$("$PYTHON" -c \
         'from datetime import datetime, timezone; from uuid import uuid4; print(datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8] + ".jsonl")')
-    TRACE_PATH=$ROOT_DIR/benchmark-results/claude-code/traces/$TRACE_NAME
+    TRACE_PATH=$ROOT_DIR/.smart-ask/claude-code/traces/$TRACE_NAME
 fi
 mkdir -p "$STATE_PARENT"
 ADAPTER=$(resolve_adapter) || fail \
@@ -206,7 +206,7 @@ ADAPTER_LOG=$STATE_DIR/adapter.log
 TOKEN=$(make_token)
 PORT=${SMART_ASK_ADAPTER_PORT:-$(unused_port)}
 ADAPTER_URL=http://$ADAPTER_HOST:$PORT
-METRICS_PATH=${SMART_ASK_METRICS_PATH:-$ROOT_DIR/benchmark-results/claude-code/strategy-runs.jsonl}
+METRICS_PATH=${SMART_ASK_METRICS_PATH:-$ROOT_DIR/.smart-ask/claude-code/metrics.jsonl}
 if [ -n "$TRACE_PATH" ]; then
     TRACE_PATH=$("$PYTHON" -c \
         'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser().resolve())' \
