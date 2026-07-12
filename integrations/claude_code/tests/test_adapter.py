@@ -243,38 +243,107 @@ class DependencyBoundaryTests(unittest.TestCase):
                 trace_jsonl_path="/tmp/combined.jsonl",
             )
 
-    def test_trace_sink_uses_one_schema_header_and_small_run_references(self):
+    def test_trace_sink_deduplicates_session_context_and_default_fields(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace.jsonl"
             sink = JsonlTraceSink(str(path))
-            sink.write({
-                "schema": "smart-ask.conversation-trace-event/v1",
-                "run_id": "full-run-id-one",
-                "sequence": 1,
-                "event": "run_start",
-                "session_id": "session",
-            })
-            sink.write({
-                "schema": "smart-ask.conversation-trace-event/v1",
-                "run_id": "full-run-id-one",
-                "sequence": 2,
-                "event": "context_block",
-                "text": "hello",
-            })
-            sink.write({
-                "schema": "smart-ask.conversation-trace-event/v1",
-                "run_id": "full-run-id-two",
-                "sequence": 1,
-                "event": "run_start",
-                "session_id": "session",
-            })
-            sink.write({
-                "schema": "smart-ask.conversation-trace-event/v1",
-                "run_id": "full-run-id-one",
-                "sequence": 3,
-                "event": "route",
-                "route": {"action": "execute"},
-            })
+            strategy = {"name": "strategy", "digest": "digest"}
+
+            def emit(run_id, sequence, event, **values):
+                sink.write({
+                    "schema": "smart-ask.conversation-trace-event/v1",
+                    "run_id": run_id,
+                    "sequence": sequence,
+                    "event": event,
+                    **values,
+                })
+
+            def run(run_id):
+                emit(
+                    run_id,
+                    1,
+                    "run_start",
+                    session_id="session",
+                    strategy=strategy,
+                    agent_id=None,
+                    parent_agent_id=None,
+                )
+                emit(
+                    run_id,
+                    2,
+                    "request_metadata",
+                    parameters={"max_tokens": 100},
+                    extensions={},
+                )
+                emit(
+                    run_id,
+                    3,
+                    "context_block",
+                    scope="system",
+                    index=0,
+                    block={"type": "text", "text": "shared"},
+                )
+                emit(
+                    run_id,
+                    4,
+                    "route",
+                    route={
+                        "action": "execute",
+                        "model": "model",
+                        "role": "generator",
+                        "phase": "initial-easy",
+                        "label": "classified easy",
+                        "events": [{
+                            "outcome": "easy",
+                            "reason": "Classifier selected easy",
+                            "source": "difficulty-classifier",
+                        }],
+                    },
+                )
+                emit(
+                    run_id,
+                    5,
+                    "attempt_start",
+                    phase="initial-easy",
+                    role="generator",
+                    selected_model="model",
+                )
+                emit(
+                    run_id,
+                    6,
+                    "context_change",
+                    phase="initial-easy",
+                    index=0,
+                    change={
+                        "operation": "set_parameters",
+                        "values": {"max_tokens": 50},
+                    },
+                )
+                emit(
+                    run_id,
+                    7,
+                    "attempt_end",
+                    phase="initial-easy",
+                    role="generator",
+                    selected_model="model",
+                    actual_model="model",
+                    stop_reason="stop",
+                    error=None,
+                    cancelled=False,
+                )
+                emit(
+                    run_id,
+                    8,
+                    "attempt_output",
+                    phase="initial-easy",
+                    chunk_index=0,
+                    chunk_count=1,
+                    text="hello",
+                )
+                emit(run_id, 9, "run_end", error=None, cancelled=False)
+
+            run("full-run-id-one")
+            run("full-run-id-two")
             sink.close()
 
             rows = [
@@ -283,20 +352,80 @@ class DependencyBoundaryTests(unittest.TestCase):
             ]
             self.assertEqual(rows[0], {
                 "event": "trace_start",
-                "schema": "smart-ask.conversation-trace-log/v1",
+                "schema": "smart-ask.conversation-trace-log/v2",
+                "session_id": "session",
+                "strategy": strategy,
             })
-            self.assertEqual(rows[1]["run"], 1)
-            self.assertEqual(rows[1]["run_id"], "full-run-id-one")
+            self.assertEqual(rows[1], {
+                "event": "run_start",
+                "run": 1,
+                "run_id": "full-run-id-one",
+            })
             self.assertEqual(rows[2], {
+                "event": "request_metadata",
+                "run": 1,
+                "metadata_id": 1,
+                "parameters": {"max_tokens": 100},
+            })
+            self.assertEqual(rows[3], {
                 "event": "context_block",
                 "run": 1,
+                "scope": "system",
+                "index": 0,
+                "content_id": 1,
+                "block": {"type": "text", "text": "shared"},
+            })
+            self.assertEqual(rows[4], {
+                "event": "route",
+                "run": 1,
+                "outcome": "easy",
+                "reason": "Classifier selected easy",
+                "source": "difficulty-classifier",
+                "model": "model",
+                "phase": "initial-easy",
+            })
+            self.assertEqual(rows[5], {
+                "event": "attempt_start",
+                "run": 1,
+                "attempt": 1,
+            })
+            self.assertEqual(rows[6]["change_id"], 1)
+            self.assertEqual(rows[7], {
+                "event": "attempt_end",
+                "run": 1,
+                "attempt": 1,
+                "stop_reason": "stop",
+            })
+            self.assertEqual(rows[8], {
+                "event": "attempt_output",
+                "run": 1,
+                "attempt": 1,
                 "text": "hello",
             })
-            self.assertEqual(rows[3]["run"], 2)
-            self.assertEqual(rows[4]["run"], 1)
-            self.assertNotIn("schema", rows[4])
-            self.assertNotIn("run_id", rows[4])
-            self.assertNotIn("sequence", rows[4])
+            self.assertEqual(rows[9], {"event": "run_end", "run": 1})
+            self.assertEqual(rows[10], {
+                "event": "run_start",
+                "run": 2,
+                "run_id": "full-run-id-two",
+            })
+            self.assertEqual(rows[11], {
+                "event": "request_metadata",
+                "run": 2,
+                "metadata_ref": 1,
+            })
+            self.assertEqual(rows[12], {
+                "event": "context_block",
+                "run": 2,
+                "scope": "system",
+                "index": 0,
+                "content_ref": 1,
+            })
+            self.assertEqual(rows[15], {
+                "event": "context_change",
+                "run": 2,
+                "attempt": 1,
+                "change_ref": 1,
+            })
 
     def test_custom_strategy_cannot_escape_prompt_allowlist(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -69,9 +69,12 @@ conversation trace. Each JSONL line is one semantic event: a context block,
 strategy context change, route decision, attempt boundary, output chunk, or run
 boundary. The original context is written once and attempt-specific changes are
 recorded as patches, avoiding repeated copies of the whole conversation. A
-single file header declares the schema. Each run's full ID appears only on its
-`run_start`; later events use a small local `run` number so concurrent hidden
-requests can still be distinguished without repeating UUIDs.
+single file header declares the schema, session, and strategy. Each run's full
+ID appears only on its `run_start`; later events use a small local `run` number
+so concurrent hidden requests can still be distinguished without repeating
+UUIDs. Repeated context blocks, request metadata, and strategy changes are
+defined once and referenced thereafter. Successful/default fields and values
+inherited from the preceding route or attempt are omitted.
 Traces can contain source code, tool results, system prompts, and secrets; keep
 the file local and access-restricted.
 
