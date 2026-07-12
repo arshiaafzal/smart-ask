@@ -44,12 +44,14 @@ to `benchmark-results/claude-code/strategy-runs.jsonl` by default. The resolved
 metrics path is printed immediately before Claude Code starts.
 
 Pass `--trace` immediately after the strategy name to also write full
-conversation traces to
-`benchmark-results/claude-code/conversation-traces.jsonl`. Unlike metrics, this
-file contains prompts, complete session context, tool inputs/results, model
-outputs, and escalation evidence. It is opt-in because that content may include
-source code or secrets. Use `--trace-path PATH` or `SMART_ASK_TRACE_PATH` to
-select another location.
+conversation traces to a unique file under
+`benchmark-results/claude-code/traces/`. The launcher prints the exact path;
+that file contains every user turn, retry, escalation, and hidden Claude Code
+request handled during that launcher session. Unlike metrics, it includes
+prompts, complete session context, tool inputs/results, model outputs, and
+escalation evidence. It is opt-in because that content may include source code
+or secrets. Use `--trace-path PATH` or `SMART_ASK_TRACE_PATH` when one explicit
+destination is preferred.
 
 Provider keys are loaded automatically from
 `scripts/claude-smart-ask.local.env`. That file is ignored by Git; the tracked
