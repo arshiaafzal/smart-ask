@@ -84,15 +84,19 @@ class StrategyCatalog:
         loader: Callable[[str], LoadedStrategy] = load_strategy,
         runtime_builder: Callable[[LoadedStrategy], ConversationRuntime] | None = None,
         metrics: ConversationMetricsStore | None = None,
+        trace_sink: Callable[[dict], None] | None = None,
     ) -> "StrategyCatalog":
         if runtime_builder is None:
             builder = StrategyBuilder(env=env)
             runtime_builder = lambda loaded: builder.build_conversation_runtime(
                 loaded,
                 metrics=metrics,
+                trace_sink=trace_sink,
             )
-        elif metrics is not None:
-            raise ValueError("metrics cannot be combined with a custom runtime_builder")
+        elif metrics is not None or trace_sink is not None:
+            raise ValueError(
+                "metrics and trace_sink cannot be combined with a custom runtime_builder"
+            )
         entries = []
         for reference in config.strategies:
             loaded = loader(reference)

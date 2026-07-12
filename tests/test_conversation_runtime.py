@@ -244,6 +244,64 @@ class ConversationRuntimeTests(unittest.IsolatedAsyncioTestCase):
         _events = [event async for event in runtime.stream(request())]
         self.assertEqual(failing.sink_errors, ("OSError: disk unavailable",))
 
+    async def test_opt_in_trace_captures_context_candidate_and_escalation_reason(self):
+        traces = []
+        loaded = load_strategy("builtin:python-code-generation-cascade")
+        classifier = FakeClient([response('{"d":"easy"}')])
+        router = StrategyBuilder(
+            env={"OPENROUTER_API_KEY": "classifier-key"},
+            openrouter_client_factory=lambda _url, _key: classifier,
+        ).build_router(loaded)
+        runtime = ConversationRuntime(
+            loaded_strategy=loaded,
+            router=router,
+            executor=FakeConversationExecutor([
+                text_events("draft\nESCALATE_NOW\n", "cheap-model"),
+                text_events("correct", "hard-model"),
+            ]),
+            trace_sink=traces.append,
+        )
+
+        _events = [event async for event in runtime.stream(
+            request("secret prompt"),
+            SessionContext(session_id="trace-session"),
+        )]
+
+        self.assertEqual(len(traces), 1)
+        trace = traces[0]
+        self.assertEqual(trace["schema"], "smart-ask.conversation-trace/v1")
+        self.assertEqual(trace["session_id"], "trace-session")
+        self.assertEqual(trace["routing_task"], "secret prompt")
+        self.assertEqual(len(trace["attempts"]), 2)
+        self.assertIn(
+            "secret prompt",
+            json.dumps(trace["attempts"][0]["effective_context"]),
+        )
+        self.assertEqual(
+            trace["attempts"][0]["output_text"],
+            "draft\nESCALATE_NOW\n",
+        )
+        self.assertEqual(trace["routes"][1]["action"], "execute")
+        self.assertEqual(trace["routes"][1]["phase"], "escalation")
+        self.assertEqual(
+            trace["routes"][1]["events"][0]["reason"],
+            "Response emitted ESCALATE_NOW",
+        )
+
+        def broken_trace(_value):
+            raise OSError("trace disk unavailable")
+
+        runtime = ConversationRuntime(
+            loaded_strategy=load_strategy("builtin:local-qwen"),
+            router=StrategyBuilder(env={}).build_router(
+                load_strategy("builtin:local-qwen")
+            ),
+            executor=FakeConversationExecutor([text_events("ok", "qwen3:14b")]),
+            trace_sink=broken_trace,
+        )
+        _events = [event async for event in runtime.stream(request())]
+        self.assertEqual(runtime.trace_errors, ("OSError: trace disk unavailable",))
+
     async def test_cancellation_is_recorded_and_propagated(self):
         started = asyncio.Event()
 

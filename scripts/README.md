@@ -21,6 +21,7 @@ cp scripts/claude-smart-ask.local.env.example \
 ./scripts/claude-smart-ask --strategy local-qwen -p "hello"
 ./scripts/claude-smart-ask --strategy python-code-generation-groq-cascade
 ./scripts/claude-smart-ask --strategy claude-code-groq-difficulty
+./scripts/claude-smart-ask --strategy claude-code-groq-difficulty --trace
 ```
 
 For each invocation it:
@@ -41,6 +42,14 @@ but removes the strategy's provider-key variables from the Claude Code child
 process. It automatically generates loopback authentication and writes metrics
 to `benchmark-results/claude-code/strategy-runs.jsonl` by default. The resolved
 metrics path is printed immediately before Claude Code starts.
+
+Pass `--trace` immediately after the strategy name to also write full
+conversation traces to
+`benchmark-results/claude-code/conversation-traces.jsonl`. Unlike metrics, this
+file contains prompts, complete session context, tool inputs/results, model
+outputs, and escalation evidence. It is opt-in because that content may include
+source code or secrets. Use `--trace-path PATH` or `SMART_ASK_TRACE_PATH` to
+select another location.
 
 Provider keys are loaded automatically from
 `scripts/claude-smart-ask.local.env`. That file is ignored by Git; the tracked

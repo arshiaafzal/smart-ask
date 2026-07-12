@@ -7,7 +7,14 @@ from pathlib import Path
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 
 class AdapterConfigError(ValueError):
@@ -74,8 +81,9 @@ class SecurityConfig(_Model):
 
 class MetricsConfig(_Model):
     jsonl_path: str | None = None
+    trace_jsonl_path: str | None = None
 
-    @field_validator("jsonl_path")
+    @field_validator("jsonl_path", "trace_jsonl_path")
     @classmethod
     def normalize_path(cls, value: str | None) -> str | None:
         if value is None:
@@ -83,6 +91,15 @@ class MetricsConfig(_Model):
         if not value.strip():
             raise ValueError("jsonl_path must be non-empty text or null")
         return str(Path(value).expanduser().resolve())
+
+    @model_validator(mode="after")
+    def paths_must_be_distinct(self):
+        if (
+            self.jsonl_path is not None
+            and self.jsonl_path == self.trace_jsonl_path
+        ):
+            raise ValueError("metrics and conversation traces need distinct paths")
+        return self
 
 
 class AdapterConfig(_Model):

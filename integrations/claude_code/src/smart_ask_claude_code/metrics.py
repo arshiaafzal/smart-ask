@@ -8,8 +8,8 @@ from threading import Lock
 from typing import Any
 
 
-class JsonlMetricsSink:
-    """Append complete SmartAsk metrics envelopes with process-local locking."""
+class JsonlSink:
+    """Append JSON objects with process-local locking and immediate flushing."""
 
     def __init__(self, path: str):
         self.path = Path(path)

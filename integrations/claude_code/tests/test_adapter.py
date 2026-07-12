@@ -10,11 +10,11 @@ from smart_ask.strategy import StrategyBuilder, load_strategy
 from smart_ask_claude_code import (
     AdapterConfig,
     AdapterConfigError,
-    JsonlMetricsSink,
+    JsonlSink,
     StrategyCatalog,
     create_app,
 )
-from smart_ask_claude_code.config import SecurityConfig
+from smart_ask_claude_code.config import MetricsConfig, SecurityConfig
 
 
 MODEL_ID = "claude-smart-ask-local-qwen"
@@ -226,13 +226,20 @@ class DependencyBoundaryTests(unittest.TestCase):
     def test_jsonl_sink_persists_complete_envelopes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "metrics.jsonl"
-            sink = JsonlMetricsSink(str(path))
+            sink = JsonlSink(str(path))
             sink.write({"run": {"run_id": "one"}, "session": {"runs": 1}})
             sink.close()
 
             self.assertEqual(
                 json.loads(path.read_text(encoding="utf-8")),
                 {"run": {"run_id": "one"}, "session": {"runs": 1}},
+            )
+
+    def test_metrics_and_content_traces_cannot_share_a_file(self):
+        with self.assertRaisesRegex(ValueError, "distinct paths"):
+            MetricsConfig(
+                jsonl_path="/tmp/combined.jsonl",
+                trace_jsonl_path="/tmp/combined.jsonl",
             )
 
     def test_custom_strategy_cannot_escape_prompt_allowlist(self):

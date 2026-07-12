@@ -533,6 +533,7 @@ class StrategyBuilder:
         force: Literal["easy", "hard"] | None = None,
         *,
         metrics: ConversationMetricsStore | None = None,
+        trace_sink: Callable[[dict[str, Any]], None] | None = None,
     ) -> ConversationRuntime:
         """Build the complete harness-neutral structured conversation runtime."""
 
@@ -574,6 +575,7 @@ class StrategyBuilder:
             router=router,
             executor=executor,
             metrics=metrics,
+            trace_sink=trace_sink,
         )
 
     def _build_router_and_profiles(

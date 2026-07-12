@@ -31,6 +31,7 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             state_parent = temporary / "state"
             observed_path = temporary / "observed.json"
             metrics_path = temporary / "metrics.jsonl"
+            trace_path = temporary / "traces.jsonl"
             secrets_path = temporary / "launcher.env"
             secrets_path.write_text(
                 'OPENAI_API_KEY="test-provider-key"\n',
@@ -110,6 +111,8 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                     str(LAUNCHER),
                     "--strategy",
                     "python-code-generation-codex-cascade",
+                    "--trace-path",
+                    str(trace_path),
                     "-p",
                     "hello",
                 ],
@@ -136,6 +139,10 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                 f"metrics: {metrics_path.resolve()}",
                 run.stderr,
             )
+            self.assertIn(
+                f"trace: {trace_path.resolve()} (contains conversation content)",
+                run.stderr,
+            )
 
             observed = json.loads(observed_path.read_text(encoding="utf-8"))
             self.assertEqual(observed["openai_key"], "test-provider-key")
@@ -145,6 +152,12 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             self.assertEqual(
                 Path(observed["config"]["metrics"]["jsonl_path"]).resolve(),
                 metrics_path.resolve(),
+            )
+            self.assertEqual(
+                Path(
+                    observed["config"]["metrics"]["trace_jsonl_path"]
+                ).resolve(),
+                trace_path.resolve(),
             )
             self.assertFalse(any(state_parent.glob("smart-ask-claude.*")))
             with socket.socket() as sock:

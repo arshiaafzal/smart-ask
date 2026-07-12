@@ -21,10 +21,11 @@ LAUNCHER_VENV=$STATE_PARENT/smart-ask-claude-launcher-venv
 usage() {
     cat <<'EOF'
 Usage:
-  scripts/claude-smart-ask --strategy NAME [CLAUDE_ARGS...]
+  scripts/claude-smart-ask --strategy NAME [--trace] [CLAUDE_ARGS...]
 
 Examples:
   scripts/claude-smart-ask --strategy python-code-generation-codex-cascade
+  scripts/claude-smart-ask --strategy claude-code-groq-difficulty --trace
   scripts/claude-smart-ask --strategy local-qwen -p "hello"
 
 The selected strategy determines its backend and required credentials. This
@@ -38,6 +39,7 @@ Environment overrides:
   SMART_ASK_ADAPTER_HOST, SMART_ASK_ADAPTER_PORT
   SMART_ASK_LAUNCHER_STATE_DIR, SMART_ASK_START_ATTEMPTS
   SMART_ASK_METRICS_PATH, CLAUDE_BIN
+  SMART_ASK_TRACE_PATH
 EOF
 }
 
@@ -163,6 +165,15 @@ esac
 STRATEGY_NAME=$2
 shift 2
 [ "${1:-}" = "--" ] && shift
+TRACE_PATH=${SMART_ASK_TRACE_PATH:-}
+if [ "${1:-}" = "--trace" ]; then
+    TRACE_PATH=${TRACE_PATH:-$ROOT_DIR/benchmark-results/claude-code/conversation-traces.jsonl}
+    shift
+elif [ "${1:-}" = "--trace-path" ]; then
+    [ -n "${2:-}" ] || fail "--trace-path requires a path"
+    TRACE_PATH=$2
+    shift 2
+fi
 
 command -v curl >/dev/null 2>&1 || fail "required command not found: curl"
 PYTHON=$(resolve_python) || fail \
@@ -190,18 +201,23 @@ TOKEN=$(make_token)
 PORT=${SMART_ASK_ADAPTER_PORT:-$(unused_port)}
 ADAPTER_URL=http://$ADAPTER_HOST:$PORT
 METRICS_PATH=${SMART_ASK_METRICS_PATH:-$ROOT_DIR/benchmark-results/claude-code/strategy-runs.jsonl}
+if [ -n "$TRACE_PATH" ]; then
+    TRACE_PATH=$("$PYTHON" -c \
+        'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser().resolve())' \
+        "$TRACE_PATH")
+fi
 ADAPTER_PID=
 trap cleanup EXIT INT TERM
 
 METRICS_PATH=$(
-"$PYTHON" - "$STRATEGY_NAME" "$CONFIG" "$PROVIDER_ENVS" "$ADAPTER_HOST" "$PORT" "$METRICS_PATH" <<'PY'
+"$PYTHON" - "$STRATEGY_NAME" "$CONFIG" "$PROVIDER_ENVS" "$ADAPTER_HOST" "$PORT" "$METRICS_PATH" "$TRACE_PATH" <<'PY'
 import json
 from pathlib import Path
 import sys
 
 from smart_ask.strategy import load_strategy
 
-name, config_path, env_path, host, raw_port, metrics_path = sys.argv[1:]
+name, config_path, env_path, host, raw_port, metrics_path, trace_path = sys.argv[1:]
 if not name or name != name.strip():
     raise SystemExit("strategy name must be non-empty and trimmed")
 if "/" in name or "\\" in name or name.startswith("builtin:"):
@@ -238,7 +254,10 @@ config = {
         "max_concurrent_requests": 32,
         "max_output_tokens": 65536,
     },
-    "metrics": {"jsonl_path": resolved_metrics_path},
+    "metrics": {
+        "jsonl_path": resolved_metrics_path,
+        "trace_jsonl_path": trace_path or None,
+    },
     "security": {"allowed_strategy_roots": []},
 }
 Path(config_path).write_text(json.dumps(config), encoding="utf-8")
@@ -302,6 +321,9 @@ CLAUDE_ENV+=(
 )
 
 echo "metrics: $METRICS_PATH" >&2
+if [ -n "$TRACE_PATH" ]; then
+    echo "trace: $TRACE_PATH (contains conversation content)" >&2
+fi
 echo "ready: $MODEL via $ADAPTER_URL" >&2
 cd "$CALLER_DIR"
 "${CLAUDE_ENV[@]}" "$CLAUDE" --model "$MODEL" "$@"
