@@ -1,0 +1,3819 @@
+{
+  "n": 164,
+  "results": [
+    {
+      "task_id": "HumanEval/0",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/1",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/10",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/100",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/101",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/102",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/103",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/104",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/105",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/106",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/107",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/108",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/109",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/11",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/110",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/111",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/112",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/113",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/114",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/115",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/116",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/117",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/118",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/119",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/12",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/120",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/121",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/122",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/123",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/124",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/125",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/126",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/127",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/128",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/129",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/13",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/130",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/131",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/132",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/133",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/134",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/135",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/136",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/137",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/138",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/139",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/14",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/140",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/141",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/142",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/143",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/144",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/145",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/146",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/147",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/148",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/149",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/15",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/150",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/151",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/152",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/153",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/154",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/155",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/156",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/157",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/158",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/159",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/16",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/160",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/161",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/162",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/163",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/17",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/18",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/19",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/2",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/20",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/21",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/22",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/23",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/24",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/25",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/26",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/27",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/28",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/29",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/3",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/30",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/31",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/32",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/33",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/34",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/35",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/36",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/37",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/38",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/39",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/4",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/40",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/41",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/42",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/43",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/44",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/45",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/46",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/47",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/48",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/49",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/5",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/50",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/51",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/52",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/53",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/54",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/55",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/56",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/57",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/58",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/59",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/6",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/60",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/61",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/62",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/63",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/64",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/65",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/66",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/67",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/68",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/69",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/7",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/70",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/71",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/72",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/73",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/74",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/75",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/76",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/77",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/78",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/79",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/8",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/80",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/81",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/82",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/83",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/84",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/85",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/86",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/87",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/88",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/89",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/9",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/90",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/91",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/92",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/93",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/94",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/95",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/96",
+      "difficulty": "hard",
+      "escalated": false,
+      "model": "opus-G1",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/97",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": false
+    },
+    {
+      "task_id": "HumanEval/98",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    },
+    {
+      "task_id": "HumanEval/99",
+      "difficulty": "easy",
+      "escalated": false,
+      "model": "gemini",
+      "passed": true
+    }
+  ],
+  "token_log": {
+    "total_cost_usd": 0.1454408,
+    "n_calls": 328,
+    "by_model": {
+      "google/gemini-2.5-flash-lite": {
+        "calls": 307,
+        "prompt_tokens": 90538,
+        "completion_tokens": 30355,
+        "total_tokens": 120893,
+        "cost_usd": 0.02119580000000001
+      },
+      "anthropic/claude-opus-4.8": {
+        "calls": 21,
+        "prompt_tokens": 6369,
+        "completion_tokens": 3696,
+        "total_tokens": 10065,
+        "cost_usd": 0.124245
+      }
+    },
+    "by_role": {
+      "classifier": {
+        "calls": 164,
+        "prompt_tokens": 49470,
+        "completion_tokens": 825,
+        "cost_usd": 0.005277000000000001
+      },
+      "generator": {
+        "calls": 143,
+        "prompt_tokens": 41068,
+        "completion_tokens": 29530,
+        "cost_usd": 0.015918800000000004
+      },
+      "writer": {
+        "calls": 21,
+        "prompt_tokens": 6369,
+        "completion_tokens": 3696,
+        "cost_usd": 0.124245
+      }
+    },
+    "calls": [
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 277,
+        "completion_tokens": 5,
+        "cost_usd": 2.97e-05,
+        "task_id": "HumanEval/1"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 279,
+        "completion_tokens": 231,
+        "cost_usd": 0.0001203,
+        "task_id": "HumanEval/1"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 240,
+        "completion_tokens": 5,
+        "cost_usd": 2.6000000000000002e-05,
+        "task_id": "HumanEval/2"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 242,
+        "completion_tokens": 97,
+        "cost_usd": 6.3e-05,
+        "task_id": "HumanEval/2"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 255,
+        "completion_tokens": 5,
+        "cost_usd": 2.75e-05,
+        "task_id": "HumanEval/7"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 257,
+        "completion_tokens": 117,
+        "cost_usd": 7.25e-05,
+        "task_id": "HumanEval/7"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 275,
+        "completion_tokens": 5,
+        "cost_usd": 2.95e-05,
+        "task_id": "HumanEval/4"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 277,
+        "completion_tokens": 188,
+        "cost_usd": 0.0001029,
+        "task_id": "HumanEval/4"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 279,
+        "completion_tokens": 5,
+        "cost_usd": 2.99e-05,
+        "task_id": "HumanEval/3"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 281,
+        "completion_tokens": 161,
+        "cost_usd": 9.25e-05,
+        "task_id": "HumanEval/3"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 287,
+        "completion_tokens": 5,
+        "cost_usd": 3.07e-05,
+        "task_id": "HumanEval/0"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 289,
+        "completion_tokens": 181,
+        "cost_usd": 0.0001013,
+        "task_id": "HumanEval/0"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 255,
+        "completion_tokens": 5,
+        "cost_usd": 2.75e-05,
+        "task_id": "HumanEval/5"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 257,
+        "completion_tokens": 163,
+        "cost_usd": 9.09e-05,
+        "task_id": "HumanEval/5"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 275,
+        "completion_tokens": 5,
+        "cost_usd": 2.95e-05,
+        "task_id": "HumanEval/6"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 277,
+        "completion_tokens": 228,
+        "cost_usd": 0.00011889999999999999,
+        "task_id": "HumanEval/6"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 241,
+        "completion_tokens": 5,
+        "cost_usd": 2.61e-05,
+        "task_id": "HumanEval/11"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 243,
+        "completion_tokens": 139,
+        "cost_usd": 7.989999999999999e-05,
+        "task_id": "HumanEval/11"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 276,
+        "completion_tokens": 5,
+        "cost_usd": 2.96e-05,
+        "task_id": "HumanEval/8"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 278,
+        "completion_tokens": 171,
+        "cost_usd": 9.62e-05,
+        "task_id": "HumanEval/8"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 262,
+        "completion_tokens": 5,
+        "cost_usd": 2.82e-05,
+        "task_id": "HumanEval/12"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 264,
+        "completion_tokens": 166,
+        "cost_usd": 9.28e-05,
+        "task_id": "HumanEval/12"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 260,
+        "completion_tokens": 5,
+        "cost_usd": 2.8e-05,
+        "task_id": "HumanEval/9"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 262,
+        "completion_tokens": 202,
+        "cost_usd": 0.000107,
+        "task_id": "HumanEval/9"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 215,
+        "completion_tokens": 5,
+        "cost_usd": 2.35e-05,
+        "task_id": "HumanEval/14"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 217,
+        "completion_tokens": 82,
+        "cost_usd": 5.4499999999999997e-05,
+        "task_id": "HumanEval/14"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 225,
+        "completion_tokens": 5,
+        "cost_usd": 2.45e-05,
+        "task_id": "HumanEval/16"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 227,
+        "completion_tokens": 84,
+        "cost_usd": 5.63e-05,
+        "task_id": "HumanEval/16"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 230,
+        "completion_tokens": 5,
+        "cost_usd": 2.5e-05,
+        "task_id": "HumanEval/15"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 232,
+        "completion_tokens": 99,
+        "cost_usd": 6.28e-05,
+        "task_id": "HumanEval/15"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 228,
+        "completion_tokens": 5,
+        "cost_usd": 2.48e-05,
+        "task_id": "HumanEval/13"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 230,
+        "completion_tokens": 96,
+        "cost_usd": 6.14e-05,
+        "task_id": "HumanEval/13"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 265,
+        "completion_tokens": 5,
+        "cost_usd": 2.85e-05,
+        "task_id": "HumanEval/19"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cost_usd": 0.0,
+        "task_id": "HumanEval/19"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 250,
+        "completion_tokens": 5,
+        "cost_usd": 2.7e-05,
+        "task_id": "HumanEval/18"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 252,
+        "completion_tokens": 150,
+        "cost_usd": 8.52e-05,
+        "task_id": "HumanEval/18"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 333,
+        "completion_tokens": 5,
+        "cost_usd": 3.53e-05,
+        "task_id": "HumanEval/17"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 335,
+        "completion_tokens": 256,
+        "cost_usd": 0.0001359,
+        "task_id": "HumanEval/17"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 328,
+        "completion_tokens": 5,
+        "cost_usd": 3.48e-05,
+        "task_id": "HumanEval/20"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cost_usd": 0.0,
+        "task_id": "HumanEval/20"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 196,
+        "completion_tokens": 5,
+        "cost_usd": 2.16e-05,
+        "task_id": "HumanEval/23"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 198,
+        "completion_tokens": 51,
+        "cost_usd": 4.02e-05,
+        "task_id": "HumanEval/23"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 287,
+        "completion_tokens": 5,
+        "cost_usd": 3.07e-05,
+        "task_id": "HumanEval/21"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 289,
+        "completion_tokens": 204,
+        "cost_usd": 0.00011049999999999999,
+        "task_id": "HumanEval/21"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 254,
+        "completion_tokens": 5,
+        "cost_usd": 2.74e-05,
+        "task_id": "HumanEval/22"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 256,
+        "completion_tokens": 118,
+        "cost_usd": 7.28e-05,
+        "task_id": "HumanEval/22"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 289,
+        "completion_tokens": 5,
+        "cost_usd": 3.09e-05,
+        "task_id": "HumanEval/25"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 291,
+        "completion_tokens": 209,
+        "cost_usd": 0.0001127,
+        "task_id": "HumanEval/25"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 206,
+        "completion_tokens": 5,
+        "cost_usd": 2.26e-05,
+        "task_id": "HumanEval/24"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 208,
+        "completion_tokens": 86,
+        "cost_usd": 5.519999999999999e-05,
+        "task_id": "HumanEval/24"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 245,
+        "completion_tokens": 5,
+        "cost_usd": 2.65e-05,
+        "task_id": "HumanEval/26"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 247,
+        "completion_tokens": 159,
+        "cost_usd": 8.83e-05,
+        "task_id": "HumanEval/26"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 206,
+        "completion_tokens": 5,
+        "cost_usd": 2.26e-05,
+        "task_id": "HumanEval/27"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 208,
+        "completion_tokens": 57,
+        "cost_usd": 4.3599999999999996e-05,
+        "task_id": "HumanEval/27"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 305,
+        "completion_tokens": 5,
+        "cost_usd": 3.25e-05,
+        "task_id": "HumanEval/10"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 297,
+        "completion_tokens": 238,
+        "cost_usd": 0.007435000000000001,
+        "task_id": "HumanEval/10"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 215,
+        "completion_tokens": 5,
+        "cost_usd": 2.35e-05,
+        "task_id": "HumanEval/28"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 217,
+        "completion_tokens": 71,
+        "cost_usd": 5.01e-05,
+        "task_id": "HumanEval/28"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 279,
+        "completion_tokens": 5,
+        "cost_usd": 2.99e-05,
+        "task_id": "HumanEval/30"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 281,
+        "completion_tokens": 142,
+        "cost_usd": 8.49e-05,
+        "task_id": "HumanEval/30"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 253,
+        "completion_tokens": 5,
+        "cost_usd": 2.73e-05,
+        "task_id": "HumanEval/29"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 255,
+        "completion_tokens": 117,
+        "cost_usd": 7.23e-05,
+        "task_id": "HumanEval/29"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 232,
+        "completion_tokens": 5,
+        "cost_usd": 2.52e-05,
+        "task_id": "HumanEval/34"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 234,
+        "completion_tokens": 91,
+        "cost_usd": 5.98e-05,
+        "task_id": "HumanEval/34"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 244,
+        "completion_tokens": 5,
+        "cost_usd": 2.64e-05,
+        "task_id": "HumanEval/35"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 246,
+        "completion_tokens": 155,
+        "cost_usd": 8.66e-05,
+        "task_id": "HumanEval/35"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 311,
+        "completion_tokens": 5,
+        "cost_usd": 3.31e-05,
+        "task_id": "HumanEval/33"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 313,
+        "completion_tokens": 280,
+        "cost_usd": 0.00014330000000000001,
+        "task_id": "HumanEval/33"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 275,
+        "completion_tokens": 5,
+        "cost_usd": 2.95e-05,
+        "task_id": "HumanEval/31"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 277,
+        "completion_tokens": 174,
+        "cost_usd": 9.73e-05,
+        "task_id": "HumanEval/31"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 327,
+        "completion_tokens": 5,
+        "cost_usd": 3.4699999999999996e-05,
+        "task_id": "HumanEval/38"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 329,
+        "completion_tokens": 143,
+        "cost_usd": 9.01e-05,
+        "task_id": "HumanEval/38"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 284,
+        "completion_tokens": 5,
+        "cost_usd": 3.04e-05,
+        "task_id": "HumanEval/37"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 286,
+        "completion_tokens": 233,
+        "cost_usd": 0.0001218,
+        "task_id": "HumanEval/37"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 316,
+        "completion_tokens": 5,
+        "cost_usd": 3.36e-05,
+        "task_id": "HumanEval/41"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 318,
+        "completion_tokens": 262,
+        "cost_usd": 0.0001366,
+        "task_id": "HumanEval/41"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 275,
+        "completion_tokens": 5,
+        "cost_usd": 2.95e-05,
+        "task_id": "HumanEval/42"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 277,
+        "completion_tokens": 131,
+        "cost_usd": 8.01e-05,
+        "task_id": "HumanEval/42"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 339,
+        "completion_tokens": 5,
+        "cost_usd": 3.59e-05,
+        "task_id": "HumanEval/43"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 341,
+        "completion_tokens": 219,
+        "cost_usd": 0.0001217,
+        "task_id": "HumanEval/43"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 263,
+        "completion_tokens": 5,
+        "cost_usd": 2.83e-05,
+        "task_id": "HumanEval/44"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 265,
+        "completion_tokens": 158,
+        "cost_usd": 8.969999999999998e-05,
+        "task_id": "HumanEval/44"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 202,
+        "completion_tokens": 5,
+        "cost_usd": 2.22e-05,
+        "task_id": "HumanEval/45"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 204,
+        "completion_tokens": 61,
+        "cost_usd": 4.48e-05,
+        "task_id": "HumanEval/45"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 238,
+        "completion_tokens": 5,
+        "cost_usd": 2.58e-05,
+        "task_id": "HumanEval/36"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 186,
+        "completion_tokens": 161,
+        "cost_usd": 0.004955,
+        "task_id": "HumanEval/36"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 342,
+        "completion_tokens": 5,
+        "cost_usd": 3.62e-05,
+        "task_id": "HumanEval/40"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 306,
+        "completion_tokens": 93,
+        "cost_usd": 0.0038550000000000004,
+        "task_id": "HumanEval/40"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 235,
+        "completion_tokens": 5,
+        "cost_usd": 2.55e-05,
+        "task_id": "HumanEval/47"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 237,
+        "completion_tokens": 144,
+        "cost_usd": 8.13e-05,
+        "task_id": "HumanEval/47"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 229,
+        "completion_tokens": 5,
+        "cost_usd": 2.49e-05,
+        "task_id": "HumanEval/48"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 231,
+        "completion_tokens": 86,
+        "cost_usd": 5.7499999999999995e-05,
+        "task_id": "HumanEval/48"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 256,
+        "completion_tokens": 5,
+        "cost_usd": 2.76e-05,
+        "task_id": "HumanEval/50"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 258,
+        "completion_tokens": 67,
+        "cost_usd": 5.26e-05,
+        "task_id": "HumanEval/50"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 335,
+        "completion_tokens": 5,
+        "cost_usd": 3.55e-05,
+        "task_id": "HumanEval/46"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 337,
+        "completion_tokens": 305,
+        "cost_usd": 0.0001557,
+        "task_id": "HumanEval/46"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 256,
+        "completion_tokens": 5,
+        "cost_usd": 2.76e-05,
+        "task_id": "HumanEval/39"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 207,
+        "completion_tokens": 251,
+        "cost_usd": 0.0073100000000000005,
+        "task_id": "HumanEval/39"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 243,
+        "completion_tokens": 5,
+        "cost_usd": 2.63e-05,
+        "task_id": "HumanEval/52"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 245,
+        "completion_tokens": 108,
+        "cost_usd": 6.769999999999999e-05,
+        "task_id": "HumanEval/52"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 290,
+        "completion_tokens": 5,
+        "cost_usd": 3.1e-05,
+        "task_id": "HumanEval/51"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 292,
+        "completion_tokens": 179,
+        "cost_usd": 0.00010079999999999998,
+        "task_id": "HumanEval/51"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 207,
+        "completion_tokens": 5,
+        "cost_usd": 2.27e-05,
+        "task_id": "HumanEval/53"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 209,
+        "completion_tokens": 61,
+        "cost_usd": 4.53e-05,
+        "task_id": "HumanEval/53"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 245,
+        "completion_tokens": 5,
+        "cost_usd": 2.65e-05,
+        "task_id": "HumanEval/56"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 247,
+        "completion_tokens": 151,
+        "cost_usd": 8.51e-05,
+        "task_id": "HumanEval/56"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 210,
+        "completion_tokens": 5,
+        "cost_usd": 2.3e-05,
+        "task_id": "HumanEval/55"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 212,
+        "completion_tokens": 128,
+        "cost_usd": 7.24e-05,
+        "task_id": "HumanEval/55"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 281,
+        "completion_tokens": 5,
+        "cost_usd": 3.01e-05,
+        "task_id": "HumanEval/58"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 283,
+        "completion_tokens": 179,
+        "cost_usd": 9.989999999999999e-05,
+        "task_id": "HumanEval/58"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 271,
+        "completion_tokens": 5,
+        "cost_usd": 2.91e-05,
+        "task_id": "HumanEval/49"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 198,
+        "completion_tokens": 132,
+        "cost_usd": 0.00429,
+        "task_id": "HumanEval/49"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 242,
+        "completion_tokens": 5,
+        "cost_usd": 2.62e-05,
+        "task_id": "HumanEval/57"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 244,
+        "completion_tokens": 174,
+        "cost_usd": 9.4e-05,
+        "task_id": "HumanEval/57"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 311,
+        "completion_tokens": 5,
+        "cost_usd": 3.31e-05,
+        "task_id": "HumanEval/54"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 313,
+        "completion_tokens": 173,
+        "cost_usd": 0.0001005,
+        "task_id": "HumanEval/54"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 272,
+        "completion_tokens": 5,
+        "cost_usd": 2.9199999999999998e-05,
+        "task_id": "HumanEval/60"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 274,
+        "completion_tokens": 134,
+        "cost_usd": 8.099999999999999e-05,
+        "task_id": "HumanEval/60"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 242,
+        "completion_tokens": 5,
+        "cost_usd": 2.62e-05,
+        "task_id": "HumanEval/61"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 244,
+        "completion_tokens": 148,
+        "cost_usd": 8.36e-05,
+        "task_id": "HumanEval/61"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 248,
+        "completion_tokens": 5,
+        "cost_usd": 2.68e-05,
+        "task_id": "HumanEval/65"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 250,
+        "completion_tokens": 153,
+        "cost_usd": 8.62e-05,
+        "task_id": "HumanEval/65"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 269,
+        "completion_tokens": 5,
+        "cost_usd": 2.89e-05,
+        "task_id": "HumanEval/62"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 271,
+        "completion_tokens": 153,
+        "cost_usd": 8.829999999999999e-05,
+        "task_id": "HumanEval/62"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 288,
+        "completion_tokens": 5,
+        "cost_usd": 3.0799999999999996e-05,
+        "task_id": "HumanEval/64"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 290,
+        "completion_tokens": 209,
+        "cost_usd": 0.0001126,
+        "task_id": "HumanEval/64"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 437,
+        "completion_tokens": 5,
+        "cost_usd": 4.57e-05,
+        "task_id": "HumanEval/32"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 432,
+        "completion_tokens": 366,
+        "cost_usd": 0.01131,
+        "task_id": "HumanEval/32"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 311,
+        "completion_tokens": 5,
+        "cost_usd": 3.31e-05,
+        "task_id": "HumanEval/63"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 313,
+        "completion_tokens": 257,
+        "cost_usd": 0.0001341,
+        "task_id": "HumanEval/63"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 275,
+        "completion_tokens": 5,
+        "cost_usd": 2.95e-05,
+        "task_id": "HumanEval/66"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 277,
+        "completion_tokens": 155,
+        "cost_usd": 8.97e-05,
+        "task_id": "HumanEval/66"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 392,
+        "completion_tokens": 5,
+        "cost_usd": 4.12e-05,
+        "task_id": "HumanEval/67"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 394,
+        "completion_tokens": 318,
+        "cost_usd": 0.00016659999999999998,
+        "task_id": "HumanEval/67"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 229,
+        "completion_tokens": 5,
+        "cost_usd": 2.49e-05,
+        "task_id": "HumanEval/59"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 167,
+        "completion_tokens": 166,
+        "cost_usd": 0.004985,
+        "task_id": "HumanEval/59"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 292,
+        "completion_tokens": 5,
+        "cost_usd": 3.12e-05,
+        "task_id": "HumanEval/70"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 294,
+        "completion_tokens": 209,
+        "cost_usd": 0.000113,
+        "task_id": "HumanEval/70"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 325,
+        "completion_tokens": 5,
+        "cost_usd": 3.45e-05,
+        "task_id": "HumanEval/69"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 327,
+        "completion_tokens": 247,
+        "cost_usd": 0.0001315,
+        "task_id": "HumanEval/69"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 492,
+        "completion_tokens": 5,
+        "cost_usd": 5.12e-05,
+        "task_id": "HumanEval/68"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 494,
+        "completion_tokens": 487,
+        "cost_usd": 0.00024419999999999997,
+        "task_id": "HumanEval/68"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 284,
+        "completion_tokens": 5,
+        "cost_usd": 3.04e-05,
+        "task_id": "HumanEval/71"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 286,
+        "completion_tokens": 215,
+        "cost_usd": 0.0001146,
+        "task_id": "HumanEval/71"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 401,
+        "completion_tokens": 5,
+        "cost_usd": 4.21e-05,
+        "task_id": "HumanEval/72"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 403,
+        "completion_tokens": 282,
+        "cost_usd": 0.00015309999999999998,
+        "task_id": "HumanEval/72"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 361,
+        "completion_tokens": 5,
+        "cost_usd": 3.81e-05,
+        "task_id": "HumanEval/74"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 363,
+        "completion_tokens": 262,
+        "cost_usd": 0.00014110000000000001,
+        "task_id": "HumanEval/74"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 312,
+        "completion_tokens": 5,
+        "cost_usd": 3.32e-05,
+        "task_id": "HumanEval/76"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 314,
+        "completion_tokens": 233,
+        "cost_usd": 0.0001246,
+        "task_id": "HumanEval/76"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 312,
+        "completion_tokens": 5,
+        "cost_usd": 3.32e-05,
+        "task_id": "HumanEval/79"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 314,
+        "completion_tokens": 229,
+        "cost_usd": 0.00012299999999999998,
+        "task_id": "HumanEval/79"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 490,
+        "completion_tokens": 5,
+        "cost_usd": 5.1e-05,
+        "task_id": "HumanEval/78"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 492,
+        "completion_tokens": 394,
+        "cost_usd": 0.00020679999999999999,
+        "task_id": "HumanEval/78"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 280,
+        "completion_tokens": 5,
+        "cost_usd": 3e-05,
+        "task_id": "HumanEval/80"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 282,
+        "completion_tokens": 201,
+        "cost_usd": 0.0001086,
+        "task_id": "HumanEval/80"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 271,
+        "completion_tokens": 5,
+        "cost_usd": 2.91e-05,
+        "task_id": "HumanEval/77"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 273,
+        "completion_tokens": 520,
+        "cost_usd": 0.00023529999999999997,
+        "task_id": "HumanEval/77"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 315,
+        "completion_tokens": 5,
+        "cost_usd": 3.35e-05,
+        "task_id": "HumanEval/73"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 317,
+        "completion_tokens": 211,
+        "cost_usd": 0.00011609999999999999,
+        "task_id": "HumanEval/73"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 211,
+        "completion_tokens": 5,
+        "cost_usd": 2.31e-05,
+        "task_id": "HumanEval/85"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 213,
+        "completion_tokens": 105,
+        "cost_usd": 6.33e-05,
+        "task_id": "HumanEval/85"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 239,
+        "completion_tokens": 5,
+        "cost_usd": 2.59e-05,
+        "task_id": "HumanEval/82"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 241,
+        "completion_tokens": 146,
+        "cost_usd": 8.25e-05,
+        "task_id": "HumanEval/82"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 441,
+        "completion_tokens": 5,
+        "cost_usd": 4.61e-05,
+        "task_id": "HumanEval/81"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 443,
+        "completion_tokens": 587,
+        "cost_usd": 0.0002791,
+        "task_id": "HumanEval/81"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 309,
+        "completion_tokens": 5,
+        "cost_usd": 3.29e-05,
+        "task_id": "HumanEval/84"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 311,
+        "completion_tokens": 192,
+        "cost_usd": 0.0001079,
+        "task_id": "HumanEval/84"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 202,
+        "completion_tokens": 5,
+        "cost_usd": 2.22e-05,
+        "task_id": "HumanEval/83"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 204,
+        "completion_tokens": 397,
+        "cost_usd": 0.0001792,
+        "task_id": "HumanEval/83"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 242,
+        "completion_tokens": 5,
+        "cost_usd": 2.62e-05,
+        "task_id": "HumanEval/75"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 186,
+        "completion_tokens": 241,
+        "cost_usd": 0.006955,
+        "task_id": "HumanEval/75"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 294,
+        "completion_tokens": 5,
+        "cost_usd": 3.14e-05,
+        "task_id": "HumanEval/86"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 296,
+        "completion_tokens": 180,
+        "cost_usd": 0.0001016,
+        "task_id": "HumanEval/86"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 272,
+        "completion_tokens": 5,
+        "cost_usd": 2.9199999999999998e-05,
+        "task_id": "HumanEval/89"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 274,
+        "completion_tokens": 281,
+        "cost_usd": 0.00013979999999999998,
+        "task_id": "HumanEval/89"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 281,
+        "completion_tokens": 5,
+        "cost_usd": 3.01e-05,
+        "task_id": "HumanEval/90"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 283,
+        "completion_tokens": 193,
+        "cost_usd": 0.00010549999999999999,
+        "task_id": "HumanEval/90"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 432,
+        "completion_tokens": 5,
+        "cost_usd": 4.52e-05,
+        "task_id": "HumanEval/87"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 434,
+        "completion_tokens": 391,
+        "cost_usd": 0.00019979999999999998,
+        "task_id": "HumanEval/87"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 270,
+        "completion_tokens": 5,
+        "cost_usd": 2.9e-05,
+        "task_id": "HumanEval/91"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 272,
+        "completion_tokens": 253,
+        "cost_usd": 0.00012839999999999998,
+        "task_id": "HumanEval/91"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 373,
+        "completion_tokens": 5,
+        "cost_usd": 3.93e-05,
+        "task_id": "HumanEval/88"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 375,
+        "completion_tokens": 312,
+        "cost_usd": 0.0001623,
+        "task_id": "HumanEval/88"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 304,
+        "completion_tokens": 5,
+        "cost_usd": 3.24e-05,
+        "task_id": "HumanEval/92"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 306,
+        "completion_tokens": 217,
+        "cost_usd": 0.0001174,
+        "task_id": "HumanEval/92"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 275,
+        "completion_tokens": 5,
+        "cost_usd": 2.95e-05,
+        "task_id": "HumanEval/93"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 277,
+        "completion_tokens": 331,
+        "cost_usd": 0.0001601,
+        "task_id": "HumanEval/93"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 274,
+        "completion_tokens": 5,
+        "cost_usd": 2.94e-05,
+        "task_id": "HumanEval/97"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cost_usd": 0.0,
+        "task_id": "HumanEval/97"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 232,
+        "completion_tokens": 5,
+        "cost_usd": 2.52e-05,
+        "task_id": "HumanEval/98"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 234,
+        "completion_tokens": 135,
+        "cost_usd": 7.74e-05,
+        "task_id": "HumanEval/98"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 297,
+        "completion_tokens": 5,
+        "cost_usd": 3.17e-05,
+        "task_id": "HumanEval/100"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 299,
+        "completion_tokens": 213,
+        "cost_usd": 0.00011509999999999999,
+        "task_id": "HumanEval/100"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 348,
+        "completion_tokens": 5,
+        "cost_usd": 3.68e-05,
+        "task_id": "HumanEval/95"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 350,
+        "completion_tokens": 285,
+        "cost_usd": 0.000149,
+        "task_id": "HumanEval/95"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 322,
+        "completion_tokens": 5,
+        "cost_usd": 3.42e-05,
+        "task_id": "HumanEval/99"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 324,
+        "completion_tokens": 262,
+        "cost_usd": 0.0001372,
+        "task_id": "HumanEval/99"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 278,
+        "completion_tokens": 5,
+        "cost_usd": 2.98e-05,
+        "task_id": "HumanEval/101"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 280,
+        "completion_tokens": 137,
+        "cost_usd": 8.28e-05,
+        "task_id": "HumanEval/101"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 259,
+        "completion_tokens": 5,
+        "cost_usd": 2.79e-05,
+        "task_id": "HumanEval/102"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 261,
+        "completion_tokens": 167,
+        "cost_usd": 9.29e-05,
+        "task_id": "HumanEval/102"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 332,
+        "completion_tokens": 5,
+        "cost_usd": 3.52e-05,
+        "task_id": "HumanEval/96"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 254,
+        "completion_tokens": 102,
+        "cost_usd": 0.0038200000000000005,
+        "task_id": "HumanEval/96"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 451,
+        "completion_tokens": 5,
+        "cost_usd": 4.71e-05,
+        "task_id": "HumanEval/105"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 453,
+        "completion_tokens": 98,
+        "cost_usd": 8.45e-05,
+        "task_id": "HumanEval/105"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 281,
+        "completion_tokens": 5,
+        "cost_usd": 3.01e-05,
+        "task_id": "HumanEval/104"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 283,
+        "completion_tokens": 204,
+        "cost_usd": 0.00010989999999999999,
+        "task_id": "HumanEval/104"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 315,
+        "completion_tokens": 5,
+        "cost_usd": 3.35e-05,
+        "task_id": "HumanEval/103"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 317,
+        "completion_tokens": 229,
+        "cost_usd": 0.0001233,
+        "task_id": "HumanEval/103"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 482,
+        "completion_tokens": 5,
+        "cost_usd": 5.02e-05,
+        "task_id": "HumanEval/94"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 381,
+        "completion_tokens": 131,
+        "cost_usd": 0.005180000000000001,
+        "task_id": "HumanEval/94"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 285,
+        "completion_tokens": 5,
+        "cost_usd": 3.05e-05,
+        "task_id": "HumanEval/106"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 287,
+        "completion_tokens": 251,
+        "cost_usd": 0.0001291,
+        "task_id": "HumanEval/106"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 374,
+        "completion_tokens": 5,
+        "cost_usd": 3.94e-05,
+        "task_id": "HumanEval/107"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 376,
+        "completion_tokens": 312,
+        "cost_usd": 0.0001624,
+        "task_id": "HumanEval/107"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 290,
+        "completion_tokens": 5,
+        "cost_usd": 3.1e-05,
+        "task_id": "HumanEval/108"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 292,
+        "completion_tokens": 244,
+        "cost_usd": 0.0001268,
+        "task_id": "HumanEval/108"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 360,
+        "completion_tokens": 5,
+        "cost_usd": 3.8e-05,
+        "task_id": "HumanEval/110"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cost_usd": 0.0,
+        "task_id": "HumanEval/110"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 324,
+        "completion_tokens": 5,
+        "cost_usd": 3.44e-05,
+        "task_id": "HumanEval/112"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 326,
+        "completion_tokens": 229,
+        "cost_usd": 0.00012419999999999998,
+        "task_id": "HumanEval/112"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 245,
+        "completion_tokens": 5,
+        "cost_usd": 2.65e-05,
+        "task_id": "HumanEval/114"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 247,
+        "completion_tokens": 178,
+        "cost_usd": 9.59e-05,
+        "task_id": "HumanEval/114"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 312,
+        "completion_tokens": 5,
+        "cost_usd": 3.32e-05,
+        "task_id": "HumanEval/111"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 314,
+        "completion_tokens": 278,
+        "cost_usd": 0.0001426,
+        "task_id": "HumanEval/111"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 346,
+        "completion_tokens": 5,
+        "cost_usd": 3.66e-05,
+        "task_id": "HumanEval/113"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 348,
+        "completion_tokens": 403,
+        "cost_usd": 0.000196,
+        "task_id": "HumanEval/113"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 335,
+        "completion_tokens": 5,
+        "cost_usd": 3.55e-05,
+        "task_id": "HumanEval/116"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 337,
+        "completion_tokens": 202,
+        "cost_usd": 0.00011449999999999999,
+        "task_id": "HumanEval/116"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 458,
+        "completion_tokens": 5,
+        "cost_usd": 4.7799999999999996e-05,
+        "task_id": "HumanEval/109"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 477,
+        "completion_tokens": 84,
+        "cost_usd": 0.004485000000000001,
+        "task_id": "HumanEval/109"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 347,
+        "completion_tokens": 5,
+        "cost_usd": 3.67e-05,
+        "task_id": "HumanEval/117"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 349,
+        "completion_tokens": 298,
+        "cost_usd": 0.0001541,
+        "task_id": "HumanEval/117"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 504,
+        "completion_tokens": 5,
+        "cost_usd": 5.24e-05,
+        "task_id": "HumanEval/115"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 506,
+        "completion_tokens": 437,
+        "cost_usd": 0.0002254,
+        "task_id": "HumanEval/115"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 259,
+        "completion_tokens": 5,
+        "cost_usd": 2.79e-05,
+        "task_id": "HumanEval/121"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 261,
+        "completion_tokens": 158,
+        "cost_usd": 8.929999999999999e-05,
+        "task_id": "HumanEval/121"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 387,
+        "completion_tokens": 5,
+        "cost_usd": 4.07e-05,
+        "task_id": "HumanEval/120"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cost_usd": 0.0,
+        "task_id": "HumanEval/120"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 297,
+        "completion_tokens": 5,
+        "cost_usd": 3.17e-05,
+        "task_id": "HumanEval/122"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 299,
+        "completion_tokens": 196,
+        "cost_usd": 0.00010829999999999999,
+        "task_id": "HumanEval/122"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 316,
+        "completion_tokens": 5,
+        "cost_usd": 3.36e-05,
+        "task_id": "HumanEval/118"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 290,
+        "completion_tokens": 100,
+        "cost_usd": 0.00395,
+        "task_id": "HumanEval/118"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 398,
+        "completion_tokens": 5,
+        "cost_usd": 4.18e-05,
+        "task_id": "HumanEval/123"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 400,
+        "completion_tokens": 340,
+        "cost_usd": 0.000176,
+        "task_id": "HumanEval/123"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 303,
+        "completion_tokens": 5,
+        "cost_usd": 3.23e-05,
+        "task_id": "HumanEval/125"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 305,
+        "completion_tokens": 237,
+        "cost_usd": 0.0001253,
+        "task_id": "HumanEval/125"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 413,
+        "completion_tokens": 5,
+        "cost_usd": 4.33e-05,
+        "task_id": "HumanEval/126"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 415,
+        "completion_tokens": 357,
+        "cost_usd": 0.0001843,
+        "task_id": "HumanEval/126"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 452,
+        "completion_tokens": 5,
+        "cost_usd": 4.72e-05,
+        "task_id": "HumanEval/124"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 454,
+        "completion_tokens": 615,
+        "cost_usd": 0.0002914,
+        "task_id": "HumanEval/124"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 277,
+        "completion_tokens": 5,
+        "cost_usd": 2.97e-05,
+        "task_id": "HumanEval/128"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 279,
+        "completion_tokens": 220,
+        "cost_usd": 0.0001159,
+        "task_id": "HumanEval/128"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 230,
+        "completion_tokens": 5,
+        "cost_usd": 2.5e-05,
+        "task_id": "HumanEval/131"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 232,
+        "completion_tokens": 143,
+        "cost_usd": 8.039999999999999e-05,
+        "task_id": "HumanEval/131"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 424,
+        "completion_tokens": 5,
+        "cost_usd": 4.44e-05,
+        "task_id": "HumanEval/127"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 414,
+        "completion_tokens": 109,
+        "cost_usd": 0.004795000000000001,
+        "task_id": "HumanEval/127"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 333,
+        "completion_tokens": 5,
+        "cost_usd": 3.53e-05,
+        "task_id": "HumanEval/119"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 305,
+        "completion_tokens": 353,
+        "cost_usd": 0.010350000000000002,
+        "task_id": "HumanEval/119"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 320,
+        "completion_tokens": 5,
+        "cost_usd": 3.4e-05,
+        "task_id": "HumanEval/133"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 322,
+        "completion_tokens": 216,
+        "cost_usd": 0.0001186,
+        "task_id": "HumanEval/133"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 325,
+        "completion_tokens": 5,
+        "cost_usd": 3.45e-05,
+        "task_id": "HumanEval/134"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 327,
+        "completion_tokens": 262,
+        "cost_usd": 0.00013749999999999998,
+        "task_id": "HumanEval/134"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 301,
+        "completion_tokens": 5,
+        "cost_usd": 3.21e-05,
+        "task_id": "HumanEval/136"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 303,
+        "completion_tokens": 220,
+        "cost_usd": 0.0001183,
+        "task_id": "HumanEval/136"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 258,
+        "completion_tokens": 5,
+        "cost_usd": 2.78e-05,
+        "task_id": "HumanEval/135"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 260,
+        "completion_tokens": 156,
+        "cost_usd": 8.84e-05,
+        "task_id": "HumanEval/135"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 246,
+        "completion_tokens": 5,
+        "cost_usd": 2.66e-05,
+        "task_id": "HumanEval/138"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 248,
+        "completion_tokens": 125,
+        "cost_usd": 7.48e-05,
+        "task_id": "HumanEval/138"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 406,
+        "completion_tokens": 5,
+        "cost_usd": 4.26e-05,
+        "task_id": "HumanEval/130"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 399,
+        "completion_tokens": 163,
+        "cost_usd": 0.006070000000000001,
+        "task_id": "HumanEval/130"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 273,
+        "completion_tokens": 5,
+        "cost_usd": 2.93e-05,
+        "task_id": "HumanEval/140"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 275,
+        "completion_tokens": 157,
+        "cost_usd": 9.03e-05,
+        "task_id": "HumanEval/140"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 256,
+        "completion_tokens": 5,
+        "cost_usd": 2.76e-05,
+        "task_id": "HumanEval/139"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 258,
+        "completion_tokens": 204,
+        "cost_usd": 0.0001074,
+        "task_id": "HumanEval/139"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 484,
+        "completion_tokens": 10,
+        "cost_usd": 5.24e-05,
+        "task_id": "HumanEval/129"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 593,
+        "completion_tokens": 210,
+        "cost_usd": 0.008215,
+        "task_id": "HumanEval/129"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 330,
+        "completion_tokens": 5,
+        "cost_usd": 3.5e-05,
+        "task_id": "HumanEval/142"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 332,
+        "completion_tokens": 256,
+        "cost_usd": 0.0001356,
+        "task_id": "HumanEval/142"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 293,
+        "completion_tokens": 5,
+        "cost_usd": 3.1299999999999995e-05,
+        "task_id": "HumanEval/132"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 272,
+        "completion_tokens": 319,
+        "cost_usd": 0.009335000000000001,
+        "task_id": "HumanEval/132"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 389,
+        "completion_tokens": 5,
+        "cost_usd": 4.09e-05,
+        "task_id": "HumanEval/141"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 391,
+        "completion_tokens": 392,
+        "cost_usd": 0.0001959,
+        "task_id": "HumanEval/141"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 286,
+        "completion_tokens": 5,
+        "cost_usd": 3.06e-05,
+        "task_id": "HumanEval/145"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 288,
+        "completion_tokens": 192,
+        "cost_usd": 0.00010559999999999999,
+        "task_id": "HumanEval/145"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 287,
+        "completion_tokens": 5,
+        "cost_usd": 3.07e-05,
+        "task_id": "HumanEval/146"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 289,
+        "completion_tokens": 225,
+        "cost_usd": 0.00011889999999999999,
+        "task_id": "HumanEval/146"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 312,
+        "completion_tokens": 5,
+        "cost_usd": 3.32e-05,
+        "task_id": "HumanEval/144"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 314,
+        "completion_tokens": 237,
+        "cost_usd": 0.0001262,
+        "task_id": "HumanEval/144"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 305,
+        "completion_tokens": 5,
+        "cost_usd": 3.25e-05,
+        "task_id": "HumanEval/137"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 259,
+        "completion_tokens": 97,
+        "cost_usd": 0.00372,
+        "task_id": "HumanEval/137"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 308,
+        "completion_tokens": 5,
+        "cost_usd": 3.28e-05,
+        "task_id": "HumanEval/151"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 310,
+        "completion_tokens": 228,
+        "cost_usd": 0.0001222,
+        "task_id": "HumanEval/151"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 318,
+        "completion_tokens": 5,
+        "cost_usd": 3.38e-05,
+        "task_id": "HumanEval/143"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 284,
+        "completion_tokens": 105,
+        "cost_usd": 0.004045,
+        "task_id": "HumanEval/143"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 356,
+        "completion_tokens": 5,
+        "cost_usd": 3.76e-05,
+        "task_id": "HumanEval/149"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 358,
+        "completion_tokens": 260,
+        "cost_usd": 0.00013979999999999998,
+        "task_id": "HumanEval/149"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 294,
+        "completion_tokens": 5,
+        "cost_usd": 3.14e-05,
+        "task_id": "HumanEval/154"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 296,
+        "completion_tokens": 196,
+        "cost_usd": 0.000108,
+        "task_id": "HumanEval/154"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 339,
+        "completion_tokens": 5,
+        "cost_usd": 3.59e-05,
+        "task_id": "HumanEval/147"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 282,
+        "completion_tokens": 120,
+        "cost_usd": 0.00441,
+        "task_id": "HumanEval/147"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 395,
+        "completion_tokens": 5,
+        "cost_usd": 4.15e-05,
+        "task_id": "HumanEval/152"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 397,
+        "completion_tokens": 304,
+        "cost_usd": 0.0001613,
+        "task_id": "HumanEval/152"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 370,
+        "completion_tokens": 5,
+        "cost_usd": 3.9e-05,
+        "task_id": "HumanEval/148"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 372,
+        "completion_tokens": 361,
+        "cost_usd": 0.00018159999999999997,
+        "task_id": "HumanEval/148"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 442,
+        "completion_tokens": 5,
+        "cost_usd": 4.62e-05,
+        "task_id": "HumanEval/153"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 444,
+        "completion_tokens": 410,
+        "cost_usd": 0.0002084,
+        "task_id": "HumanEval/153"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 254,
+        "completion_tokens": 5,
+        "cost_usd": 2.74e-05,
+        "task_id": "HumanEval/150"
+      },
+      {
+        "model": "anthropic/claude-opus-4.8",
+        "role": "writer",
+        "prompt_tokens": 180,
+        "completion_tokens": 155,
+        "cost_usd": 0.004775,
+        "task_id": "HumanEval/150"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 231,
+        "completion_tokens": 5,
+        "cost_usd": 2.51e-05,
+        "task_id": "HumanEval/155"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 233,
+        "completion_tokens": 157,
+        "cost_usd": 8.609999999999999e-05,
+        "task_id": "HumanEval/155"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 276,
+        "completion_tokens": 5,
+        "cost_usd": 2.96e-05,
+        "task_id": "HumanEval/156"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 278,
+        "completion_tokens": 302,
+        "cost_usd": 0.00014859999999999998,
+        "task_id": "HumanEval/156"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 281,
+        "completion_tokens": 5,
+        "cost_usd": 3.01e-05,
+        "task_id": "HumanEval/158"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 283,
+        "completion_tokens": 231,
+        "cost_usd": 0.00012069999999999999,
+        "task_id": "HumanEval/158"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 375,
+        "completion_tokens": 5,
+        "cost_usd": 3.95e-05,
+        "task_id": "HumanEval/160"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 377,
+        "completion_tokens": 268,
+        "cost_usd": 0.0001449,
+        "task_id": "HumanEval/160"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 272,
+        "completion_tokens": 5,
+        "cost_usd": 2.9199999999999998e-05,
+        "task_id": "HumanEval/157"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 274,
+        "completion_tokens": 155,
+        "cost_usd": 8.94e-05,
+        "task_id": "HumanEval/157"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 466,
+        "completion_tokens": 5,
+        "cost_usd": 4.86e-05,
+        "task_id": "HumanEval/159"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 468,
+        "completion_tokens": 370,
+        "cost_usd": 0.0001948,
+        "task_id": "HumanEval/159"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 247,
+        "completion_tokens": 5,
+        "cost_usd": 2.67e-05,
+        "task_id": "HumanEval/162"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 249,
+        "completion_tokens": 128,
+        "cost_usd": 7.609999999999999e-05,
+        "task_id": "HumanEval/162"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 273,
+        "completion_tokens": 5,
+        "cost_usd": 2.93e-05,
+        "task_id": "HumanEval/161"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 275,
+        "completion_tokens": 220,
+        "cost_usd": 0.00011549999999999999,
+        "task_id": "HumanEval/161"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "classifier",
+        "prompt_tokens": 269,
+        "completion_tokens": 5,
+        "cost_usd": 2.89e-05,
+        "task_id": "HumanEval/163"
+      },
+      {
+        "model": "google/gemini-2.5-flash-lite",
+        "role": "generator",
+        "prompt_tokens": 271,
+        "completion_tokens": 181,
+        "cost_usd": 9.949999999999999e-05,
+        "task_id": "HumanEval/163"
+      }
+    ]
+  }
+}
