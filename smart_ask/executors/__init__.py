@@ -1,29 +1,16 @@
-"""Public model executor contracts and implementations."""
+"""Async structured provider transports and trusted-target execution."""
 
-from .base import ModelExecutor
-from .groq import GroqExecutor
-from .groq_conversation import GroqConversationExecutor
-from .hermes import HermesExecutor
-from .ollama import (
-    OllamaConversationExecutor,
-    OllamaExecutor,
-    UnsupportedConversationFeature,
-)
-from .openai import OpenAIExecutor
-from .openai_conversation import OpenAIConversationExecutor
-from .openrouter import OpenRouterExecutor
-from .openrouter_conversation import OpenRouterConversationExecutor
+from .groq import GroqTransport
+from .ollama import OllamaTransport, UnsupportedConversationFeature
+from .openai import OpenAITransport
+from .openrouter import OpenRouterTransport
+from .target_registry import TargetExecutorRegistry
 
 __all__ = [
-    "HermesExecutor",
-    "GroqConversationExecutor",
-    "GroqExecutor",
-    "ModelExecutor",
-    "OllamaConversationExecutor",
-    "OllamaExecutor",
-    "OpenAIConversationExecutor",
-    "OpenAIExecutor",
-    "OpenRouterExecutor",
-    "OpenRouterConversationExecutor",
+    "GroqTransport",
+    "OllamaTransport",
+    "OpenAITransport",
+    "OpenRouterTransport",
+    "TargetExecutorRegistry",
     "UnsupportedConversationFeature",
 ]

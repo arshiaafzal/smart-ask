@@ -21,7 +21,7 @@ LAUNCHER_VENV=$STATE_PARENT/smart-ask-claude-launcher-venv
 usage() {
     cat <<'EOF'
 Usage:
-  scripts/claude-smart-ask --strategy NAME [--trace] [CLAUDE_ARGS...]
+  scripts/claude-smart-ask --strategy NAME [--trace | --trace-dir DIR] [CLAUDE_ARGS...]
 
 Examples:
   scripts/claude-smart-ask --strategy python-code-generation-codex-cascade
@@ -39,7 +39,7 @@ Environment overrides:
   SMART_ASK_ADAPTER_HOST, SMART_ASK_ADAPTER_PORT
   SMART_ASK_LAUNCHER_STATE_DIR, SMART_ASK_START_ATTEMPTS
   SMART_ASK_METRICS_PATH, CLAUDE_BIN
-  SMART_ASK_TRACE_PATH
+  SMART_ASK_TRACE_DIR
 EOF
 }
 
@@ -165,24 +165,24 @@ esac
 STRATEGY_NAME=$2
 shift 2
 [ "${1:-}" = "--" ] && shift
-TRACE_PATH=${SMART_ASK_TRACE_PATH:-}
-GENERATE_TRACE_PATH=0
+TRACE_DIR=${SMART_ASK_TRACE_DIR:-}
+GENERATE_TRACE_DIR=0
 if [ "${1:-}" = "--trace" ]; then
-    [ -n "$TRACE_PATH" ] || GENERATE_TRACE_PATH=1
+    [ -n "$TRACE_DIR" ] || GENERATE_TRACE_DIR=1
     shift
-elif [ "${1:-}" = "--trace-path" ]; then
-    [ -n "${2:-}" ] || fail "--trace-path requires a path"
-    TRACE_PATH=$2
+elif [ "${1:-}" = "--trace-dir" ]; then
+    [ -n "${2:-}" ] || fail "--trace-dir requires a directory"
+    TRACE_DIR=$2
     shift 2
 fi
 
 command -v curl >/dev/null 2>&1 || fail "required command not found: curl"
 PYTHON=$(resolve_python) || fail \
     "Python 3.11+ was not found; install it or set SMART_ASK_PYTHON"
-if [ "$GENERATE_TRACE_PATH" = "1" ]; then
+if [ "$GENERATE_TRACE_DIR" = "1" ]; then
     TRACE_NAME=$("$PYTHON" -c \
-        'from datetime import datetime, timezone; from uuid import uuid4; print(datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8] + ".jsonl")')
-    TRACE_PATH=$ROOT_DIR/.smart-ask/claude-code/traces/$TRACE_NAME
+        'from datetime import datetime, timezone; from uuid import uuid4; print(datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8])')
+    TRACE_DIR=$ROOT_DIR/.smart-ask/claude-code/traces/$TRACE_NAME
 fi
 mkdir -p "$STATE_PARENT"
 ADAPTER=$(resolve_adapter) || fail \
@@ -207,23 +207,23 @@ TOKEN=$(make_token)
 PORT=${SMART_ASK_ADAPTER_PORT:-$(unused_port)}
 ADAPTER_URL=http://$ADAPTER_HOST:$PORT
 METRICS_PATH=${SMART_ASK_METRICS_PATH:-$ROOT_DIR/.smart-ask/claude-code/metrics.jsonl}
-if [ -n "$TRACE_PATH" ]; then
-    TRACE_PATH=$("$PYTHON" -c \
+if [ -n "$TRACE_DIR" ]; then
+    TRACE_DIR=$("$PYTHON" -c \
         'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser().resolve())' \
-        "$TRACE_PATH")
+        "$TRACE_DIR")
 fi
 ADAPTER_PID=
 trap cleanup EXIT INT TERM
 
 METRICS_PATH=$(
-"$PYTHON" - "$STRATEGY_NAME" "$CONFIG" "$PROVIDER_ENVS" "$ADAPTER_HOST" "$PORT" "$METRICS_PATH" "$TRACE_PATH" <<'PY'
+"$PYTHON" - "$STRATEGY_NAME" "$CONFIG" "$PROVIDER_ENVS" "$ADAPTER_HOST" "$PORT" "$METRICS_PATH" "$TRACE_DIR" <<'PY'
 import json
 from pathlib import Path
 import sys
 
-from smart_ask.strategy import load_strategy
+from smart_ask.strategy import DEFAULT_TARGET_REGISTRY, load_strategy
 
-name, config_path, env_path, host, raw_port, metrics_path, trace_path = sys.argv[1:]
+name, config_path, env_path, host, raw_port, metrics_path, trace_directory = sys.argv[1:]
 if not name or name != name.strip():
     raise SystemExit("strategy name must be non-empty and trimmed")
 if "/" in name or "\\" in name or name.startswith("builtin:"):
@@ -236,16 +236,9 @@ reference = "builtin:" + name
 loaded = load_strategy(reference)
 resolved_metrics_path = str(Path(metrics_path).expanduser().resolve())
 
-credential_names = set()
-generation = loaded.config.generation
-api_key_env = getattr(generation, "api_key_env", None)
-if api_key_env:
-    credential_names.add(api_key_env)
-classifier = getattr(loaded.config.method, "classifier", None)
-if classifier is not None:
-    api_key_env = getattr(classifier.executor, "api_key_env", None)
-    if api_key_env:
-        credential_names.add(api_key_env)
+credential_names = DEFAULT_TARGET_REGISTRY.required_secret_envs(
+    loaded.config.target_ids
+)
 
 config = {
     "schema_version": 1,
@@ -262,7 +255,7 @@ config = {
     },
     "metrics": {
         "jsonl_path": resolved_metrics_path,
-        "trace_jsonl_path": trace_path or None,
+        "trace_directory": trace_directory or None,
     },
     "security": {"allowed_strategy_roots": []},
 }
@@ -327,8 +320,8 @@ CLAUDE_ENV+=(
 )
 
 echo "metrics: $METRICS_PATH" >&2
-if [ -n "$TRACE_PATH" ]; then
-    echo "trace: $TRACE_PATH (contains conversation content)" >&2
+if [ -n "$TRACE_DIR" ]; then
+    echo "trace directory: $TRACE_DIR (contains conversation content)" >&2
 fi
 echo "ready: $MODEL via $ADAPTER_URL" >&2
 cd "$CALLER_DIR"

@@ -31,7 +31,7 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             state_parent = temporary / "state"
             observed_path = temporary / "observed.json"
             metrics_path = temporary / "metrics.jsonl"
-            trace_path = temporary / "traces.jsonl"
+            trace_directory = temporary / "trace-session"
             secrets_path = temporary / "launcher.env"
             secrets_path.write_text(
                 'OPENAI_API_KEY="test-provider-key"\n',
@@ -105,15 +105,15 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                 "FAKE_CONFIG_COPY": str(observed_path),
             }
             env.pop("OPENAI_API_KEY", None)
-            env.pop("SMART_ASK_TRACE_PATH", None)
+            env.pop("SMART_ASK_TRACE_DIR", None)
 
             run = subprocess.run(
                 [
                     str(LAUNCHER),
                     "--strategy",
                     "python-code-generation-codex-cascade",
-                    "--trace-path",
-                    str(trace_path),
+                    "--trace-dir",
+                    str(trace_directory),
                     "-p",
                     "hello",
                 ],
@@ -141,7 +141,8 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                 run.stderr,
             )
             self.assertIn(
-                f"trace: {trace_path.resolve()} (contains conversation content)",
+                "trace directory: "
+                f"{trace_directory.resolve()} (contains conversation content)",
                 run.stderr,
             )
 
@@ -156,9 +157,9 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             )
             self.assertEqual(
                 Path(
-                    observed["config"]["metrics"]["trace_jsonl_path"]
+                    observed["config"]["metrics"]["trace_directory"]
                 ).resolve(),
-                trace_path.resolve(),
+                trace_directory.resolve(),
             )
             self.assertFalse(any(state_parent.glob("smart-ask-claude.*")))
             with socket.socket() as sock:
@@ -185,18 +186,21 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             traced_config = json.loads(
                 observed_path.read_text(encoding="utf-8")
             )["config"]
-            generated_trace = Path(
-                traced_config["metrics"]["trace_jsonl_path"]
+            generated_trace_directory = Path(
+                traced_config["metrics"]["trace_directory"]
             )
             self.assertEqual(
-                generated_trace.parent,
+                generated_trace_directory.parent,
                 ROOT / ".smart-ask" / "claude-code" / "traces",
             )
             self.assertRegex(
-                generated_trace.name,
-                r"^\d{8}T\d{6}Z-[0-9a-f]{8}\.jsonl$",
+                generated_trace_directory.name,
+                r"^\d{8}T\d{6}Z-[0-9a-f]{8}$",
             )
-            self.assertIn(f"trace: {generated_trace}", traced.stderr)
+            self.assertIn(
+                f"trace directory: {generated_trace_directory}",
+                traced.stderr,
+            )
             self.assertEqual(
                 Path(traced_config["metrics"]["jsonl_path"]),
                 ROOT / ".smart-ask" / "claude-code" / "metrics.jsonl",

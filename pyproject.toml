@@ -4,14 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smart-ask"
-version = "0.3.0"
+version = "0.4.0"
 description = "Configurable routing between language models"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
 dependencies = [
   "httpx>=0.27,<1",
-  "openai>=2,<3",
   "pydantic>=2.7,<3",
   "PyYAML>=6,<7",
 ]

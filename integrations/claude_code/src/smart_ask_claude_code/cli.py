@@ -6,13 +6,13 @@ import argparse
 import os
 import sys
 
-from smart_ask.conversation import ConversationMetricsStore
+from smart_ask.conversation import RunMetricsStore
 
 from .app import create_app
 from .catalog import StrategyCatalog
 from .config import AdapterConfigError, load_adapter_config
 from .metrics import JsonlSink
-from .trace import JsonlTraceSink
+from .trace import TraceSessionSink
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -35,16 +35,16 @@ def main(argv: list[str] | None = None) -> None:
         env = dict(os.environ)
         if config.metrics.jsonl_path is not None:
             metrics_sink = JsonlSink(config.metrics.jsonl_path)
-        if config.metrics.trace_jsonl_path is not None:
-            trace_sink = JsonlTraceSink(config.metrics.trace_jsonl_path)
-        metrics = ConversationMetricsStore(
+        if config.metrics.trace_directory is not None:
+            trace_sink = TraceSessionSink(config.metrics.trace_directory)
+        metrics = RunMetricsStore(
             sink=None if metrics_sink is None else metrics_sink.write,
         )
         catalog = StrategyCatalog.from_config(
             config,
             env=env,
             metrics=metrics,
-            trace_sink=None if trace_sink is None else trace_sink.write,
+            trace_observer=trace_sink,
         )
         app = create_app(config, catalog, env=env)
     except (AdapterConfigError, OSError, ValueError) as exc:

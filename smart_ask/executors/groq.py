@@ -1,7 +1,7 @@
-"""Groq Responses API executor."""
+"""Groq Responses API transport."""
 
-from .responses import ResponsesExecutor
+from .responses import ResponsesTransport
 
 
-class GroqExecutor(ResponsesExecutor):
-    """Execute one-shot model calls through Groq's Responses API."""
+class GroqTransport(ResponsesTransport):
+    """Stream normalized conversations through Groq's Responses API."""

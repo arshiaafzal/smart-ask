@@ -4,7 +4,7 @@ from .app import create_app
 from .catalog import CatalogEntry, StrategyCatalog
 from .config import AdapterConfig, AdapterConfigError, load_adapter_config
 from .metrics import JsonlSink
-from .trace import JsonlTraceSink
+from .trace import TraceSessionSink
 
 __all__ = [
     "AdapterConfig",
@@ -13,6 +13,6 @@ __all__ = [
     "StrategyCatalog",
     "create_app",
     "JsonlSink",
-    "JsonlTraceSink",
     "load_adapter_config",
+    "TraceSessionSink",
 ]

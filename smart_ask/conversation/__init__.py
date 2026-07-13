@@ -1,37 +1,64 @@
-"""Public harness-neutral conversation runtime API."""
+"""Canonical conversation, execution, evidence, and event interfaces."""
 
-from .domain import (
-    ConversationEvent,
-    ConversationExecutionRequest,
-    ConversationMessage,
-    ConversationRequest,
-    SessionContext,
-    freeze_value,
-    thaw_value,
+from .domain import ConversationEvent, ConversationMessage, SessionContext, freeze_value, thaw_value
+from .engine import (
+    BufferedResponseLimitExceeded,
+    ModelCallExecutor,
+    ModelCallFailed,
+    RunHandle,
+    RunDeadlineExceeded,
+    RunObserver,
+    RunScope,
+    StrategyEngine,
+    StrategyMethod,
+    TokenCountUnavailable,
 )
-from .executor import ConversationExecutor
+from .metrics import RunMetricsStore, run_record_dict
+from .model import (
+    CompletedRun,
+    Conversation,
+    DecisionDraft,
+    DecisionRecord,
+    InputTokenCount,
+    ModelCallRecord,
+    ModelCallResult,
+    ModelCallSpec,
+    PreparedResponse,
+    ProviderRequestRecord,
+    RunMetadata,
+    RunRecord,
+    TokenCount,
+)
 
 __all__ = [
+    "BufferedResponseLimitExceeded",
+    "CompletedRun",
+    "Conversation",
     "ConversationEvent",
-    "ConversationExecutionRequest",
-    "ConversationExecutor",
     "ConversationMessage",
-    "ConversationMetricsStore",
-    "ConversationRequest",
-    "ConversationRuntime",
+    "DecisionDraft",
+    "DecisionRecord",
+    "InputTokenCount",
+    "ModelCallExecutor",
+    "ModelCallFailed",
+    "ModelCallRecord",
+    "ModelCallResult",
+    "ModelCallSpec",
+    "PreparedResponse",
+    "ProviderRequestRecord",
+    "RunHandle",
+    "RunDeadlineExceeded",
+    "RunObserver",
+    "RunMetadata",
+    "RunMetricsStore",
+    "RunRecord",
+    "RunScope",
     "SessionContext",
+    "StrategyEngine",
+    "StrategyMethod",
+    "TokenCount",
+    "TokenCountUnavailable",
     "freeze_value",
+    "run_record_dict",
     "thaw_value",
 ]
-
-
-def __getattr__(name):
-    if name == "ConversationMetricsStore":
-        from .metrics import ConversationMetricsStore
-
-        return ConversationMetricsStore
-    if name == "ConversationRuntime":
-        from .runtime import ConversationRuntime
-
-        return ConversationRuntime
-    raise AttributeError(name)

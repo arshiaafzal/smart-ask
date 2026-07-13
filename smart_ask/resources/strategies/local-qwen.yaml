@@ -1,18 +1,10 @@
-schema_version: 2
+schema_version: 3
 name: local-qwen-v1
+profiles:
+  qwen:
+    target: local-qwen3-14b
+    parameters: {max_tokens: 8192, temperature: 0.0}
 method:
   type: fixed
   role: writer
-  model:
-    model: qwen3:14b
-    parameters:
-      max_tokens: 8192
-      temperature: 0.0
-generation:
-  type: ollama
-  base_url: http://127.0.0.1:11434/api
-  think: false
-  timeout_seconds: 300
-  defaults:
-    max_tokens: 8192
-    temperature: 0.0
+  profile: qwen

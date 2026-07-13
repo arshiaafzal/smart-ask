@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 import tempfile
@@ -5,14 +6,22 @@ import unittest
 
 import httpx
 
-from smart_ask.conversation import ConversationEvent, ConversationRuntime
-from smart_ask.strategy import StrategyBuilder, load_strategy
+from smart_ask.conversation import (
+    Conversation,
+    ConversationEvent,
+    InputTokenCount,
+    ModelCallSpec,
+    RunMetadata,
+    StrategyEngine,
+)
+from smart_ask.methods import FixedStrategyMethod, ModelProfile, RequestTransform
+from smart_ask.strategy import load_strategy
 from smart_ask_claude_code import (
     AdapterConfig,
     AdapterConfigError,
     JsonlSink,
-    JsonlTraceSink,
     StrategyCatalog,
+    TraceSessionSink,
     create_app,
 )
 from smart_ask_claude_code.config import MetricsConfig, SecurityConfig
@@ -21,44 +30,125 @@ from smart_ask_claude_code.config import MetricsConfig, SecurityConfig
 MODEL_ID = "claude-smart-ask-local-qwen"
 
 
-class RecordingExecutor:
-    def __init__(self, actual_model):
-        self.actual_model = actual_model
-        self.requests = []
-
-    async def stream(self, request):
-        self.requests.append(request)
-        yield ConversationEvent("message_start", {"model": self.actual_model})
-        yield ConversationEvent("content_start", {
+def text_events(text="adapter-ok", *, actual_model="qwen3:14b"):
+    return (
+        ConversationEvent("message_start", {
+            "model": actual_model,
+            "selected_model": "qwen3:14b",
+        }),
+        ConversationEvent("content_start", {
             "index": 0,
             "block": {"type": "text"},
-        })
-        yield ConversationEvent("content_delta", {
+        }),
+        ConversationEvent("content_delta", {
             "index": 0,
-            "delta": {"type": "text", "text": "adapter-ok"},
-        })
-        yield ConversationEvent("content_stop", {"index": 0})
-        yield ConversationEvent("usage", {
+            "delta": {"type": "text", "text": text},
+        }),
+        ConversationEvent("content_stop", {"index": 0}),
+        ConversationEvent("usage", {
             "input_tokens": 12,
             "output_tokens": 3,
-        })
-        yield ConversationEvent("message_delta", {"stop_reason": "stop"})
-        yield ConversationEvent("message_stop")
+        }),
+        ConversationEvent("message_delta", {"stop_reason": "stop"}),
+        ConversationEvent("message_stop"),
+    )
 
-    async def count_tokens(self, request):
-        self.requests.append(request)
-        return 55
+
+def tool_events():
+    return (
+        ConversationEvent("message_start", {
+            "model": "qwen3:14b",
+            "selected_model": "qwen3:14b",
+        }),
+        ConversationEvent("content_start", {
+            "index": 0,
+            "block": {"type": "tool_call", "id": "call-1", "name": "read"},
+        }),
+        ConversationEvent("content_delta", {
+            "index": 0,
+            "delta": {
+                "type": "tool_arguments_json",
+                "json": '{"path":"a.py"}',
+            },
+        }),
+        ConversationEvent("content_stop", {"index": 0}),
+        ConversationEvent("usage", {
+            "input_tokens": 14,
+            "output_tokens": 5,
+        }),
+        ConversationEvent("message_delta", {"stop_reason": "tool_call"}),
+        ConversationEvent("message_stop"),
+    )
+
+
+class RecordingModelCallExecutor:
+    def __init__(self, responses=None, *, token_count=55):
+        self.responses = list(responses or [text_events()])
+        self.token_count = token_count
+        self.requests = []
+        self.token_requests = []
+        self.closed = False
+
+    async def stream(self, spec):
+        self.requests.append(spec)
+        for event in self.responses.pop(0):
+            yield event
+
+    async def count_tokens(self, spec):
+        self.token_requests.append(spec)
+        return InputTokenCount(self.token_count, "exact")
+
+    async def aclose(self):
+        self.closed = True
+
+
+class BlockingModelCallExecutor(RecordingModelCallExecutor):
+    def __init__(self):
+        super().__init__(responses=[])
+        self.started = asyncio.Event()
+        self.cancelled = asyncio.Event()
+
+    async def stream(self, spec):
+        self.requests.append(spec)
+        self.started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            self.cancelled.set()
+        if False:
+            yield ConversationEvent("message_stop")
+
+
+class FailingModelCallExecutor(RecordingModelCallExecutor):
+    async def stream(self, spec):
+        self.requests.append(spec)
+        raise RuntimeError("provider exploded")
+        if False:
+            yield ConversationEvent("message_stop")
+
+
+def engine_for(executor, observer=None):
+    method = FixedStrategyMethod(
+        profile=ModelProfile(
+            profile_id="writer",
+            target_id="local-qwen",
+            transform=RequestTransform(),
+        ),
+        role="writer",
+        transform=RequestTransform(),
+    )
+    return StrategyEngine(
+        method,
+        executor,
+        heartbeat_seconds=0.01,
+        observer=observer,
+    )
 
 
 class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
-    async def make_client(self):
+    async def make_client(self, executor=None, *, trace_sink=None):
         loaded = load_strategy("builtin:local-qwen")
-        executor = RecordingExecutor("qwen3:14b")
-        runtime = ConversationRuntime(
-            loaded_strategy=loaded,
-            router=StrategyBuilder(env={}).build_router(loaded),
-            executor=executor,
-        )
+        executor = executor or RecordingModelCallExecutor()
         config = AdapterConfig(
             schema_version=1,
             strategies=("builtin:local-qwen",),
@@ -66,7 +156,8 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         catalog = StrategyCatalog.from_config(
             config,
             env={},
-            runtime_builder=lambda _loaded: runtime,
+            engine_builder=lambda _loaded, observer: engine_for(executor, observer),
+            trace_observer=trace_sink,
         )
         app = create_app(
             config,
@@ -80,7 +171,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(client.aclose)
         return client, app, executor
 
-    async def test_streams_complete_structured_request_through_smartask(self):
+    async def test_streams_complete_structured_request_through_engine(self):
         client, app, executor = await self.make_client()
         body = {
             "model": MODEL_ID,
@@ -135,21 +226,70 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"adapter-ok", response.content)
-        self.assertIn(b'"input_tokens":55', response.content)
+        self.assertIn(b'"input_tokens":0', response.content)
         submitted = executor.requests[0].conversation
         self.assertEqual(submitted.system[0]["cache_control"]["type"], "ephemeral")
         self.assertEqual(submitted.messages[0].content[0]["signature"], "signature")
         self.assertEqual(submitted.messages[1].content[1]["data"], "AA==")
-        self.assertTrue(
-            submitted.messages[1].extensions["future_message_field"]
-        )
+        self.assertTrue(submitted.messages[1].extensions["future_message_field"])
         self.assertEqual(submitted.tools[0]["extensions"]["future_tool_field"], 1)
         self.assertTrue(submitted.extensions["future_request_field"]["keep"])
-        run = next(iter(app.state.strategy_catalog)).runtime.metrics.records[0]
-        self.assertEqual(run["attempts"][0]["actual_model"], "qwen3:14b")
-        self.assertEqual(run["totals"]["total_tokens"], 15)
 
-    async def test_discovery_and_token_count_use_same_runtime(self):
+        run = app.state.strategy_catalog.metrics.records[0]
+        self.assertEqual(run["schema"], "smart-ask.run/v2")
+        self.assertEqual(run["provider_requests"][0]["actual_model"], "qwen3:14b")
+        session = app.state.strategy_catalog.metrics.sessions["session-1"]
+        self.assertEqual(
+            session["resources"]["overall"]["known_total_tokens"],
+            15,
+        )
+
+    async def test_non_streaming_response_uses_the_same_engine(self):
+        client, app, _executor = await self.make_client()
+
+        response = await client.post(
+            "/v1/messages",
+            headers={"x-api-key": "local-secret"},
+            json={
+                "model": MODEL_ID,
+                "stream": False,
+                "max_tokens": 100,
+                "messages": [{"role": "user", "content": "hello"}],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["content"][0]["text"], "adapter-ok")
+        self.assertEqual(response.json()["stop_reason"], "end_turn")
+        self.assertEqual(len(app.state.strategy_catalog.metrics.records), 1)
+
+    async def test_streams_tool_use_and_partial_json(self):
+        executor = RecordingModelCallExecutor([tool_events()])
+        client, app, _executor = await self.make_client(executor)
+
+        response = await client.post(
+            "/v1/messages",
+            headers={"x-api-key": "local-secret"},
+            json={
+                "model": MODEL_ID,
+                "stream": True,
+                "max_tokens": 100,
+                "messages": [{"role": "user", "content": "read a.py"}],
+                "tools": [{
+                    "name": "read",
+                    "input_schema": {"type": "object"},
+                }],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'"type":"tool_use"', response.content)
+        self.assertIn(b'"type":"input_json_delta"', response.content)
+        self.assertIn(b'\\"path\\":\\"a.py\\"', response.content)
+        run = app.state.strategy_catalog.metrics.records[0]
+        self.assertEqual(run["provider_requests"][0]["tool_call_count"], 1)
+
+    async def test_discovery_and_token_count_use_compiled_engine(self):
         client, _app, executor = await self.make_client()
         headers = {"x-api-key": "local-secret"}
 
@@ -165,7 +305,27 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(models.json()["data"][0]["id"], MODEL_ID)
         self.assertEqual(count.json(), {"input_tokens": 55})
-        self.assertEqual(executor.requests[-1].model, "qwen3:14b")
+        self.assertEqual(executor.token_requests[-1].target_id, "local-qwen")
+        self.assertEqual(executor.requests, [])
+
+    async def test_requires_authentication_and_accepts_both_credential_headers(self):
+        client, _app, _executor = await self.make_client()
+        body = {
+            "model": MODEL_ID,
+            "stream": False,
+            "max_tokens": 10,
+            "messages": [{"role": "user", "content": "hello"}],
+        }
+
+        missing = await client.post("/v1/messages", json=body)
+        wrong = await client.post(
+            "/v1/messages",
+            headers={"Authorization": "Bearer wrong"},
+            json=body,
+        )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(wrong.status_code, 401)
 
     async def test_rejects_malformed_stream_and_token_limits(self):
         client, _app, _executor = await self.make_client()
@@ -189,6 +349,278 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(bad_stream.status_code, 400)
         self.assertEqual(bad_limit.status_code, 400)
 
+    async def test_client_cancellation_reaches_model_call_and_is_recorded(self):
+        executor = BlockingModelCallExecutor()
+        client, app, _executor = await self.make_client(executor)
+        request = asyncio.create_task(client.post(
+            "/v1/messages",
+            headers={"x-api-key": "local-secret"},
+            json={
+                "model": MODEL_ID,
+                "stream": True,
+                "max_tokens": 100,
+                "messages": [{"role": "user", "content": "wait"}],
+            },
+        ))
+        await asyncio.wait_for(executor.started.wait(), timeout=1)
+
+        request.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await request
+        await asyncio.wait_for(executor.cancelled.wait(), timeout=1)
+        for _ in range(10):
+            if app.state.strategy_catalog.metrics.records:
+                break
+            await asyncio.sleep(0)
+
+        run = app.state.strategy_catalog.metrics.records[0]
+        self.assertEqual(run["status"], "cancelled")
+        self.assertEqual(run["provider_requests"][0]["status"], "cancelled")
+
+    async def test_trace_records_conversation_once_and_canonical_run_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            client, _app, _executor = await self.make_client(
+                trace_sink=trace,
+            )
+
+            response = await client.post(
+                "/v1/messages",
+                headers={"x-api-key": "local-secret"},
+                json={
+                    "model": MODEL_ID,
+                    "stream": False,
+                    "max_tokens": 100,
+                    "messages": [{"role": "user", "content": "trace me"}],
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+            trace.close()
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(index["schema"], "smart-ask.trace-session-index/v2")
+            self.assertEqual(index["invocation_count"], 1)
+            self.assertEqual(len(index["contexts"]), 1)
+            self.assertEqual(len(index["inputs"]), 1)
+            self.assertEqual(index["invocations"][0]["ordinal"], 1)
+            self.assertEqual(index["invocations"][0]["status"], "completed")
+            invocation_path = path / index["invocations"][0]["file"]
+            self.assertEqual(path.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(
+                (path / "session.json").stat().st_mode & 0o777,
+                0o600,
+            )
+            self.assertEqual(invocation_path.stat().st_mode & 0o777, 0o600)
+            rows = [
+                json.loads(line)
+                for line in invocation_path.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(rows[0], {
+                "event": "trace_start",
+                "schema": "smart-ask.method-invocation-trace/v2",
+            })
+            self.assertEqual(rows[1]["event"], "run_start")
+            self.assertIn("run_id", rows[1])
+            self.assertEqual(rows[1]["ordinal"], 1)
+            self.assertTrue(all("schema" not in row for row in rows[1:]))
+            self.assertTrue(all("run_id" not in row for row in rows[2:]))
+            self.assertEqual(sum(row["event"] == "conversation" for row in rows), 1)
+            self.assertEqual(sum(row["event"] == "decision" for row in rows), 1)
+            self.assertEqual(sum(row["event"] == "model_call" for row in rows), 1)
+            self.assertEqual(sum(row["event"] == "provider_start" for row in rows), 1)
+            self.assertEqual(sum(row["event"] == "model_output" for row in rows), 1)
+            self.assertEqual(
+                sum(row["event"] == "model_output_chunk" for row in rows),
+                0,
+            )
+            self.assertEqual(rows[-1]["event"], "run_end")
+            self.assertEqual(rows[-1]["status"], "completed")
+            conversation = next(
+                row["conversation"] for row in rows if row["event"] == "conversation"
+            )
+            self.assertEqual(conversation["messages"][0]["content"][0]["text"], "trace me")
+            model_call = next(row for row in rows if row["event"] == "model_call")
+            self.assertEqual(model_call["conversation_ref"], "run_input")
+            self.assertNotIn("conversation", model_call)
+            output = next(row for row in rows if row["event"] == "model_output")
+            self.assertEqual(output["text"], "adapter-ok")
+            self.assertNotIn("extensions", conversation["messages"][0])
+            self.assertNotIn("agent_id", rows[1]["metadata"])
+
+    async def test_trace_is_updated_before_a_slow_model_finishes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            executor = BlockingModelCallExecutor()
+            client, _app, _executor = await self.make_client(
+                executor,
+                trace_sink=trace,
+            )
+            request = asyncio.create_task(client.post(
+                "/v1/messages",
+                headers={"x-api-key": "local-secret"},
+                json={
+                    "model": MODEL_ID,
+                    "stream": True,
+                    "max_tokens": 100,
+                    "messages": [{"role": "user", "content": "slow trace"}],
+                },
+            ))
+            await asyncio.wait_for(executor.started.wait(), timeout=1)
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(index["invocations"][0]["status"], "running")
+            invocation_path = path / index["invocations"][0]["file"]
+            rows = [
+                json.loads(line)
+                for line in invocation_path.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertIn("run_start", [row["event"] for row in rows])
+            self.assertIn("conversation", [row["event"] for row in rows])
+            self.assertIn("model_call", [row["event"] for row in rows])
+            self.assertNotIn("run_end", [row["event"] for row in rows])
+
+            request.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await request
+            await asyncio.wait_for(executor.cancelled.wait(), timeout=1)
+            trace.close()
+
+    async def test_concurrent_invocations_receive_separate_trace_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            executor = RecordingModelCallExecutor(responses=[
+                text_events("first"),
+                text_events("second"),
+            ])
+            client, _app, _executor = await self.make_client(
+                executor,
+                trace_sink=trace,
+            )
+
+            responses = await asyncio.gather(*(
+                client.post(
+                    "/v1/messages",
+                    headers={"x-api-key": "local-secret"},
+                    json={
+                        "model": MODEL_ID,
+                        "stream": False,
+                        "max_tokens": 100,
+                        "messages": [{"role": "user", "content": "repeat"}],
+                    },
+                )
+                for _ in range(2)
+            ))
+            self.assertEqual(
+                [response.status_code for response in responses],
+                [200, 200],
+            )
+            trace.close()
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(index["invocation_count"], 2)
+            self.assertEqual(len(index["contexts"]), 1)
+            self.assertEqual(len(index["inputs"]), 1)
+            self.assertEqual(index["invocations"][1]["same_input_as"], 1)
+            self.assertEqual(
+                [value["status"] for value in index["invocations"]],
+                ["completed", "completed"],
+            )
+            files = [path / value["file"] for value in index["invocations"]]
+            self.assertEqual(len(set(files)), 2)
+            for invocation_path in files:
+                rows = [
+                    json.loads(line)
+                    for line in invocation_path.read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(
+                    rows[0]["schema"],
+                    "smart-ask.method-invocation-trace/v2",
+                )
+                self.assertEqual(rows[-1]["event"], "run_end")
+
+    async def test_trace_references_propagated_model_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            client, _app, _executor = await self.make_client(
+                FailingModelCallExecutor(),
+                trace_sink=trace,
+            )
+
+            response = await client.post(
+                "/v1/messages",
+                headers={"x-api-key": "local-secret"},
+                json={
+                    "model": MODEL_ID,
+                    "stream": False,
+                    "max_tokens": 100,
+                    "messages": [{"role": "user", "content": "fail"}],
+                },
+            )
+            self.assertEqual(response.status_code, 500)
+            trace.close()
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            invocation_path = path / index["invocations"][0]["file"]
+            rows = [
+                json.loads(line)
+                for line in invocation_path.read_text(encoding="utf-8").splitlines()
+            ]
+            model_error = next(row for row in rows if row["event"] == "model_error")
+            run_error = next(row for row in rows if row["event"] == "run_error")
+            self.assertEqual(model_error["message"], "provider exploded")
+            self.assertNotIn("message", run_error)
+            self.assertEqual(run_error["caused_by"], {
+                "event": "model_error",
+                "call_id": "call-1",
+            })
+
+    async def test_long_output_remains_incremental_in_trace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            client, _app, _executor = await self.make_client(
+                RecordingModelCallExecutor(responses=[text_events("x" * 600)]),
+                trace_sink=trace,
+            )
+
+            response = await client.post(
+                "/v1/messages",
+                headers={"x-api-key": "local-secret"},
+                json={
+                    "model": MODEL_ID,
+                    "stream": False,
+                    "max_tokens": 1000,
+                    "messages": [{"role": "user", "content": "long"}],
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+            trace.close()
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            invocation_path = path / index["invocations"][0]["file"]
+            events = [
+                json.loads(line)["event"]
+                for line in invocation_path.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertIn("model_output_start", events)
+            self.assertIn("model_output_chunk", events)
+            self.assertIn("model_output_end", events)
+            self.assertNotIn("model_output", events)
+
     async def test_adapter_source_contains_no_backend_or_routing_policy(self):
         source_root = Path(__file__).parents[1] / "src" / "smart_ask_claude_code"
         source = "\n".join(
@@ -208,6 +640,50 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
 
 
 class DependencyBoundaryTests(unittest.TestCase):
+    def test_trace_call_replaces_only_changed_conversation_components(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            conversation = Conversation.from_text(
+                "hello",
+                system="system",
+                parameters={"max_tokens": 100, "temperature": 0.0},
+            )
+            metadata = RunMetadata(
+                strategy_name="test",
+                strategy_digest="a" * 64,
+                session_id="session",
+            )
+            trace.run_started("b" * 32, conversation, metadata)
+            trace.model_call_planned(
+                "b" * 32,
+                "call-1",
+                1,
+                ModelCallSpec(
+                    profile_id="profile",
+                    target_id="target",
+                    role="writer",
+                    phase="generation",
+                    conversation=conversation.with_parameters({
+                        "max_tokens": 50,
+                    }),
+                ),
+                None,
+            )
+            trace.close()
+
+            invocation = next(path.glob("*.jsonl"))
+            rows = [
+                json.loads(line)
+                for line in invocation.read_text(encoding="utf-8").splitlines()
+            ]
+            call = next(row for row in rows if row["event"] == "model_call")
+            self.assertEqual(call["conversation_ref"], "run_input")
+            self.assertEqual(call["replace"], {
+                "parameters": {"max_tokens": 50, "temperature": 0.0},
+            })
+            self.assertNotIn("conversation", call)
+
     def test_smartask_core_has_no_claude_adapter_or_asgi_dependency(self):
         root = Path(__file__).parents[3] / "smart_ask"
         source = "\n".join(
@@ -236,196 +712,12 @@ class DependencyBoundaryTests(unittest.TestCase):
                 {"run": {"run_id": "one"}, "session": {"runs": 1}},
             )
 
-    def test_metrics_and_content_traces_cannot_share_a_file(self):
+    def test_metrics_file_and_trace_directory_must_be_distinct(self):
         with self.assertRaisesRegex(ValueError, "distinct paths"):
             MetricsConfig(
                 jsonl_path="/tmp/combined.jsonl",
-                trace_jsonl_path="/tmp/combined.jsonl",
+                trace_directory="/tmp/combined.jsonl",
             )
-
-    def test_trace_sink_deduplicates_session_context_and_default_fields(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "trace.jsonl"
-            sink = JsonlTraceSink(str(path))
-            strategy = {"name": "strategy", "digest": "digest"}
-
-            def emit(run_id, sequence, event, **values):
-                sink.write({
-                    "schema": "smart-ask.conversation-trace-event/v1",
-                    "run_id": run_id,
-                    "sequence": sequence,
-                    "event": event,
-                    **values,
-                })
-
-            def run(run_id):
-                emit(
-                    run_id,
-                    1,
-                    "run_start",
-                    session_id="session",
-                    strategy=strategy,
-                    agent_id=None,
-                    parent_agent_id=None,
-                )
-                emit(
-                    run_id,
-                    2,
-                    "request_metadata",
-                    parameters={"max_tokens": 100},
-                    extensions={},
-                )
-                emit(
-                    run_id,
-                    3,
-                    "context_block",
-                    scope="system",
-                    index=0,
-                    block={"type": "text", "text": "shared"},
-                )
-                emit(
-                    run_id,
-                    4,
-                    "route",
-                    route={
-                        "action": "execute",
-                        "model": "model",
-                        "role": "generator",
-                        "phase": "initial-easy",
-                        "label": "classified easy",
-                        "events": [{
-                            "outcome": "easy",
-                            "reason": "Classifier selected easy",
-                            "source": "difficulty-classifier",
-                        }],
-                    },
-                )
-                emit(
-                    run_id,
-                    5,
-                    "attempt_start",
-                    phase="initial-easy",
-                    role="generator",
-                    selected_model="model",
-                )
-                emit(
-                    run_id,
-                    6,
-                    "context_change",
-                    phase="initial-easy",
-                    index=0,
-                    change={
-                        "operation": "set_parameters",
-                        "values": {"max_tokens": 50},
-                    },
-                )
-                emit(
-                    run_id,
-                    7,
-                    "attempt_end",
-                    phase="initial-easy",
-                    role="generator",
-                    selected_model="model",
-                    actual_model="model",
-                    stop_reason="stop",
-                    error=None,
-                    cancelled=False,
-                )
-                emit(
-                    run_id,
-                    8,
-                    "attempt_output",
-                    phase="initial-easy",
-                    chunk_index=0,
-                    chunk_count=1,
-                    text="hello",
-                )
-                emit(run_id, 9, "run_end", error=None, cancelled=False)
-
-            run("full-run-id-one")
-            run("full-run-id-two")
-            sink.close()
-
-            rows = [
-                json.loads(line)
-                for line in path.read_text(encoding="utf-8").splitlines()
-            ]
-            self.assertEqual(rows[0], {
-                "event": "trace_start",
-                "schema": "smart-ask.conversation-trace-log/v2",
-                "session_id": "session",
-                "strategy": strategy,
-            })
-            self.assertEqual(rows[1], {
-                "event": "run_start",
-                "run": 1,
-                "run_id": "full-run-id-one",
-            })
-            self.assertEqual(rows[2], {
-                "event": "request_metadata",
-                "run": 1,
-                "metadata_id": 1,
-                "parameters": {"max_tokens": 100},
-            })
-            self.assertEqual(rows[3], {
-                "event": "context_block",
-                "run": 1,
-                "scope": "system",
-                "index": 0,
-                "content_id": 1,
-                "block": {"type": "text", "text": "shared"},
-            })
-            self.assertEqual(rows[4], {
-                "event": "route",
-                "run": 1,
-                "outcome": "easy",
-                "reason": "Classifier selected easy",
-                "source": "difficulty-classifier",
-                "model": "model",
-                "phase": "initial-easy",
-            })
-            self.assertEqual(rows[5], {
-                "event": "attempt_start",
-                "run": 1,
-                "attempt": 1,
-            })
-            self.assertEqual(rows[6]["change_id"], 1)
-            self.assertEqual(rows[7], {
-                "event": "attempt_end",
-                "run": 1,
-                "attempt": 1,
-                "stop_reason": "stop",
-            })
-            self.assertEqual(rows[8], {
-                "event": "attempt_output",
-                "run": 1,
-                "attempt": 1,
-                "text": "hello",
-            })
-            self.assertEqual(rows[9], {"event": "run_end", "run": 1})
-            self.assertEqual(rows[10], {
-                "event": "run_start",
-                "run": 2,
-                "run_id": "full-run-id-two",
-            })
-            self.assertEqual(rows[11], {
-                "event": "request_metadata",
-                "run": 2,
-                "metadata_ref": 1,
-            })
-            self.assertEqual(rows[12], {
-                "event": "context_block",
-                "run": 2,
-                "scope": "system",
-                "index": 0,
-                "content_ref": 1,
-            })
-            self.assertEqual(rows[15], {
-                "event": "context_change",
-                "run": 2,
-                "attempt": 1,
-                "change_ref": 1,
-            })
 
     def test_custom_strategy_cannot_escape_prompt_allowlist(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -435,18 +727,18 @@ class DependencyBoundaryTests(unittest.TestCase):
             (root / "secret.txt").write_text("secret", encoding="utf-8")
             strategy = allowed / "escape.yaml"
             strategy.write_text(
-                """schema_version: 2
+                """schema_version: 3
 name: escape-v1
-method:
-  type: fixed
-  role: writer
-  model:
-    model: local-model
+profiles:
+  local:
+    target: local-model
     system_prompt:
       type: file
       path: ../secret.txt
-generation:
-  type: ollama
+method:
+  type: fixed
+  role: writer
+  profile: local
 """,
                 encoding="utf-8",
             )
@@ -458,7 +750,10 @@ generation:
                 ),
             )
 
-            with self.assertRaisesRegex(AdapterConfigError, "prompts"):
+            with self.assertRaisesRegex(
+                AdapterConfigError,
+                r"outside .*allowed roots",
+            ):
                 StrategyCatalog.from_config(config, env={})
 
 

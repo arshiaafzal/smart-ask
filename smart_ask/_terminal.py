@@ -8,7 +8,6 @@ import sys
 import threading
 import time
 
-from .metrics import RunStats, StatsSummary
 from .strategy.schema import FixedMethodConfig, StrategyConfig
 
 
@@ -64,21 +63,13 @@ def input_prompt() -> str:
     return f"  {_GREEN}>{_RESET} "
 
 
-def transport_name(transport_type: str) -> str:
-    return {
-        "hermes": "Hermes",
-        "openrouter": "OpenRouter",
-    }.get(transport_type, transport_type)
-
-
 def show_welcome(config: StrategyConfig) -> None:
-    transport = transport_name(config.generation.type)
     profile_rows = [
         (
             f"  {_BLUE}>{_RESET} {_WHITE}{label:<7}:{_RESET} "
-            f"{_CYAN}{model.split('/')[-1]}{_RESET}"
+            f"{_CYAN}{target}{_RESET}"
         )
-        for label, model in _configured_profiles(config)
+        for label, target in _configured_profiles(config)
     ]
     force_rows = []
     if not isinstance(config.method, FixedMethodConfig):
@@ -92,15 +83,14 @@ def show_welcome(config: StrategyConfig) -> None:
         f"   {_GRAY}{config.name}{_RESET}",
         None,
         f"  {_GREEN}>{_RESET} {_WHITE}Method:{_RESET}   {_CYAN}{config.method.type}{_RESET}",
-        f"  {_GREEN}>{_RESET} {_WHITE}Transport:{_RESET} {_CYAN}{transport}{_RESET}",
+        f"  {_GREEN}>{_RESET} {_WHITE}Targets:{_RESET}  {_CYAN}{len(config.target_ids)} configured{_RESET}",
         None,
         *profile_rows,
         None,
         f"  {_CYAN}{_BOLD}Usage{_RESET}",
-        f'  {_GRAY}smart-ask "task"{_RESET}              route and execute',
+        f'  {_GRAY}smart-ask "message"{_RESET}           start a conversation',
         f'  {_GRAY}smart-ask -f file.py "..."{_RESET}   include file context',
         *force_rows,
-        f'  {_GRAY}smart-ask --dry-run "..."{_RESET}     classify; skip generation',
         f"  {_GRAY}Ctrl-D or /exit{_RESET}                 end session",
     ], inner_width=68)
     print()
@@ -135,60 +125,6 @@ class Spinner:
         self._thread = None
 
 
-def print_route(
-    model_id: str,
-    route_kind: str,
-    transport: str,
-    tag: str = "",
-) -> None:
-    model_name = model_id.split("/")[-1]
-    easy_route = route_kind in ("easy", "forced-easy", "fixed")
-    accent = _CYAN if easy_route else _ORANGE
-    route_color = _GRAY if easy_route else _YELLOW
-    print(
-        f"\n  {accent}{_BOLD}▸{_RESET}  {accent}{_BOLD}{model_name}{_RESET}  "
-        f"{route_color}[{route_kind}]{_RESET}  {_GRAY}{tag}{_RESET}"
-    )
-    print(f"  {_PURPLE}↳  {transport}{_RESET}\n")
-
-
-def print_turn_stats(
-    stats: RunStats,
-    turn_number: int,
-    session_stats: StatsSummary,
-) -> None:
-    if not stats.calls:
-        return
-    width = 64
-    print(f"  {_GRAY}{'─' * width}{_RESET}")
-    for call in stats.calls:
-        if call.provider_cost_usd is not None:
-            cost = f"${call.provider_cost_usd:.6f} billed"
-        elif call.price_quote.cost_usd is not None:
-            cost = f"${call.price_quote.cost_usd:.6f} est."
-        else:
-            cost = "cost unknown"
-        tokens = (
-            f"{call.usage.total_tokens:,} tok"
-            if call.usage.total_tokens is not None
-            else "tokens unknown"
-        )
-        model = call.actual_model or call.requested_model
-        print(
-            f"  {_GRAY}{model.split('/')[-1]:<28}  {call.channel:<12}  "
-            f"{_YELLOW}{cost}{_RESET}  {_GRAY}{tokens}{_RESET}"
-        )
-    print(f"  {_GRAY}{'─' * width}{_RESET}")
-    print(
-        f"  {_WHITE}{_BOLD}Turn {turn_number:<4}{_RESET}  "
-        f"{_YELLOW}{_cost_label(stats)}{_RESET}, {_GRAY}{_token_label(stats)}{_RESET}"
-        f"   {_GRAY}│{_RESET}  Session  "
-        f"{_YELLOW}{_cost_label(session_stats)}{_RESET}, "
-        f"{_GRAY}{_token_label(session_stats)}{_RESET}"
-    )
-    print()
-
-
 def _strip_ansi(value: str) -> str:
     return re.sub(r"\033\[[0-9;]*m", "", value)
 
@@ -196,8 +132,13 @@ def _strip_ansi(value: str) -> str:
 def _configured_profiles(config: StrategyConfig) -> tuple[tuple[str, str], ...]:
     method = config.method
     if isinstance(method, FixedMethodConfig):
-        return (("Model", method.model.model),)
-    return (("Easy", method.easy.model), ("Hard", method.hard.model))
+        profile_names = (("Model", method.profile),)
+    else:
+        profile_names = (("Easy", method.easy), ("Hard", method.hard))
+    return tuple(
+        (label, f"{profile} -> {config.profiles[profile].target}")
+        for label, profile in profile_names
+    )
 
 
 def _box(rows: list[str | None], inner_width: int) -> None:
@@ -315,22 +256,3 @@ def _animate_spinner(stop: threading.Event, label: str) -> None:
         time.sleep(0.07)
     sys.stdout.write("\r" + " " * 72 + "\r")
     sys.stdout.flush()
-
-
-def _cost_label(stats: RunStats | StatsSummary) -> str:
-    if stats.provider_cost_complete:
-        return f"${stats.known_provider_cost_usd:.6f} billed"
-    known = stats.known_cost_usd
-    if stats.cost_complete:
-        return f"${known:.6f} est."
-    if stats.known_provider_cost_usd:
-        return f"${stats.known_provider_cost_usd:.6f} billed + unknown"
-    return "unknown" if known == 0 else f"${known:.6f} est. + unknown"
-
-
-def _token_label(stats: RunStats | StatsSummary) -> str:
-    if stats.total_usage_complete:
-        return f"{stats.known_total_tokens:,} tok"
-    if stats.known_total_tokens:
-        return f"{stats.known_total_tokens:,}+? tok"
-    return "tokens unknown"

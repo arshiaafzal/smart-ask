@@ -31,6 +31,7 @@ class LiveBenchPublicTestsSuite:
     """Smoke-test answers against public cases, not canonical LiveBench scoring."""
 
     name = "livebench-coding-public-tests"
+    executes_untrusted_code = True
     dataset_identity = MappingProxyType({
         "dataset": "livebench/coding",
         "split": "test",
@@ -44,6 +45,7 @@ class LiveBenchPublicTestsSuite:
             raise ValueError("timeout must be a positive integer")
         self._dataset_loader = dataset_loader
         self._timeout = int(timeout)
+        self._unsafe_execution_allowed = False
         self._evaluator_identity = MappingProxyType({
             "type": "smart-ask-livebench-public-test-smoke",
             "implementation_version": 1,
@@ -53,6 +55,9 @@ class LiveBenchPublicTestsSuite:
     @property
     def evaluator_identity(self):
         return self._evaluator_identity
+
+    def allow_unsafe_code_execution(self) -> None:
+        self._unsafe_execution_allowed = True
 
     def load_cases(self, limit: int | None = None) -> Sequence[BenchmarkCase]:
         loader = (
@@ -86,6 +91,11 @@ class LiveBenchPublicTestsSuite:
         return cases
 
     def evaluate(self, case: BenchmarkCase, output: str) -> Evaluation:
+        if not self._unsafe_execution_allowed:
+            raise RuntimeError(
+                "LiveBench executes model-generated code without an OS sandbox; "
+                "explicit unsafe execution opt-in is required"
+            )
         code = extract_code(output)
         if case.payload["task"] == "coding_completion" and case.payload["partial"]:
             code = (

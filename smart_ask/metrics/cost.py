@@ -240,7 +240,7 @@ def price_usage(
             catalog=price_catalog,
             diagnostic="priced model is unavailable",
         )
-    if not usage.breakdown_complete:
+    if usage.prompt_tokens is None or usage.completion_tokens is None:
         return PriceQuote(
             None,
             "unavailable",

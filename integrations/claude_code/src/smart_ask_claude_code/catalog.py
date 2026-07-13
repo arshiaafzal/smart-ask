@@ -1,15 +1,18 @@
-"""One external Claude model alias per SmartAsk strategy YAML."""
+"""One external Claude model alias per compiled SmartAsk strategy."""
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 import re
 from types import MappingProxyType
-from typing import Callable, Mapping
 
-from smart_ask.conversation import ConversationMetricsStore, ConversationRuntime
+from smart_ask.conversation.engine import RunObserver, StrategyEngine
+from smart_ask.conversation.metrics import RunMetricsStore
+from smart_ask.conversation.model import RunRecord
 from smart_ask.strategy import StrategyBuilder, load_strategy
+from smart_ask.strategy.errors import StrategyConfigError
 from smart_ask.strategy.loader import BUILTIN_STRATEGY_PREFIX, LoadedStrategy
 
 from .config import AdapterConfig, AdapterConfigError
@@ -19,10 +22,11 @@ _SLUG = re.compile(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?")
 
 
 def _slug(reference: str) -> str:
-    if reference.startswith(BUILTIN_STRATEGY_PREFIX):
-        value = reference.removeprefix(BUILTIN_STRATEGY_PREFIX)
-    else:
-        value = Path(reference).stem
+    value = (
+        reference.removeprefix(BUILTIN_STRATEGY_PREFIX)
+        if reference.startswith(BUILTIN_STRATEGY_PREFIX)
+        else Path(reference).stem
+    )
     if value.endswith(".yaml"):
         value = value[:-5]
     if not _SLUG.fullmatch(value):
@@ -32,40 +36,25 @@ def _slug(reference: str) -> str:
     return value
 
 
-def _inside(path: Path, roots: tuple[str, ...]) -> bool:
-    resolved = path.resolve()
-    return any(
-        resolved == Path(root) or resolved.is_relative_to(Path(root))
-        for root in roots
-    )
-
-
-def _all_strategy_files_inside(
-    loaded: LoadedStrategy,
-    roots: tuple[str, ...],
-) -> bool:
-    declared_prompts = loaded.manifest()["prompts"]
-    files = [loaded.path]
-    files.extend(
-        (loaded.path.parent / item["declared_path"]).resolve()
-        for item in declared_prompts
-    )
-    return all(_inside(path, roots) for path in files)
-
-
 @dataclass(frozen=True)
 class CatalogEntry:
     model_id: str
     display_name: str
     reference: str
     loaded: LoadedStrategy
-    runtime: ConversationRuntime
+    engine: StrategyEngine
 
 
 class StrategyCatalog:
-    """Adapter registry that delegates every strategy operation to SmartAsk."""
+    """Adapter registry containing compiled engines, never routing policy."""
 
-    def __init__(self, entries: tuple[CatalogEntry, ...]):
+    def __init__(
+        self,
+        entries: tuple[CatalogEntry, ...],
+        *,
+        metrics: RunMetricsStore | None = None,
+        resource_owners: tuple[object, ...] = (),
+    ) -> None:
         by_model = {}
         for entry in entries:
             if entry.model_id in by_model:
@@ -74,6 +63,8 @@ class StrategyCatalog:
         if not by_model:
             raise AdapterConfigError("at least one strategy is required")
         self._entries: Mapping[str, CatalogEntry] = MappingProxyType(by_model)
+        self.metrics = metrics or RunMetricsStore()
+        self._resource_owners = resource_owners
 
     @classmethod
     def from_config(
@@ -81,32 +72,37 @@ class StrategyCatalog:
         config: AdapterConfig,
         *,
         env: Mapping[str, str],
-        loader: Callable[[str], LoadedStrategy] = load_strategy,
-        runtime_builder: Callable[[LoadedStrategy], ConversationRuntime] | None = None,
-        metrics: ConversationMetricsStore | None = None,
-        trace_sink: Callable[[dict], None] | None = None,
+        loader: Callable[..., LoadedStrategy] = load_strategy,
+        engine_builder: Callable[
+            [LoadedStrategy, RunObserver | None], StrategyEngine
+        ] | None = None,
+        metrics: RunMetricsStore | None = None,
+        trace_observer: RunObserver | None = None,
     ) -> "StrategyCatalog":
-        if runtime_builder is None:
+        resource_owners: tuple[object, ...] = ()
+        if engine_builder is None:
             builder = StrategyBuilder(env=env)
-            runtime_builder = lambda loaded: builder.build_conversation_runtime(
+            resource_owners = (builder,)
+            engine_builder = lambda loaded, observer: builder.build_engine(
                 loaded,
-                metrics=metrics,
-                trace_sink=trace_sink,
-            )
-        elif metrics is not None or trace_sink is not None:
-            raise ValueError(
-                "metrics and trace_sink cannot be combined with a custom runtime_builder"
+                observer=observer,
             )
         entries = []
         for reference in config.strategies:
-            loaded = loader(reference)
-            if not reference.startswith(BUILTIN_STRATEGY_PREFIX):
+            if loader is load_strategy and not reference.startswith(
+                BUILTIN_STRATEGY_PREFIX
+            ):
                 roots = config.security.allowed_strategy_roots
-                if not roots or not _all_strategy_files_inside(loaded, roots):
+                if not roots:
                     raise AdapterConfigError(
-                        f"custom strategy {reference!r} or one of its prompts "
-                        "is outside allowed roots"
+                        f"custom strategy {reference!r} is not allowed"
                     )
+                try:
+                    loaded = loader(reference, allowed_roots=roots)
+                except StrategyConfigError as exc:
+                    raise AdapterConfigError(str(exc)) from exc
+            else:
+                loaded = loader(reference)
             slug = _slug(reference)
             entries.append(CatalogEntry(
                 model_id=f"claude-smart-ask-{slug}",
@@ -115,9 +111,13 @@ class StrategyCatalog:
                 ),
                 reference=reference,
                 loaded=loaded,
-                runtime=runtime_builder(loaded),
+                engine=engine_builder(loaded, trace_observer),
             ))
-        return cls(tuple(entries))
+        return cls(
+            tuple(entries),
+            metrics=metrics,
+            resource_owners=resource_owners,
+        )
 
     def resolve(self, model_id: str) -> CatalogEntry:
         try:
@@ -128,14 +128,19 @@ class StrategyCatalog:
     def __iter__(self):
         return iter(self._entries.values())
 
+    def record(self, record: RunRecord) -> None:
+        """Persist content-free metrics for one completed invocation."""
+        self.metrics.record(record)
+
     async def aclose(self) -> None:
         seen = set()
         for entry in self:
-            runtime = entry.runtime
-            if id(runtime) in seen:
+            if id(entry.engine) in seen:
                 continue
-            seen.add(id(runtime))
-            closer = getattr(runtime, "aclose", None)
+            seen.add(id(entry.engine))
+            await entry.engine.aclose()
+        for owner in self._resource_owners:
+            closer = getattr(owner, "aclose", None)
             if callable(closer):
                 await closer()
 
