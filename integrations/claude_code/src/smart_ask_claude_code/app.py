@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from contextlib import asynccontextmanager
 import json
@@ -16,6 +17,7 @@ from starlette.routing import Route
 
 from .auth import AdapterAuthenticator
 from .catalog import StrategyCatalog
+from smart_ask.conversation.model import RunMetadata
 from .codec import (
     AnthropicEventEncoder,
     AnthropicMessageAssembler,
@@ -70,11 +72,28 @@ async def _body(request: Request, config: AdapterConfig) -> dict[str, Any] | Res
     if len(raw) > config.limits.max_request_bytes:
         return _error(413, "invalid_request_error", "request body is too large")
     try:
-        value = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError):
+        value = json.loads(
+            raw,
+            parse_constant=_reject_json_constant,
+            object_pairs_hook=_reject_duplicate_keys,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
         return _error(400, "invalid_request_error", "request body must be JSON")
     if not isinstance(value, dict):
         return _error(400, "invalid_request_error", "request body must be an object")
+    return value
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"invalid JSON numeric constant: {value}")
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON object key: {key!r}")
+        value[key] = item
     return value
 
 
@@ -96,6 +115,20 @@ def create_app(
             f"required adapter credential {config.auth.token_env} is not set"
         )
     authenticator = AdapterAuthenticator(token, required=auth_required)
+    finalizers: set[asyncio.Task[None]] = set()
+    finalizer_errors: list[str] = []
+
+    def _finalizer_done(task: asyncio.Task[None]) -> None:
+        finalizers.discard(task)
+        try:
+            task.result()
+        except Exception as exc:
+            finalizer_errors.append(f"{type(exc).__name__}: {exc}")
+
+    async def _record_stream_run(events, handle) -> None:
+        await events.aclose()
+        record = await handle.result()
+        catalog.record(record)
 
     async def root(_request: Request) -> Response:
         return Response(status_code=200)
@@ -154,24 +187,27 @@ def create_app(
         except (TypeError, ValueError) as exc:
             return _error(400, "invalid_request_error", str(exc))
 
+        metadata = RunMetadata(
+            strategy_name=entry.loaded.config.name,
+            strategy_digest=entry.loaded.digest,
+            session_id=session.session_id,
+            agent_id=session.agent_id,
+            parent_agent_id=session.parent_agent_id,
+            request_id=request.headers.get("x-request-id"),
+            extensions={"principal_id": "authenticated"},
+        )
+
         if stream_requested:
-            try:
-                input_tokens = await entry.runtime.count_tokens(
-                    conversation,
-                    session,
-                )
-            except Exception:
-                # Token counting is useful protocol metadata, but generation
-                # remains authoritative when a backend cannot pre-count.
-                input_tokens = 0
-            encoder = AnthropicEventEncoder(
-                model_id,
-                input_tokens=input_tokens,
-            )
+            # Do not perform a second tokenizer request before opening the
+            # stream. The dedicated count endpoint remains available, while
+            # generation usage is authoritative for this response.
+            encoder = AnthropicEventEncoder(model_id, input_tokens=0)
+            handle = entry.engine.start(conversation, metadata)
+            events = handle.events()
 
             async def stream():
                 try:
-                    async for event in entry.runtime.stream(conversation, session):
+                    async for event in events:
                         encoded = encoder.encode(event)
                         if encoded is not None:
                             yield encoded
@@ -179,6 +215,20 @@ def create_app(
                     raise
                 except Exception as exc:
                     yield encoder.error("api_error", str(exc))
+                finally:
+                    # Closing the engine iterator produces its canonical
+                    # cancellation record. Run that cleanup in an independent
+                    # task because Starlette's response cancel scope has
+                    # already cancelled this body iterator on disconnect.
+                    finalizer = asyncio.create_task(
+                        _record_stream_run(events, handle)
+                    )
+                    finalizers.add(finalizer)
+                    finalizer.add_done_callback(_finalizer_done)
+                    try:
+                        await asyncio.shield(finalizer)
+                    except asyncio.CancelledError:
+                        pass
 
             return StreamingResponse(
                 stream(),
@@ -187,11 +237,14 @@ def create_app(
             )
 
         assembler = AnthropicMessageAssembler(model_id)
+        handle = entry.engine.start(conversation, metadata)
         try:
-            async for event in entry.runtime.stream(conversation, session):
+            async for event in handle.events():
                 assembler.observe(event)
         except Exception as exc:
+            catalog.record(await handle.result())
             return _error(500, "api_error", str(exc))
+        catalog.record(await handle.result())
         return JSONResponse(assembler.message())
 
     async def count_tokens(request: Request) -> Response:
@@ -205,21 +258,23 @@ def create_app(
             return _error(400, "invalid_request_error", "model must be non-empty text")
         try:
             entry = catalog.resolve(model_id)
-            conversation, session = decode_request(body, request.headers)
-            count = await entry.runtime.count_tokens(conversation, session)
+            conversation, _session = decode_request(body, request.headers)
+            count = await entry.engine.count_tokens(conversation)
         except KeyError:
             return _error(404, "not_found_error", f"unknown model: {model_id}")
         except (TypeError, ValueError) as exc:
             return _error(400, "invalid_request_error", str(exc))
         except Exception as exc:
             return _error(500, "api_error", str(exc))
-        return JSONResponse({"input_tokens": count})
+        return JSONResponse({"input_tokens": count.value})
 
     @asynccontextmanager
     async def lifespan(_app):
         try:
             yield
         finally:
+            if finalizers:
+                await asyncio.gather(*tuple(finalizers), return_exceptions=True)
             await catalog.aclose()
 
     app = Starlette(
@@ -237,4 +292,5 @@ def create_app(
         limit=config.limits.max_concurrent_requests,
     )
     app.state.strategy_catalog = catalog
+    app.state.finalizer_errors = finalizer_errors
     return app

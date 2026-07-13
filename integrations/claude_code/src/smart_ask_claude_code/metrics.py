@@ -3,18 +3,27 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from threading import Lock
 from typing import Any
 
 
-class JsonlMetricsSink:
-    """Append complete SmartAsk metrics envelopes with process-local locking."""
+class JsonlSink:
+    """Append JSON objects with process-local locking and immediate flushing."""
 
     def __init__(self, path: str):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._file = self.path.open("a", encoding="utf-8", buffering=1)
+        # Traces may contain prompts and tool results.  Do not depend on the
+        # caller's umask to keep a newly-created file private.
+        descriptor = os.open(
+            self.path,
+            os.O_APPEND | os.O_CREAT | os.O_WRONLY,
+            0o600,
+        )
+        os.chmod(self.path, 0o600)
+        self._file = os.fdopen(descriptor, "a", encoding="utf-8", buffering=1)
         self._lock = Lock()
         self._closed = False
 

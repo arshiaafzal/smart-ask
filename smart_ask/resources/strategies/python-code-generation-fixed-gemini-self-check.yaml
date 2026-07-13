@@ -1,18 +1,12 @@
-schema_version: 2
+schema_version: 3
 name: python-code-generation-fixed-gemini-self-check-v1
+profiles:
+  model:
+    target: openrouter-gemini-flash-lite
+    system_prompt: {type: file, path: ../prompts/python-code-generation-system.txt}
+    parameters: {max_tokens: 1024, temperature: 0.0}
 method:
   type: fixed
   role: generator
-  model:
-    model: google/gemini-2.5-flash-lite
-    system_prompt:
-      type: file
-      path: ../prompts/python-code-generation-system.txt
-    parameters:
-      max_tokens: 1024
-      temperature: 0.0
-  prompt_suffix:
-    type: file
-    path: ../prompts/marker-self-check.txt
-generation:
-  type: openrouter
+  profile: model
+  prompt_suffix: {type: file, path: ../prompts/marker-self-check.txt}

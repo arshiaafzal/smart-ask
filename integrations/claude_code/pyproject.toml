@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smart-ask-claude-code"
-version = "0.1.0"
+version = "0.2.0"
 description = "External Claude Code protocol adapter for SmartAsk"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "smart-ask>=0.3.0",
+  "smart-ask>=0.4,<0.5",
   "anyio>=4,<5",
   "pydantic>=2.7,<3",
   "PyYAML>=6,<7",

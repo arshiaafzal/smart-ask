@@ -1,455 +1,435 @@
 # Design
 
-`smart-ask` separates runtime routing algorithms from reproducible composition.
-A `RoutingMethod` decides the next action for one task. A root `StrategyConfig`
-YAML declares which method and collaborators to use, how models are configured,
-and which transports execute classifier and generation calls.
+SmartAsk has one conversation-native execution model. Every caller presents an
+immutable snapshot of the conversation for the current turn; one strategy
+method performs all reasoning needed to select one visible response.
 
-## Architectural vocabulary
-
-| Term | Meaning |
-|---|---|
-| `RoutingMethod` | Runtime algorithm that returns the next `RouteResult` |
-| classifier | Method collaborator that produces an easy/hard assessment |
-| escalation policy | Cascade collaborator that accepts or escalates a response |
-| `ModelExecutor` | Transport adapter that executes an `ExecutionRequest` |
-| `StrategyConfig` | Complete typed YAML composition for one runnable method |
-| `SmartAsk` | Coordinator that loops between a method and generation executor |
-| `SmartRouter` | Routing-only coordinator shared by task and conversation runtimes |
-| `ConversationRuntime` | Harness-neutral structured conversation coordinator |
-| external protocol adapter | Separately packaged translator that consumes `ConversationRuntime` |
-| benchmark suite | Dataset loader and correctness evaluator |
-
-The term “strategy” refers to the complete YAML composition, not the runtime
-algorithm class. Runtime algorithms therefore live under `smart_ask/methods/`
-and are named `DifficultyRoutingMethod`, `CascadeRoutingMethod`, and
-`FixedRoutingMethod`.
-
-## Ownership map
-
-Indentation means “belongs to,” not runtime call order.
+## Core model
 
 ```text
-Shared application library (`smart_ask/`)
-├── SmartAsk coordinator
-├── SmartRouter routing-only coordinator
-├── methods
-│   ├── RoutingMethod protocol
-│   ├── DifficultyRoutingMethod
-│   ├── CascadeRoutingMethod
-│   ├── FixedRoutingMethod
-│   ├── classifiers                    subordinate method collaborators
-│   │   ├── DifficultyClassifier
-│   │   └── LLMDifficultyClassifier
-│   └── escalation policies            subordinate cascade collaborators
-│       ├── EscalationPolicy
-│       └── MarkerEscalationPolicy
-├── executors
-│   ├── ModelExecutor protocol
-│   ├── ConversationExecutor protocol
-│   ├── HermesExecutor
-│   ├── OllamaExecutor / OllamaConversationExecutor
-│   └── OpenRouterExecutor / OpenRouterConversationExecutor
-├── conversation runtime
-│   ├── neutral messages, requests, session context, and events
-│   ├── routing, cascade control, and turn state
-│   └── per-attempt, run, session, and model metrics
-├── strategy configuration
-│   ├── StrategyConfig schema
-│   ├── load_strategy / LoadedStrategy
-│   └── StrategyBuilder
-├── metrics
-│   ├── StatsCollector / StatsCapture
-│   ├── CallStats / RunStats / StatsSummary
-│   └── PriceCatalog / PriceQuote
-└── immutable domain values
-    ├── Task / Context
-    ├── ExecutionRequest / ModelResult
-    └── RouteResult / RoutingEvent / Attempt / RunResult
-
-Application entrypoints
-├── product CLI (`smart_ask/cli.py`, installed as `smart-ask`)
-└── benchmark modules (`python -m smart_ask.benchmarks.<suite>`)
-
-External integrations
-└── `integrations/claude_code/` → depends on `smart_ask`, never the reverse
+terminal / benchmark / protocol adapter
+                 │
+                 ▼
+     Conversation + RunMetadata
+                 │
+                 ▼
+          StrategyEngine
+                 │
+                 ▼
+ StrategyMethod.respond(conversation, run)
+       │                       │
+       ├─ record decisions       ├─ hidden model calls
+       ├─ assess candidates     └─ choose final call
+       └─ return opaque PreparedResponse
+                 │
+                 ▼
+      user-visible event stream
+                 +
+        canonical RunRecord
 ```
 
-Classifiers and escalation policies are replaceable collaborators inside a
-method. They are not complete methods and do not own the application loop.
+The unit of execution is one method invocation per incoming message/request.
+It is not a whole session. A session is a caller-owned sequence of invocations
+connected by a `session_id` and by the conversation history the caller passes.
+
+The distinction matters:
+
+- A `Conversation` describes the complete state visible to a method now.
+- A `RunRecord` describes what one method invocation decided and spent.
+- A session aggregates several independent records.
+
+## Vocabulary and ownership
+
+| Term | Owns |
+|---|---|
+| `Conversation` | Structured input snapshot: system blocks, ordered messages, tools, parameters, extensions |
+| `StrategyMethod` | Routing, internal calls, candidate assessment, escalation, final selection |
+| `RunScope` | Bounded effectful operations and canonical decision/call recording |
+| `ModelCallSpec` | Provider-independent intent for one logical model call |
+| `PreparedResponse` | Opaque, scope-bound selection of the visible response |
+| `StrategyEngine` | Streaming, lifecycle, cancellation, heartbeats, and finalization |
+| `RunRecord` | Immutable source of truth for one invocation's evidence |
+| `TargetRegistry` | Deployment-approved mapping from logical target IDs to physical backends |
+| `StrategyConfig` | Reproducible policy and request transforms, expressed in YAML |
+
+No separate routing coordinator or one-shot input domain exists. A one-message
+request is simply a `Conversation` with one user message. Benchmarks and chat
+harnesses use the same path.
+
+## Conversation representation
+
+`Conversation` is an immutable aggregate, not a mutable session object. It
+contains tuples of immutable structured blocks and ordered messages.
+
+A caller normally keeps an append-only list of messages and creates a snapshot
+for each turn:
+
+```text
+turn 1: [user-1]
+turn 2: [user-1, assistant-1, user-2]
+turn 3: [user-1, assistant-1, user-2, assistant-2, user-3]
+```
+
+A linked list would complicate serialization and random inspection without
+changing provider behavior. Structural sharing can be added internally if
+copying becomes measurable; it should not alter the public aggregate.
+
+Most model APIs are stateless. Each physical request therefore re-encodes its
+applicable system instructions, history, tools, and current message. This costs
+input tokens repeatedly, but it gives every invocation a self-contained state
+and allows providers to schedule requests independently. Provider-side prompt
+caching may reduce compute or price without changing this interface.
+
+### Projections and transforms
+
+Every method receives the full conversation. It explicitly decides what each
+subordinate call sees:
+
+- A difficulty classifier may project only the latest user text or the full
+  structured conversation.
+- A model profile can append system instructions and override generation
+  parameters.
+- A fixed or cascade policy can prefix or suffix the latest human text.
+- The final generation call normally retains the complete context.
+
+Transforms return a new `Conversation`. They never flatten unrelated tool,
+image, reasoning, or extension blocks into text.
+
+## Method boundary
+
+A method is a complete response algorithm:
+
+```python
+class StrategyMethod(Protocol):
+    async def respond(
+        self,
+        conversation: Conversation,
+        run: RunScope,
+    ) -> PreparedResponse: ...
+```
+
+Intermediate attempts are local variables inside this call. They do not need
+to be passed in from the caller because the same invocation creates, assesses,
+and consumes them. The run scope records their observable evidence.
+
+The bundled methods are:
+
+- `FixedStrategyMethod`: records its selection and plans one live response.
+- `DifficultyStrategyMethod`: obtains a structured assessment, records the
+  route, and plans one easy or hard response.
+- `CascadeStrategyMethod`: classifies, buffers a cheap candidate when
+  appropriate, records acceptance or escalation, then replays that candidate
+  or plans an expensive response.
+
+Methods depend on `RunScope`, `ModelProfile`, and small policy collaborators.
+They know no URLs, credentials, SDK clients, trace sinks, benchmark schemas, or
+harness protocols.
+
+### Why the prepared response is opaque
+
+Only `RunScope` creates a `PreparedResponse`, and only its owning engine can
+consume it. This enforces three invariants:
+
+1. The selected call and decision belong to this invocation.
+2. A prepared response can be consumed only once.
+3. The method cannot fabricate a response that bypasses call evidence.
+
+A live response begins its provider stream after the method commits it. A
+replayed response emits events already buffered by the same run, as happens
+when a cascade accepts a cheap candidate.
+
+## Run scope and evidence
+
+`RunScope` is the method's capability boundary. It can:
+
+- record an ordered `DecisionRecord`;
+- execute a bounded hidden call and return normalized evidence;
+- plan a live final call;
+- select a buffered result for replay.
+
+Limits cap logical calls, buffered events, buffered bytes, and elapsed buffer
+time. Decision evidence must refer to a completed call from the same run.
+
+The record keeps three normalized ledgers:
+
+```text
+DecisionRecord
+  decision id, gate, outcome, reason, selected profile, evidence call ids
+
+ModelCallRecord
+  call id, profile, target, role, phase, causing decision, status
+
+ProviderRequestRecord
+  request id, parent call, actual model, tokens, cost, timing, stop/output state
+```
+
+Logical calls and provider requests are separate because semantic method intent
+and physical execution are different evidence. The request that a decision launches owns
+its resources. Derived funnels must not copy one request's tokens or cost onto
+all earlier gates.
+
+`RunRecord` deliberately excludes prompts and generated content. It is safe for
+normal operational accounting, subject to the metadata extensions supplied by
+the caller. An opt-in content trace is observed live: it records the original
+conversation, every transformed model-call conversation, chunked output,
+decisions, and terminal state.
+
+## Engine lifecycle
+
+`StrategyEngine.start(conversation, metadata)` returns a single-consumer
+`RunHandle`:
+
+```text
+start
+  → method preparation
+      → heartbeat events while hidden work is pending
+  → commit PreparedResponse
+  → visible response stream
+  → bounded cleanup
+  → immutable RunRecord
+```
+
+The caller consumes `handle.events()` and then awaits `handle.result()`. Calling
+`complete(...)` performs both steps and returns all visible events with the
+record.
+
+Stream closure, task cancellation, provider failure, and method failure all
+converge on the same finalizer. Active iterators are closed, hidden work is
+cancelled, and the record receives a terminal `completed`, `error`, or
+`cancelled` state. Cleanup is independently bounded so cancellation cannot
+leave a result future unresolved indefinitely.
+
+## Token counting
+
+Token counting is read-only. A method declares every currently reachable final
+request candidate after pure transforms. The executor counts those requests
+without classifying, generating, mutating route memory, or emitting run
+metrics.
+
+- One reachable candidate produces an exact count.
+- Several reachable candidates produce the maximum count as an upper bound.
+- Missing authoritative tokenization fails explicitly.
+
+This is suitable for external protocol preflight endpoints. It is not an
+estimate of the hidden classification or escalation work a future invocation
+will choose.
+
+## Session-dependent policy
+
+The conversation snapshot is sufficient for a stateless method decision.
+Optional route memory is method policy, not engine or harness policy. It may
+cache route affinity with a TTL and bounded LRU size, or pin a tool loop to a
+profile after the model emits a tool call.
+
+Any memory key must include robust session/agent identity and the relevant
+human turn identity. Absence of usable identity must disable reuse rather than
+allow accidental sharing between users. Reused decisions remain explicit in
+the run evidence.
 
 ## Strategy configuration
 
-[`smart_ask/strategy/schema.py`](smart_ask/strategy/schema.py) defines one
-strict Pydantic `StrategyConfig` with:
+The strict schema v3 root is:
 
 ```text
 StrategyConfig
-├── schema_version: 2
+├── schema_version: 3
 ├── name
+├── profiles: logical profile → trusted target + request transform
 ├── method
-│   ├── difficulty: classifier + easy/hard model profiles
-│   ├── cascade: classifier + escalation policy + easy/hard profiles
-│   └── fixed: one model profile + required semantic role
-└── generation: OpenAI, Groq, OpenRouter, Ollama, or Hermes executor config
+│   ├── fixed: profile + role + optional user transform
+│   ├── difficulty: classifier + easy/hard profiles + optional memory
+│   └── cascade: classifier + candidate policy + profiles + optional memory
+└── limits: call, buffer, and deadline ceilings
 ```
 
-An LLM classifier has its own executor, prompt source, model, prompt-length
-limit, request parameters, and explicit `easy | hard | raise` fallback. A model
-profile can include a system-prompt source, maximum output tokens, temperature,
-and reasoning effort. A marker policy owns its exact marker, candidate self-check
-suffix, and escalation prefix.
+The strategy owns reproducible semantics:
 
-Shipped strategy and prompt names describe reusable task/output contracts,
-such as Python function completion or complete Python code generation. They do
-not inherit the name of a benchmark suite that consumes them.
+- profile names and target references;
+- prompts and request transforms;
+- classifier projection, fallback, and missing-input behavior;
+- candidate marker and tool-output policy;
+- optional route-memory bounds;
+- limits tighter than deployment ceilings.
 
-There is no `ExperimentConfig`. Benchmark run controls—suite, strategies,
-limit, workers, output, and resume—belong to the benchmark command. This keeps a
-strategy independently reusable by the product CLI, either benchmark suite, or
-library callers.
+The strategy does not own deployment authority:
 
-### Loading and identity
+- network endpoints;
+- environment-variable names;
+- provider/client types;
+- executable paths;
+- timeout ceilings;
+- the physical model behind a trusted target.
 
-`load_strategy(path | "builtin:<name>")` performs configuration-only work:
+These values live in `TargetRegistry`. A `TargetDefinition` binds a stable
+target ID to a structured transport, model, endpoint, credential handle,
+capabilities, and hard limits. The public target snapshot exposes reproducible
+model and capability metadata plus a configuration digest, but not endpoint or
+credential values.
 
-1. Reads one UTF-8 YAML mapping through a duplicate-key-rejecting safe loader.
-2. Validates the closed schema; unknown fields and incompatible compositions
-   fail before any model call.
-3. Resolves prompt files relative to the strategy YAML, preserving exact text.
-4. Validates prompt existence/content and the marker producer/parser contract.
-5. Computes a SHA-256 identity from the typed config and referenced prompt
-   contents.
+### Loading and building
 
-The resulting `LoadedStrategy` retains the source path, validated config,
-digest, resolved prompt text, and a JSON-serializable manifest snapshot with
-prompt text and hashes. Loading does not read credentials or create clients, so
-the product can validate a strategy with `--validate-strategy` offline.
+`load_strategy(...)` performs pure validation:
 
-### Building
+1. Constrain the source to approved roots and file sizes.
+2. Parse one UTF-8 mapping with duplicate-key rejection.
+3. Validate the closed Pydantic schema.
+4. Resolve referenced prompt files relative to the strategy source.
+5. Compute a digest over typed configuration and exact prompt contents.
 
-`StrategyBuilder.build(loaded)` performs environment-dependent composition:
+`StrategyBuilder` then performs environment-dependent composition:
 
 ```text
 LoadedStrategy
-  → build classifier executor and LLMDifficultyClassifier when required
-  → build MarkerEscalationPolicy when required
-  → build the selected RoutingMethod
-  → build the separately configured generation executor
-  → SmartAsk(method, generation executor, derived attempt bound)
+  → resolve every profile/classifier target
+  → reject missing targets or unsupported capabilities
+  → compile explicit request transforms and method policy
+  → create one target-backed model-call executor
+  → create StrategyEngine with declared limits
 ```
 
-The builder derives the closed method bound: fixed and difficulty use one
-attempt; cascade uses two. It is not a strategy knob.
+Force-easy and force-hard are build-time substitutions that compile the chosen
+profile into a fixed method. A strategy that already has only one fixed profile
+does not accept those overrides.
 
-`StrategyBuilder.build_router(loaded)` builds the same validated method and
-classifier graph without constructing a generation executor. `SmartAsk` wraps
-that router for direct tasks and benchmarks.
+## Transport boundary
 
-`StrategyBuilder.build_conversation_runtime(loaded)` composes the router with a
-structured executor selected solely from the strategy. The resulting
-`ConversationRuntime` accepts neutral messages, tools, images, parameters, and
-session correlation values. It owns profile transforms, sticky per-turn route
-decisions, physical attempts, cascade buffering/escalation, and metrics.
+The model-call executor resolves a trusted target and delegates to a structured
+protocol transport. Transports translate neutral conversations and normalized
+events; they do not route or evaluate candidates.
 
-## External protocol adapters
+```text
+StrategyMethod
+  → ModelCallSpec(target_id, transformed Conversation)
+  → TargetExecutorRegistry
+  → OpenAI / OpenRouter / Groq / Ollama transport
+  → normalized ConversationEvent stream
+```
 
-Protocol-specific servers do not live in `smart_ask`. An integration is a
-downstream package with this dependency direction:
+Clients can be pooled by trusted endpoint and credential. Strategy values can
+never create a client or select an arbitrary command.
+
+The complete logical `Conversation` is the invariant at this boundary; its wire
+representation is transport-specific. For example, a stateless Anthropic
+transport would send Opus the applicable history for every request. A stateful
+local transport may instead send only the new suffix when it has a validated
+context/KV-cache handle proving that the backend already holds the exact
+conversation prefix. It must send the complete history after cache expiry,
+server restart, conversation branching, or any other loss of continuity.
+
+This optimization is invisible to strategy methods. A method never truncates
+history to accommodate a cache and never assumes that backend state exists.
+The current Ollama `/chat` transport sends the complete message history;
+keeping the model loaded does not itself establish a persistent conversation
+cache.
+
+## External adapters
+
+Harness-specific servers are downstream integrations:
 
 ```text
 harness
-  → external protocol adapter
-      → ConversationRuntime
-          → strategy-configured executor
+  → protocol adapter
+      → Conversation + RunMetadata
+          → StrategyEngine
 ```
 
-The adapter owns wire decoding/encoding, authentication, discovery, and server
-limits. It maps each public model alias to one strategy reference, then asks
-`StrategyBuilder` for a complete runtime. It does not inspect generation types,
-provider URLs, credentials, cheap/hard model fields, or routing policy.
+The adapter owns wire parsing, authentication, discovery, concurrency and
+request-size limits, stream framing, and conversion of tools/images/reasoning.
+It maps each advertised model alias to one loaded strategy. It does not inspect
+cheap/hard profiles, start provider services, or implement routing.
 
-`integrations/claude_code/` is one such package. It translates its external
-messages and stream into neutral core values. The core never imports this
-package and contains no ASGI routes, SSE framing, or harness-specific headers.
+The Claude Code adapter is separately packaged under
+`integrations/claude_code/`. Core code never imports it and contains no ASGI,
+Anthropic Messages, or Claude Code behavior. Claude Code's own agent system
+instructions are part of the incoming conversation and are intentionally
+preserved.
 
-For a conversation request, SmartAsk projects only the latest human text for
-routing while retaining the complete structured conversation for execution.
-Session and agent correlation values keep difficulty/cascade decisions sticky
-through a tool loop. Fixed and difficulty attempts stream directly. A cascade
-streams tool calls immediately; it buffers only final cheap text until the core
-accepts it or replaces it with an escalated attempt.
+## Metrics and traces
 
-OpenRouter clients may be shared by endpoint and credential name, but classifier
-and generation executors remain distinct so prompts and parameters cannot leak
-between roles. Builder dependencies remain injectable for network-free tests.
+`RunMetricsStore` accepts finalized records and derives caller-owned session
+rollups:
 
-`StrategyBuilder.build(..., force="easy" | "hard")` replaces the configured
-method with `FixedRoutingMethod` using the corresponding configured profile. It
-does not need to build or call the classifier.
+- run, error, and cancellation counts;
+- logical calls, provider requests, and retries;
+- input/output/reasoning/cache tokens where available;
+- reported or catalog-estimated cost with missing-evidence counts;
+- breakdowns by actual/selected model and trusted target.
 
-## Runtime methods
+Raw ledgers remain canonical; ratios and funnels are derived. Unknown evidence
+is never converted to zero.
 
-- `DifficultyRoutingMethod` classifies once, selects the configured easy or
-  hard model, executes once, and then accepts the response.
-- `CascadeRoutingMethod` classifies once. A hard task goes directly to the hard
-  model. An easy task goes to the easy model and is assessed by the configured
-  escalation policy; a marker decision can trigger one hard-model retry.
-- `FixedRoutingMethod` selects one configured model without classification and
-  is used by force overrides and baseline strategies. Fixed baselines can
-  explicitly reproduce a routed call's user-prompt prefix or suffix.
+The standard JSONL metrics sink stores the prompt-free record plus a current
+session aggregate. An opt-in trace is one private directory per launcher
+session: `session.json` indexes terminal status and one numbered `.log` file
+holds each method invocation. Each event is one conventional log line with a
+timestamp, level, component, message, and compact `key=value` evidence. `INFO`
+shows calls, decisions, output, usage, and terminal state; `DEBUG` carries full
+conversation evidence and thinking; `WARN` and `ERROR` mark failures.
 
-The method classes depend on collaborator protocols, not concrete classifier or
-policy implementations.
+The session index normalizes shared strategy/session context and content
+digests. An exact repeated input points to its first ordinal without asserting
+why it repeated. Within a log, calls identify reuse of the run input and print
+small parameter changes inline. Custom contexts are logged where the call is
+planned. Short content stays on one line; long content uses `begin`/`end`
+markers with incremental indented continuations.
 
-## Runtime composition
+## Benchmark architecture
 
-The shipped product strategy builds this object graph:
+The benchmark framework is an engine caller, not a second runtime:
 
 ```text
-SmartAsk
-├── method: DifficultyRoutingMethod
-│   └── classifier: LLMDifficultyClassifier
-│       └── classifier executor: OpenRouterExecutor
-└── generation executor: HermesExecutor
+load fixed case set
+  → for each strategy/case pair
+      → one-message Conversation
+      → isolated StrategyEngine invocation
+      → suite evaluates selected visible output
+      → append canonical result
+  → summarize quality, resources, timing, routes, counterfactuals
 ```
 
-The shipped cascade strategies build:
+The suite owns dataset identity and evaluation. The matrix runner owns
+concurrency and fair case ordering. The strategy owns model behavior.
 
-```text
-SmartAsk
-├── method: CascadeRoutingMethod
-│   ├── classifier: LLMDifficultyClassifier
-│   │   └── classifier executor: OpenRouterExecutor
-│   └── escalation policy: MarkerEscalationPolicy
-└── generation executor: OpenRouterExecutor
-```
+A run directory contains a manifest, append-safe records, and a summary. The
+manifest fingerprints the dataset, evaluator, cases, strategies, prompt
+digests, trusted target resolutions, and price catalog. Resume is allowed only
+when that identity still matches.
 
-The classifier contains classification behavior—prompt construction, response
-parsing, validation, and its configured fallback—but calls only the generic
-`ModelExecutor` contract and instruments it with the shared `StatsCollector`.
-OpenRouter is a configured transport, not part of the classifier's policy.
-
-## Contracts and capabilities
-
-```python
-class RoutingMethod(Protocol):
-    requires_response_text: bool
-
-    def route(self, task: Task, context: Context = Context()) -> RouteResult: ...
-
-
-class DifficultyClassifier(Protocol):
-    def classify(self, task: Task) -> DifficultyClassification: ...
-
-
-class EscalationPolicy(Protocol):
-    def prepare_candidate_prompt(self, task: Task) -> str: ...
-    def assess(self, response: ModelResult) -> EscalationDecision: ...
-    def prepare_escalation_prompt(self, task: Task) -> str: ...
-
-
-class ModelExecutor(Protocol):
-    captures_output: bool
-
-    def execute(self, request: ExecutionRequest) -> ModelResult: ...
-```
-
-These are structural protocols; explicit inheritance is optional.
-`CascadeRoutingMethod` requires captured generation text. The strategy schema
-therefore rejects a cascade paired with Hermes generation. An LLM classifier
-also requires a capturing executor. Hermes ignores per-request token and
-temperature hints, so the schema rejects model tuning and system prompts when
-Hermes is the generation transport.
-
-## One-task lifecycle
-
-```text
-Task
-  → method.route(Task, Context)
-      → optional DifficultyClassification
-      → RoutingEvent(s)
-      → RouteResult
-  → SmartAsk creates ExecutionRequest with the route's semantic role
-  → generation executor returns ModelResult
-  → Attempt is appended to immutable Context
-  → method returns accept or another route
-  → RunResult
-```
-
-`RouteResult.phase` is typed as `initial-easy`, `initial-hard`, `escalation`, or
-`fixed` and drives method control flow. Its `label` is presentation metadata.
-`SmartAsk.run(task)` returns the final `ModelResult`; `run_detailed(task)`
-returns all attempts and passive routing events. A maximum-attempt guard
-prevents a faulty method from routing forever.
-
-`SmartAsk.run_with_stats(task)` and `run_detailed_with_stats(task)` add an
-immutable `RunStats` snapshot without changing those existing APIs. The shared
-`StatsCollector` observes executor calls through a `ContextVar`-scoped run:
-
-```text
-CallStats             one classifier or generation executor invocation
-  ↓ aggregate
-RunStats              one task, benchmark case, or conversation turn
-  ↓ caller-owned aggregate_stats(...) / aggregate_resources(...)
-StatsSummary          a conversation, benchmark, or other caller-defined group
-```
-
-Unknown usage and price evidence is represented by incomplete totals, never by
-silently adding zero. A lower-level `capture_stats()` context supports custom
-callback/manual workflows and lets benchmark failures retain partial call
-evidence. Normal conversation turns are explicitly `unrated`; an evaluator or
-caller can replace that state with one mutually exclusive objective outcome.
-
-## Benchmark application
-
-The benchmark framework is separate from routing:
-
-```text
-python -m smart_ask.benchmarks.<suite> --strategy A.yaml --strategy B.yaml
-  → load each StrategyConfig
-  → load one pinned case set from the suite
-  → build one metrics-instrumented SmartAsk application per pending strategy/task
-  → run every strategy/task pair
-  → suite evaluates each final output
-  → append one schema-v5 evidence record
-  → summarize each strategy and compute paired comparisons
-```
-
-`BenchmarkSuite` owns dataset loading and correctness evaluation.
-`run_matrix` owns concurrency, isolates each strategy/task pair in its own
-application instance, and applies every strategy to the same case set.
-The shared collector records both classifier and generation transports: their
-provider-neutral `ExecutionRequest` values, outputs, usage, failures, semantic
-roles, requested/actual/priced models, channels, latency, pricing provenance,
-normalized termination/output state, and separate caller-requested and
-adapter-applied generation caps. Benchmarks
-retain the call ledger; regular callers receive the immutable `RunStats`
-snapshot. Provider-specific defaults and system prompts remain in the strategy
-snapshot.
-
-Actual model identity is provider evidence and may be absent. Pricing uses that
-actual model when present and otherwise the requested model; both identities,
-the selected priced model, and the complete catalog snapshot remain explicit.
-OpenRouter's reported account charge is recorded alongside—not merged with—the
-catalog estimate, and each has independent completeness.
-
-### Evidence schema v5
-
-Benchmark artifact schema version 5 is distinct from strategy YAML schema
-version 2. A run directory contains:
-
-| File | Contents |
-|---|---|
-| `manifest.json` | Dataset/evaluator identity, case hashes, strategy snapshots, metrics/pricing provenance, Python/dependency versions, package hash/version, and matching-checkout Git state |
-| `records.jsonl` | One crash-safe line per strategy/task pair with input, route, classifier decision, events, attempts, call ledger, final output, evaluation, canonical metrics envelope, errors, and timestamps |
-| `summary.json` | Per-strategy aggregates and all paired comparisons |
-
-Each JSONL line is flushed and synced before completion is recorded. Resume
-skips completed `(strategy_id, task_id)` pairs only after verifying the existing
-manifest still matches the requested benchmark, dataset, strategies, cases,
-evaluator, pricing, metrics schema, worker count, runtime/dependency versions,
-and code identity. An advisory lock prevents concurrent writers to one run
-directory.
-
-Calls are the canonical source for request, output, usage, cost, and latency.
-Attempts and semantic routing events reference call IDs. The record-level
-`metrics` object and summary-level `metrics` object use the same
-`smart-ask.metrics/v2` envelope at different scopes; there are no parallel flat
-usage or cost totals.
-
-The derived reporting layer has four explicit levels:
-
-```text
-Call evidence
-  → resource rollups by model/channel/role/strategy
-  → mutually exclusive task outcomes
-  → routing transitions, complete paths, and benchmark-only counterfactuals
-```
-
-Only `passed` and `incorrect` task outcomes enter quality rates and paired score
-comparisons. Routing, execution, and evaluation errors remain explicit excluded
-tasks while their call, cost, token, and timing evidence remains reportable.
-
-Generation usage belongs to the transition that launches its call, preventing
-the same downstream cost from being counted at every gate. The transition
-ledger retains gate/decision, route and model movement, task identity, and
-resulting call ID. Paired fixed easy/hard baselines enable router regret and
-opportunity/error rates. A match includes role, resolved system and user-prompt
-transforms, tuning, and executor configuration. Missing evidence disables only
-the dependent metric; full oracle regret requires both exact baselines.
-Per-strategy summaries distinguish
-`wall_clock_record_span_ms`
-(which can include resumed-run gaps) from cumulative run time. Hidden SDK
-retries, TTFT, provider queue time, model-only execution time, and authoritative
-context-window utilization are absent because the current adapters cannot
-observe them. Repeated-run variance needs a future trial dimension because a
-run currently permits one result per strategy/task pair. The reader accepts
-only schema-v5 run directories;
-historical artifacts remain under `benchmark-history/` with provenance notes.
+Counterfactual routing quality requires matched routed, cheap-only, and
+expensive-only results for the same cases. It cannot be inferred from one
+production path. The oracle is the cheapest profile meeting the quality
+threshold; cost and quality regret compare the routed result to that oracle.
 
 ## Dependency direction
 
 Arrows mean “imports or depends on”:
 
 ```text
-product CLI / benchmark CLI
+terminal / benchmark / external adapter
   → strategy loader and builder
-      → concrete methods, collaborators, and executors
-          → protocols and immutable domain values
+      → methods + target executor registry
+          → conversation engine and immutable values
 
-benchmark runner
-  → SmartAsk public behavior and BenchmarkSuite contract
-  → core metrics plus artifact/comparison modules
-
-external protocol adapter
-  → SmartAsk conversation API and strategy builder
-
-SmartAsk core
-  ↛ external protocol adapter, ASGI framework, or wire protocol
+methods → conversation contracts
+transports → conversation contracts
+methods ⇛ concrete transports
+core ⇛ external adapters
+core ⇛ benchmark suites
 ```
 
-Methods do not import concrete executors. Classifiers depend on the executor
-protocol and core metrics, not OpenRouter. Executors do not import methods.
-Benchmark concerns do not enter the core application. A shared collector is
-injected into the builder and application, and benchmarks serialize its public
-call and run evidence.
-
-## Main file responsibilities
+## File responsibilities
 
 | Path | Responsibility |
 |---|---|
-| `smart_ask/domain.py` | Immutable per-task route, request, response, and audit values |
-| `smart_ask/application.py` | Method/executor coordination and attempt guard |
-| `smart_ask/conversation/` | Harness-neutral conversation domain, runtime, and metrics |
-| `smart_ask/metrics/models.py` | Immutable token/call/run metrics and aggregation |
-| `smart_ask/metrics/collector.py` | Context-scoped call capture and executor instrumentation |
-| `smart_ask/metrics/cost.py` | Versioned prices and cost calculation |
-| `smart_ask/metrics/rollups.py` | Resource aggregation by model, channel, role, and strategy |
-| `smart_ask/metrics/wire.py` | Strict metrics-v2 serialization and reconciliation |
-| `smart_ask/methods/` | Runtime methods and their classifier/escalation collaborators |
-| `smart_ask/executors/` | Provider/process transport adapters |
-| `smart_ask/strategy/schema.py` | Strict root `StrategyConfig` model |
-| `smart_ask/strategy/loader.py` | Safe YAML loading, prompt resolution, digest and manifest |
-| `smart_ask/strategy/builder.py` | Runtime object construction and dependency injection |
-| `smart_ask/cli.py` | Installed product command |
-| `smart_ask/resources/strategies/` | Shipped strategy YAML files |
-| `smart_ask/resources/prompts/` | Versioned prompt text referenced by YAML |
-| `smart_ask/benchmarks/suite.py` | Benchmark case/evaluation and strategy contracts |
-| `smart_ask/benchmarks/runner.py` | Matrix execution and evidence serialization |
-| `smart_ask/benchmarks/run_manifest.py` | Reproducible manifest and code identity |
-| `smart_ask/benchmarks/artifacts.py` | Crash-safe JSONL persistence, locking, and resume |
-| `smart_ask/benchmarks/artifact_schema.py` | Strict schema-v5 integrity validation |
-| `smart_ask/benchmarks/compare.py` | Aggregates, resource/timing summaries, and paired comparisons |
-| `smart_ask/benchmarks/routing_analysis.py` | Transition/path ledger with exact-once call attribution |
-| `smart_ask/benchmarks/counterfactual.py` | Paired routing quality and regret diagnostics |
-| `smart_ask/benchmarks/humaneval/`, `livebench/` | HumanEval and noncanonical LiveBench public-test evaluation |
-| `benchmark-history/` | Read-only archive of pre-current-schema evidence and its caveats |
-| `integrations/claude_code/` | Separately installed external protocol adapter |
-
-## Public API
-
-The root `smart_ask` package re-exports the coordinator, common metric/domain
-values, shipped methods and collaborators, executors, and strategy loading and
-building APIs. Focused metric imports use `smart_ask.metrics`; other focused
-imports use their corresponding subpackages.
+| `smart_ask/conversation/model.py` | Conversation input and canonical run evidence |
+| `smart_ask/conversation/engine.py` | Run scope, streaming lifecycle, cleanup, token counting |
+| `smart_ask/conversation/metrics.py` | Record serialization and session resource rollups |
+| `smart_ask/methods/strategies.py` | Fixed, difficulty, cascade, projections, transforms |
+| `smart_ask/methods/memory.py` | Optional bounded route affinity |
+| `smart_ask/executors/` | Target resolution and structured transports |
+| `smart_ask/strategy/schema.py` | Strict strategy schema v3 |
+| `smart_ask/strategy/loader.py` | Safe loading, prompt resolution, digest |
+| `smart_ask/strategy/targets.py` | Trusted deployment target definitions |
+| `smart_ask/strategy/builder.py` | Policy compilation into one engine |
+| `smart_ask/benchmarks/` | Case matrix, persistence, summaries, routing analysis |
+| `integrations/claude_code/` | External Anthropic-compatible adapter |

@@ -10,10 +10,10 @@ from uuid import uuid4
 from smart_ask.conversation import (
     ConversationEvent,
     ConversationMessage,
-    ConversationRequest,
     SessionContext,
     thaw_value,
 )
+from smart_ask.conversation.model import Conversation
 
 
 _ROOT_FIELDS = frozenset({
@@ -102,7 +102,7 @@ def _decode_content(content: Any) -> tuple[dict[str, Any], ...]:
 def decode_request(
     body: Mapping[str, Any],
     headers: Mapping[str, str],
-) -> tuple[ConversationRequest, SessionContext]:
+) -> tuple[Conversation, SessionContext]:
     """Decode without retaining the adapter model alias in SmartAsk's domain."""
 
     raw_system = body.get("system", [])
@@ -158,7 +158,7 @@ def decode_request(
     ):
         if source in body:
             parameters[target] = body[source]
-    conversation = ConversationRequest(
+    conversation = Conversation(
         system=system,
         messages=tuple(messages),
         tools=tools,

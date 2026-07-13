@@ -1,9 +1,9 @@
-"""First-party OpenAI Responses API executor."""
+"""First-party OpenAI Responses API transport."""
 
-from .responses import ResponsesExecutor
+from .responses import ResponsesTransport
 
 
-class OpenAIExecutor(ResponsesExecutor):
-    """Execute one-shot model calls through OpenAI's Responses API."""
+class OpenAITransport(ResponsesTransport):
+    """Stream normalized conversations through OpenAI's Responses API."""
 
     _include_store = True

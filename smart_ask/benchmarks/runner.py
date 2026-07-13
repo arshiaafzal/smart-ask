@@ -1,27 +1,21 @@
-"""Strategy-matrix execution with per-call tracing and rich task records."""
+"""Asynchronous strategy-engine execution for benchmark case matrices."""
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
+import json
 import time
-from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence
 
-from ..domain import ModelResult, RunResult, Task
-from ..executors.base import ModelExecutor
-from ..metrics import (
-    CallRecord,
-    DEFAULT_PRICE_CATALOG,
-    PriceCatalog,
-    StatsCollector,
-)
-from ..strategy.schema import FixedMethodConfig, StrategyConfig
+from ..conversation.domain import ConversationEvent, thaw_value
+from ..conversation.metrics import run_record_dict
+from ..conversation.model import CompletedRun, Conversation, RunMetadata, RunRecord
+from ..metrics import DEFAULT_PRICE_CATALOG, PriceCatalog
+from ..strategy.schema import StrategyConfig
 
-from .artifact_schema import SCHEMA_VERSION
-from .artifacts import ResultSink
-from .compare import compare, summarize
-from .run_manifest import build_manifest
 from .suite import (
     BenchmarkCase,
     BenchmarkStrategy,
@@ -29,40 +23,45 @@ from .suite import (
     Evaluation,
     _thaw_json,
 )
+from .compare import compare, summarize
 
 
-class BenchmarkApplication(Protocol):
-    """Instrumented, isolated application required for one benchmark case."""
-
-    @property
-    def executor(self) -> ModelExecutor:
-        ...
+class ResultSink(Protocol):
+    """Persistence boundary for canonical benchmark records."""
 
     @property
-    def stats_collector(self) -> StatsCollector:
-        ...
+    def completed_keys(self) -> set[tuple[str, str]]: ...
 
     @property
-    def strategy_id(self) -> str:
-        ...
+    def existing_records(self) -> list[dict[str, Any]]: ...
 
-    @property
-    def metrics_executors(self) -> Mapping[str, tuple[ModelExecutor, ...]]:
-        ...
+    def start(self, manifest: Mapping[str, Any]) -> dict[str, Any]: ...
 
-    def run_detailed(
+    def append(self, record: Mapping[str, Any]) -> None: ...
+
+    def finalize(
         self,
-        task: Task,
-        on_route: Callable[..., None] | None = None,
-        on_result: Callable[..., None] | None = None,
-    ) -> RunResult:
-        ...
+        summaries: Mapping[str, Any],
+        comparison: Mapping[str, Any],
+    ) -> None: ...
+
+    def close(self) -> None: ...
 
 
-ApplicationFactory = Callable[
-    [BenchmarkStrategy, StatsCollector],
-    BenchmarkApplication,
-]
+class BenchmarkEngine(Protocol):
+    """Minimal strategy-engine surface required by benchmark execution."""
+
+    def start(
+        self,
+        conversation: Conversation,
+        metadata: RunMetadata,
+    ) -> Any: ...
+
+    async def aclose(self) -> None: ...
+
+
+EngineFactory = Callable[[BenchmarkStrategy], BenchmarkEngine]
+DeploymentManifestFactory = Callable[[BenchmarkStrategy], Mapping[str, Any]]
 ProgressCallback = Callable[[Mapping[str, Any], int, int], None]
 
 
@@ -80,28 +79,54 @@ def run_matrix(
     suite: BenchmarkSuite,
     strategies: Sequence[BenchmarkStrategy],
     *,
-    application_factory: ApplicationFactory,
+    engine_factory: EngineFactory,
     sink: ResultSink,
     workers: int = 1,
     limit: int | None = None,
     price_catalog: PriceCatalog | None = None,
+    deployment_manifest_factory: DeploymentManifestFactory | None = None,
     progress: ProgressCallback | None = None,
 ) -> BenchmarkRun:
-    """Run every strategy/case in an isolated application, persist, and compare."""
+    """Synchronously run a matrix using asynchronous strategy engines.
 
-    if not strategies:
-        raise ValueError("At least one strategy is required")
-    if not callable(application_factory):
-        raise TypeError("application_factory must be callable")
-    for strategy in strategies:
-        _validate_benchmark_strategy(strategy)
-    if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
-        raise ValueError("workers must be at least 1")
-    if limit is not None and (
-        isinstance(limit, bool) or not isinstance(limit, int) or limit < 1
-    ):
-        raise ValueError("limit must be a positive integer or None")
+    Async applications should call :func:`run_matrix_async` directly.
+    """
 
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(run_matrix_async(
+            suite,
+            strategies,
+            engine_factory=engine_factory,
+            sink=sink,
+            workers=workers,
+            limit=limit,
+            price_catalog=price_catalog,
+            deployment_manifest_factory=deployment_manifest_factory,
+            progress=progress,
+        ))
+    raise RuntimeError(
+        "run_matrix cannot run inside an active event loop; "
+        "await run_matrix_async instead"
+    )
+
+
+async def run_matrix_async(
+    suite: BenchmarkSuite,
+    strategies: Sequence[BenchmarkStrategy],
+    *,
+    engine_factory: EngineFactory,
+    sink: ResultSink,
+    workers: int = 1,
+    limit: int | None = None,
+    price_catalog: PriceCatalog | None = None,
+    deployment_manifest_factory: DeploymentManifestFactory | None = None,
+    progress: ProgressCallback | None = None,
+) -> BenchmarkRun:
+    """Run every strategy/case pair through an isolated strategy engine."""
+
+    _validate_inputs(strategies, engine_factory, workers, limit)
     strategy_ids = [_strategy_id(strategy) for strategy in strategies]
     if len(set(strategy_ids)) != len(strategy_ids):
         raise ValueError("Strategy names must be unique within a comparison run")
@@ -109,255 +134,214 @@ def run_matrix(
     prices = DEFAULT_PRICE_CATALOG if price_catalog is None else price_catalog
     if not isinstance(prices, PriceCatalog):
         raise TypeError("price_catalog must be a PriceCatalog")
-    configured_models = {
-        model
-        for strategy in strategies
-        for model in _configured_model_ids(strategy)
-    }
-    unknown_models = sorted(configured_models - set(prices.prices))
-    if unknown_models:
-        raise ValueError(
-            "Missing benchmark prices for configured models: "
-            + ", ".join(unknown_models)
-        )
     cases = tuple(suite.load_cases(limit))
     if not cases:
         raise ValueError("Benchmark suite did not provide any cases")
     case_ids = [case.task_id for case in cases]
     if len(set(case_ids)) != len(case_ids):
         raise ValueError("Benchmark case task IDs must be unique")
-    manifest = sink.start(build_manifest(suite, strategies, cases, workers, prices))
+
+    manifest = sink.start(_build_manifest(
+        suite,
+        strategies,
+        cases,
+        workers,
+        prices,
+        deployment_manifest_factory,
+    ))
     try:
-        return _run_started_matrix(
+        return await _run_started_matrix(
             suite,
             strategies,
-            application_factory=application_factory,
+            engine_factory=engine_factory,
             sink=sink,
             workers=workers,
             progress=progress,
             cases=cases,
             strategy_ids=strategy_ids,
-            price_catalog=prices,
             manifest=manifest,
+            price_catalog=prices,
         )
     finally:
         sink.close()
 
 
-def _run_started_matrix(
+async def _run_started_matrix(
     suite: BenchmarkSuite,
     strategies: Sequence[BenchmarkStrategy],
     *,
-    application_factory: ApplicationFactory,
+    engine_factory: EngineFactory,
     sink: ResultSink,
     workers: int,
     progress: ProgressCallback | None,
     cases: Sequence[BenchmarkCase],
     strategy_ids: Sequence[str],
-    price_catalog: PriceCatalog,
     manifest: Mapping[str, Any],
+    price_catalog: PriceCatalog,
 ) -> BenchmarkRun:
-    """Execute a validated matrix while ``run_matrix`` owns sink cleanup."""
-
     completed = sink.completed_keys
     pending = [
         (strategy, strategy_id, case)
-        for strategy, strategy_id in zip(strategies, strategy_ids)
+        for strategy, strategy_id in zip(strategies, strategy_ids, strict=True)
         for case in cases
         if (strategy_id, case.task_id) not in completed
     ]
-    total = len(pending)
     records = list(sink.existing_records)
-    recorder = StatsCollector(
-        price_catalog=price_catalog,
-        require_active_capture=True,
-    )
-    applications = {}
-    application_ids: set[int] = set()
-    executor_ids: set[int] = set()
+    engines: dict[tuple[str, str], BenchmarkEngine] = {}
+    engine_ids: set[int] = set()
     for strategy, strategy_id, case in pending:
-        application = application_factory(strategy, recorder)
-        _validate_benchmark_application(strategy, application, recorder)
-        application_id = id(application)
-        if application_id in application_ids:
+        engine = engine_factory(strategy)
+        _validate_engine(strategy_id, engine)
+        if id(engine) in engine_ids:
             raise ValueError(
-                "application_factory must return a distinct application for "
-                "every pending strategy/task pair"
+                "engine_factory must return a distinct engine for every "
+                "pending strategy/task pair"
             )
-        application_ids.add(application_id)
-        for channel_executors in application.metrics_executors.values():
-            for instrumented_executor in channel_executors:
-                executor_id = id(instrumented_executor)
-                if executor_id in executor_ids:
-                    raise ValueError(
-                        "application_factory must not share instrumented executors "
-                        "between strategy/task pairs"
-                    )
-                executor_ids.add(executor_id)
-        applications[(strategy_id, case.task_id)] = application
+        engine_ids.add(id(engine))
+        engines[(strategy_id, case.task_id)] = engine
 
-    def execute(item):
+    semaphore = asyncio.Semaphore(workers)
+
+    async def execute(item: tuple[BenchmarkStrategy, str, BenchmarkCase]):
         strategy, strategy_id, case = item
-        return _run_one(
-            suite,
-            strategy,
-            strategy_id,
-            applications[(strategy_id, case.task_id)],
-            case,
-            recorder,
-        )
+        async with semaphore:
+            return await _run_one(
+                suite,
+                strategy,
+                strategy_id,
+                engines[(strategy_id, case.task_id)],
+                case,
+            )
 
-    if workers == 1:
-        iterator: Iterable[Mapping[str, Any]] = map(execute, pending)
-        for done, record in enumerate(iterator, start=1):
+    tasks = [asyncio.create_task(execute(item)) for item in pending]
+    total = len(tasks)
+    try:
+        for done, task in enumerate(asyncio.as_completed(tasks), start=1):
+            record = await task
             sink.append(record)
             records.append(record)
-            if progress:
+            if progress is not None:
                 progress(record, done, total)
-    else:
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {executor.submit(execute, item): item for item in pending}
-            done = 0
-            for future in as_completed(futures):
-                record = future.result()
-                sink.append(record)
-                records.append(record)
-                done += 1
-                current = done
-                if progress:
-                    progress(record, current, total)
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        close_results = await asyncio.gather(
+            *(engine.aclose() for engine in engines.values()),
+            return_exceptions=True,
+        )
+        close_errors = [
+            result for result in close_results if isinstance(result, BaseException)
+        ]
+        if close_errors:
+            raise RuntimeError(
+                f"failed to close {len(close_errors)} benchmark engine(s): "
+                f"{close_errors[0]}"
+            ) from close_errors[0]
 
     records.sort(key=lambda item: (str(item["strategy_id"]), str(item["task_id"])))
-    summaries = summarize(records, manifest=manifest)
-    comparison = compare(
-        records,
-        strategy_order=strategy_ids,
-        manifest=manifest,
-    )
+    summaries = summarize(records, price_catalog=price_catalog)
+    comparison = compare(summaries, strategy_order=strategy_ids)
     sink.finalize(summaries, comparison)
     return BenchmarkRun(manifest, tuple(records), summaries, comparison)
 
 
-def _run_one(
+async def _run_one(
     suite: BenchmarkSuite,
     loaded_strategy: BenchmarkStrategy,
     strategy_id: str,
-    application: BenchmarkApplication,
+    engine: BenchmarkEngine,
     case: BenchmarkCase,
-    recorder: StatsCollector,
 ) -> dict[str, Any]:
     started_at = datetime.now(timezone.utc).isoformat()
-    observed_routes: list[Any] = []
-    run = None
+    completed: CompletedRun | None = None
     evaluation: Evaluation | None = None
     evaluation_latency_ms: float | None = None
-    error = None
-    stage = "routing"
+    error: dict[str, str] | None = None
 
-    def observe_route(route_result: Any, _number: int) -> None:
-        nonlocal stage
-        observed_routes.append(route_result)
-        stage = "execution"
-
-    def observe_result(_result: ModelResult, _number: int) -> None:
-        nonlocal stage
-        stage = "routing"
-
-    with recorder.capture(strategy_id, case.task_id) as capture:
+    try:
+        handle = engine.start(
+            Conversation.from_text(case.prompt),
+            RunMetadata(
+                strategy_name=strategy_id,
+                strategy_digest=loaded_strategy.digest,
+                request_id=case.task_id,
+                extensions={"benchmark": suite.name},
+            ),
+        )
+        events: list[ConversationEvent] = []
         try:
-            run = application.run_detailed(
-                Task(case.prompt, task_id=case.task_id),
-                on_route=observe_route,
-                on_result=observe_result,
-            )
+            async for event in handle.events():
+                events.append(event)
         except Exception as exc:
-            error = _error(exc, stage)
+            error = _error(exc, "execution")
+        record = await handle.result()
+        if not isinstance(record, RunRecord):
+            raise TypeError("benchmark run handle must return a RunRecord")
+        completed = CompletedRun(tuple(events), record)
+        if record.status != "completed" and error is None:
+            error = {
+                "stage": "execution",
+                "type": "RunError",
+                "message": record.error or f"run ended as {record.status}",
+            }
+    except Exception as exc:
+        if error is None:
+            error = _error(exc, "execution")
 
-    if run is not None:
+    output = _serialize_output(completed.events if completed is not None else ())
+    if completed is not None and completed.record.status == "completed":
         evaluation_started = time.perf_counter_ns()
         try:
-            stage = "evaluation"
-            evaluation = suite.evaluate(case, run.final_result.text)
+            evaluation = await asyncio.to_thread(
+                suite.evaluate,
+                case,
+                output["text"],
+            )
             if not isinstance(evaluation, Evaluation):
                 raise TypeError("benchmark evaluator must return an Evaluation")
         except Exception as exc:
+            error = _error(exc, "evaluation")
             evaluation = None
-            error = _error(exc, stage)
         finally:
             evaluation_latency_ms = (
                 time.perf_counter_ns() - evaluation_started
             ) / 1_000_000
 
-    calls = [_serialize_call(call) for call in capture.calls]
-    generation_calls = [call for call in calls if call["channel"] == "generation"]
-    event_values = (
-        list(run.routing_events)
-        if run is not None
-        else [event for route in observed_routes for event in route.routing_events]
+    canonical = (
+        run_record_dict(completed.record)
+        if completed is not None
+        else None
     )
-    _validate_generation_coverage(run, observed_routes, generation_calls)
-    attempts: list[dict[str, Any]] = []
-    if run is not None:
-        for index, attempt in enumerate(run.attempts, start=1):
-            attempts.append(_serialize_attempt(
-                index,
-                attempt.route,
-                generation_calls[index - 1],
-            ))
-    else:
-        for index, (route_result, call) in enumerate(zip(
-            observed_routes,
-            generation_calls,
-        ), start=1):
-            attempts.append(_serialize_attempt(
-                index,
-                route_result,
-                call,
-                reconstructed=True,
-            ))
-
-    route = None
-    if run is not None:
-        route = run.final_route.phase
-    elif observed_routes:
-        route = observed_routes[-1].phase
-
-    final_output = None
-    if run is not None:
-        final_output = _serialize_output(run.final_result)
-
-    attempted_routes = (
-        [attempt.route for attempt in run.attempts]
-        if run is not None
-        else observed_routes
-    )
-    run_stats = capture.stats.with_routing_counts(
-        generation_attempts=len(attempted_routes),
-        routing_events=len(event_values),
-    ).with_outcome(_task_outcome(evaluation, error))
-    routing_events = _serialize_events(event_values, calls)
+    run = None
+    decisions: list[dict[str, Any]] = []
+    model_calls: list[dict[str, Any]] = []
+    provider_requests: list[dict[str, Any]] = []
+    final_call = None
+    if canonical is not None:
+        decisions = canonical.pop("decisions")
+        model_calls = canonical.pop("model_calls")
+        provider_requests = canonical.pop("provider_requests")
+        final_call = canonical.pop("final_call_id")
+        run = canonical
 
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema": "smart-ask.benchmark-result/v2",
         "strategy_id": strategy_id,
         "strategy_digest": loaded_strategy.digest,
         "task_id": case.task_id,
-        "input": {"prompt": case.prompt},
-        "route": route,
-        "classifier_decision": next(
-            (
-                event.outcome
-                for event in event_values
-                if event.source == "difficulty-classifier"
-            ),
-            None,
-        ),
-        "routing_events": routing_events,
-        "attempts": attempts,
-        "calls": calls,
-        "final_output": final_output,
+        "input": {
+            "prompt": case.prompt,
+            "payload": _thaw_json(case.payload),
+        },
+        "run": run,
+        "decisions": decisions,
+        "model_calls": model_calls,
+        "provider_requests": provider_requests,
+        "final_call": final_call,
+        "output": output,
         "evaluation": _serialize_evaluation(evaluation),
-        "metrics": run_stats.to_dict(include_calls=False),
         "evaluation_latency_ms": evaluation_latency_ms,
         "error": error,
         "started_at": started_at,
@@ -365,114 +349,30 @@ def _run_one(
     }
 
 
-def _serialize_call(call: CallRecord) -> dict[str, Any]:
-    payload = call.stats.to_dict()
-    payload.update({
-        "request": {
-            "model": call.request.model,
-            "role": call.request.role,
-            "prompt": call.request.prompt,
-            "max_tokens": call.request.max_tokens,
-            "temperature": call.request.temperature,
-        },
-        "output": _serialize_output(call.result),
-    })
-    return payload
-
-
-def _validate_generation_coverage(
-    run: Any,
-    observed_routes: Sequence[Any],
-    generation_calls: Sequence[Mapping[str, Any]],
-) -> None:
-    """Require one observed generation call for every attempted route."""
-
-    expected_generation = (
-        len(run.attempts) if run is not None else len(observed_routes)
-    )
-    if len(generation_calls) != expected_generation:
-        raise RuntimeError(
-            "Benchmark instrumentation coverage mismatch: generation calls "
-            f"{len(generation_calls)}/{expected_generation}"
-        )
-
-
-def _serialize_attempt(
-    index: int,
-    route: Any,
-    call: Mapping[str, Any],
-    *,
-    reconstructed: bool = False,
-) -> dict[str, Any]:
-    payload = {
-        "index": index,
-        "route": _serialize_route(route),
-        "call_id": call["call_id"],
-        "status": call["status"],
-    }
-    if reconstructed:
-        payload["reconstructed"] = True
-    return payload
-
-
-def _serialize_route(route: Any) -> dict[str, Any]:
-    return {
-        "action": route.action,
-        "phase": route.phase,
-        "label": route.label,
-        "model": route.model,
-        "role": route.role,
-        "prompt": route.prompt,
-    }
-
-
-def _serialize_events(
-    events: Sequence[Any],
-    calls: Sequence[Mapping[str, Any]],
-) -> list[dict[str, Any]]:
-    """Serialize semantic events and link classifier decisions to call evidence."""
-
-    classifier_calls = [
-        str(call["call_id"])
-        for call in calls
-        if call["channel"] == "classifier"
-    ]
-    classifier_event_count = sum(
-        event.source == "difficulty-classifier" for event in events
-    )
-    serialized = []
-    classifier_index = 0
+def _serialize_output(events: Sequence[ConversationEvent]) -> dict[str, Any]:
+    text_parts: list[str] = []
+    serialized_events: list[dict[str, Any]] = []
     for event in events:
-        call_ids: list[str] = []
-        if event.source == "difficulty-classifier":
-            if classifier_event_count == 1:
-                call_ids = classifier_calls
-            elif len(classifier_calls) == classifier_event_count:
-                call_ids = [classifier_calls[classifier_index]]
-            classifier_index += 1
-        serialized.append({
-            "source": event.source,
-            "outcome": event.outcome,
-            "reason": event.reason,
-            "model": event.model,
-            "call_ids": call_ids,
+        serialized_events.append({
+            "kind": event.kind,
+            "data": thaw_value(event.data),
         })
-    return serialized
+        if event.kind != "content_delta":
+            continue
+        delta = event.data.get("delta")
+        if not isinstance(delta, Mapping) or delta.get("type") != "text":
+            continue
+        value = delta.get("text")
+        if isinstance(value, str):
+            text_parts.append(value)
+    return {"text": "".join(text_parts), "events": serialized_events}
 
 
-def _serialize_output(result: ModelResult | None) -> dict[str, Any] | None:
-    if result is None:
-        return None
-    return {
-        "model": result.model,
-        "text": result.text,
-        "raw_text": result.raw_text,
-    }
-
-
-def _serialize_evaluation(evaluation: Evaluation | None) -> dict[str, Any]:
+def _serialize_evaluation(
+    evaluation: Evaluation | None,
+) -> dict[str, Any] | None:
     if evaluation is None:
-        return {"passed": False, "score": 0.0, "details": {}}
+        return None
     return {
         "passed": evaluation.passed,
         "score": evaluation.score,
@@ -484,26 +384,85 @@ def _error(exc: Exception, stage: str) -> dict[str, str]:
     return {"stage": stage, "type": type(exc).__name__, "message": str(exc)}
 
 
-def _task_outcome(
-    evaluation: Evaluation | None,
-    error: Mapping[str, Any] | None,
-) -> str:
-    if error is not None:
-        return f"{error['stage']}_error"
-    if evaluation is None:
-        raise RuntimeError("completed benchmark task is missing an evaluation")
-    return "passed" if evaluation.passed else "incorrect"
-
-
 def _strategy_id(loaded: BenchmarkStrategy) -> str:
     return loaded.config.name
 
 
-def _configured_model_ids(loaded: BenchmarkStrategy) -> set[str]:
-    method = loaded.config.method
-    if isinstance(method, FixedMethodConfig):
-        return {method.model.model}
-    return {method.classifier.model, method.easy.model, method.hard.model}
+def _build_manifest(
+    suite: BenchmarkSuite,
+    strategies: Sequence[BenchmarkStrategy],
+    cases: Sequence[BenchmarkCase],
+    workers: int,
+    price_catalog: PriceCatalog,
+    deployment_manifest_factory: DeploymentManifestFactory | None,
+) -> dict[str, Any]:
+    case_identity = [
+        {
+            "task_id": case.task_id,
+            "prompt_sha256": hashlib.sha256(
+                case.prompt.encode("utf-8")
+            ).hexdigest(),
+            "payload_sha256": hashlib.sha256(json.dumps(
+                _thaw_json(case.payload),
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")).hexdigest(),
+        }
+        for case in cases
+    ]
+    strategy_manifests = []
+    for strategy in strategies:
+        strategy_manifest = strategy.manifest()
+        if deployment_manifest_factory is None:
+            deployment = {
+                "status": "unresolved",
+                "reason": "no deployment manifest factory was supplied",
+            }
+        else:
+            deployment = dict(deployment_manifest_factory(strategy))
+            if deployment.get("status") != "resolved":
+                raise ValueError(
+                    "deployment manifests supplied by a factory must be resolved"
+                )
+            if not isinstance(deployment.get("digest"), str):
+                raise TypeError("resolved deployment manifests require a digest")
+            if not isinstance(deployment.get("targets"), (list, tuple)):
+                raise TypeError("resolved deployment manifests require targets")
+        strategy_manifest["deployment"] = deployment
+        strategy_manifests.append(strategy_manifest)
+
+    return {
+        "schema": "smart-ask.benchmark-run/v2",
+        "benchmark": suite.name,
+        "dataset": dict(suite.dataset_identity),
+        "evaluator": dict(suite.evaluator_identity),
+        "workers": workers,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "cases": case_identity,
+        "strategies": strategy_manifests,
+        "pricing": price_catalog.to_dict(),
+    }
+
+
+def _validate_inputs(
+    strategies: Sequence[BenchmarkStrategy],
+    engine_factory: EngineFactory,
+    workers: int,
+    limit: int | None,
+) -> None:
+    if not strategies:
+        raise ValueError("At least one strategy is required")
+    if not callable(engine_factory):
+        raise TypeError("engine_factory must be callable")
+    for strategy in strategies:
+        _validate_benchmark_strategy(strategy)
+    if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
+        raise ValueError("workers must be at least 1")
+    if limit is not None and (
+        isinstance(limit, bool) or not isinstance(limit, int) or limit < 1
+    ):
+        raise ValueError("limit must be a positive integer or None")
 
 
 def _validate_benchmark_strategy(strategy: BenchmarkStrategy) -> None:
@@ -525,65 +484,14 @@ def _validate_benchmark_strategy(strategy: BenchmarkStrategy) -> None:
         raise TypeError("benchmark strategies require a callable manifest")
 
 
-def _validate_benchmark_application(
-    strategy: BenchmarkStrategy,
-    application: Any,
-    recorder: StatsCollector,
-) -> None:
-    """Reject missing instrumentation before any benchmark case can execute."""
-
-    strategy_id = _strategy_id(strategy)
-    if getattr(application, "strategy_id", None) != strategy_id:
-        raise ValueError(
-            f"benchmark application strategy_id must equal {strategy_id!r}"
-        )
-    if getattr(application, "stats_collector", None) is not recorder:
-        raise ValueError(
-            f"benchmark strategy {strategy_id!r} must retain the supplied "
-            "StatsCollector"
-        )
-    if not callable(getattr(application, "run_detailed", None)):
+def _validate_engine(strategy_id: str, engine: Any) -> None:
+    if not callable(getattr(engine, "start", None)):
         raise TypeError(
-            f"benchmark strategy {strategy_id!r} application must expose "
-            "callable run_detailed"
+            f"benchmark strategy {strategy_id!r} engine must expose "
+            "start"
         )
-    executor = getattr(application, "executor", None)
-    if getattr(executor, "captures_output", None) is not True:
-        raise ValueError(
-            f"benchmark strategy {strategy_id!r} must use a generation "
-            "executor that captures output"
-        )
-    metrics_executors = getattr(application, "metrics_executors", None)
-    if not isinstance(metrics_executors, Mapping):
+    if not callable(getattr(engine, "aclose", None)):
         raise TypeError(
-            f"benchmark strategy {strategy_id!r} application must expose a "
-            "metrics_executors mapping"
-        )
-    expected_channels = {"generation"}
-    if not isinstance(strategy.config.method, FixedMethodConfig):
-        expected_channels.add("classifier")
-    if set(metrics_executors) != expected_channels:
-        raise ValueError(
-            f"benchmark strategy {strategy_id!r} metrics_executors must contain "
-            f"exactly {sorted(expected_channels)!r}"
-        )
-    for channel in sorted(expected_channels):
-        channel_executors = metrics_executors[channel]
-        if not isinstance(channel_executors, tuple) or not channel_executors:
-            raise TypeError(
-                f"benchmark strategy {strategy_id!r} metrics_executors[{channel!r}] "
-                "must be a non-empty tuple"
-            )
-        if any(
-            not recorder.is_instrumented(item, channel=channel)
-            for item in channel_executors
-        ):
-            raise ValueError(
-                f"benchmark strategy {strategy_id!r} {channel} executor is not "
-                "instrumented by the supplied StatsCollector"
-            )
-    if executor not in metrics_executors["generation"]:
-        raise ValueError(
-            f"benchmark strategy {strategy_id!r} public executor is not its "
-            "instrumented generation executor"
+            f"benchmark strategy {strategy_id!r} engine must expose "
+            "async aclose"
         )

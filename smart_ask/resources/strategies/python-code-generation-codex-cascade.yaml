@@ -1,48 +1,29 @@
-schema_version: 2
+schema_version: 3
 name: python-code-generation-codex-cascade-v1
+profiles:
+  easy:
+    target: openai-codex-mini
+    system_prompt: {type: file, path: ../prompts/python-code-generation-system.txt}
+    parameters: {max_tokens: 16384, reasoning_effort: low}
+  hard:
+    target: openai-codex
+    system_prompt: {type: file, path: ../prompts/python-code-generation-system.txt}
+    parameters: {max_tokens: 32768, reasoning_effort: high}
 method:
   type: cascade
   classifier:
     type: llm
-    model: gpt-5.1-codex-mini
-    executor:
-      type: openai
-    prompt:
-      type: file
-      path: ../prompts/difficulty-v1.txt
+    target: openai-codex-mini
+    prompt: {type: file, path: ../prompts/difficulty-v1.txt}
     fallback: easy
     max_prompt_chars: 1200
-    parameters:
-      max_tokens: 256
-      temperature: 0.0
-      reasoning_effort: low
+    parameters: {max_tokens: 256, temperature: 0.0, reasoning_effort: low}
   escalation:
     type: marker
     marker: ESCALATE_NOW
-    self_check_suffix:
-      type: file
-      path: ../prompts/marker-self-check.txt
-    escalation_prefix:
-      type: file
-      path: ../prompts/marker-escalation.txt
-  easy:
-    model: gpt-5.1-codex-mini
-    system_prompt:
-      type: file
-      path: ../prompts/python-code-generation-system.txt
-    parameters:
-      max_tokens: 16384
-      reasoning_effort: low
-  hard:
-    model: gpt-5.3-codex
-    system_prompt:
-      type: file
-      path: ../prompts/python-code-generation-system.txt
-    parameters:
-      max_tokens: 32768
-      reasoning_effort: high
-generation:
-  type: openai
-  defaults:
-    max_tokens: 16384
-    reasoning_effort: medium
+    self_check_suffix: {type: file, path: ../prompts/marker-self-check.txt}
+    escalation_prefix: {type: file, path: ../prompts/marker-escalation.txt}
+    tool_output: accept-and-pin
+  easy: easy
+  hard: hard
+  route_memory: {enabled: true}

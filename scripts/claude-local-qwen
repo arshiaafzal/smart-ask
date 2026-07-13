@@ -212,6 +212,7 @@ start_adapter() {
         cd "$ROOT_DIR"
         exec env -u OPENROUTER_API_KEY \
             SMART_ASK_CLAUDE_CODE_TOKEN="$token" \
+            SMART_ASK_OLLAMA_URL="$OLLAMA_URL/api" \
             "$adapter_bin" serve --config "$CONFIG"
     ) >"$ADAPTER_LOG" 2>&1 &
     printf '%s\n' "$!" >"$ADAPTER_PID_FILE"

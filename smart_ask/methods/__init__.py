@@ -1,29 +1,31 @@
-"""Public routing method implementations."""
+"""Conversation-native strategy methods and explicit collaborators."""
 
-from .base import RoutingMethod
-from .cascade import CascadeRoutingMethod
-from .classifiers import (
-    DifficultyClassification,
-    DifficultyClassifier,
-    LLMDifficultyClassifier,
+from .memory import InMemoryRouteMemory, RouteAffinity, RouteMemory
+from .strategies import (
+    CandidateToolCallError,
+    CascadeStrategyMethod,
+    DifficultyAssessment,
+    DifficultyStrategyMethod,
+    FixedStrategyMethod,
+    MarkerCandidatePolicy,
+    ModelProfile,
+    RequestTransform,
+    RoutingInputError,
+    StructuredDifficultyClassifier,
 )
-from .difficulty import DifficultyRoutingMethod
-from .escalation import (
-    EscalationDecision,
-    EscalationPolicy,
-    MarkerEscalationPolicy,
-)
-from .fixed import FixedRoutingMethod
 
 __all__ = [
-    "CascadeRoutingMethod",
-    "DifficultyClassification",
-    "DifficultyClassifier",
-    "DifficultyRoutingMethod",
-    "EscalationDecision",
-    "EscalationPolicy",
-    "FixedRoutingMethod",
-    "LLMDifficultyClassifier",
-    "MarkerEscalationPolicy",
-    "RoutingMethod",
+    "CandidateToolCallError",
+    "CascadeStrategyMethod",
+    "DifficultyAssessment",
+    "DifficultyStrategyMethod",
+    "FixedStrategyMethod",
+    "InMemoryRouteMemory",
+    "MarkerCandidatePolicy",
+    "ModelProfile",
+    "RequestTransform",
+    "RouteAffinity",
+    "RouteMemory",
+    "RoutingInputError",
+    "StructuredDifficultyClassifier",
 ]

@@ -31,6 +31,7 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             state_parent = temporary / "state"
             observed_path = temporary / "observed.json"
             metrics_path = temporary / "metrics.jsonl"
+            trace_directory = temporary / "trace-session"
             secrets_path = temporary / "launcher.env"
             secrets_path.write_text(
                 'OPENAI_API_KEY="test-provider-key"\n',
@@ -104,12 +105,15 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                 "FAKE_CONFIG_COPY": str(observed_path),
             }
             env.pop("OPENAI_API_KEY", None)
+            env.pop("SMART_ASK_TRACE_DIR", None)
 
             run = subprocess.run(
                 [
                     str(LAUNCHER),
                     "--strategy",
                     "python-code-generation-codex-cascade",
+                    "--trace-dir",
+                    str(trace_directory),
                     "-p",
                     "hello",
                 ],
@@ -132,6 +136,15 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             self.assertEqual(payload["base_url"], f"http://127.0.0.1:{port}")
             self.assertEqual(payload["api_key"], "test-token")
             self.assertIsNone(payload["openai_key"])
+            self.assertIn(
+                f"metrics: {metrics_path.resolve()}",
+                run.stderr,
+            )
+            self.assertIn(
+                "trace directory: "
+                f"{trace_directory.resolve()} (contains conversation content)",
+                run.stderr,
+            )
 
             observed = json.loads(observed_path.read_text(encoding="utf-8"))
             self.assertEqual(observed["openai_key"], "test-provider-key")
@@ -142,9 +155,56 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                 Path(observed["config"]["metrics"]["jsonl_path"]).resolve(),
                 metrics_path.resolve(),
             )
+            self.assertEqual(
+                Path(
+                    observed["config"]["metrics"]["trace_directory"]
+                ).resolve(),
+                trace_directory.resolve(),
+            )
             self.assertFalse(any(state_parent.glob("smart-ask-claude.*")))
             with socket.socket() as sock:
                 self.assertNotEqual(sock.connect_ex(("127.0.0.1", port)), 0)
+
+            default_env = dict(env)
+            default_env.pop("SMART_ASK_METRICS_PATH")
+            traced = subprocess.run(
+                [
+                    str(LAUNCHER),
+                    "--strategy",
+                    "python-code-generation-codex-cascade",
+                    "--trace",
+                    "-p",
+                    "hello",
+                ],
+                cwd=temporary,
+                env=default_env,
+                text=True,
+                capture_output=True,
+                check=True,
+                timeout=20,
+            )
+            traced_config = json.loads(
+                observed_path.read_text(encoding="utf-8")
+            )["config"]
+            generated_trace_directory = Path(
+                traced_config["metrics"]["trace_directory"]
+            )
+            self.assertEqual(
+                generated_trace_directory.parent,
+                ROOT / ".smart-ask" / "claude-code" / "traces",
+            )
+            self.assertRegex(
+                generated_trace_directory.name,
+                r"^\d{8}T\d{6}Z-[0-9a-f]{8}$",
+            )
+            self.assertIn(
+                f"trace directory: {generated_trace_directory}",
+                traced.stderr,
+            )
+            self.assertEqual(
+                Path(traced_config["metrics"]["jsonl_path"]),
+                ROOT / ".smart-ask" / "claude-code" / "metrics.jsonl",
+            )
 
 
 if __name__ == "__main__":

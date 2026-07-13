@@ -1,24 +1,21 @@
-"""Strict typed schema for complete smart-ask strategy configurations."""
+"""Strict declarative schema for SmartAsk strategy policy.
+
+Provider endpoints, credentials, and executable commands are intentionally not
+part of this schema.  Profiles reference trusted deployment targets instead.
+"""
 
 from __future__ import annotations
 
-import re
 from pathlib import Path, PureWindowsPath
 from typing import Annotated, Literal
-from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
-DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
 
 
 class ConfigModel(BaseModel):
-    """Base for immutable strategy configuration values."""
-
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
 
@@ -68,9 +65,19 @@ class ModelParametersConfig(ConfigModel):
     reasoning_effort: ReasoningEffort | None = None
 
 
-class OpenRouterDefaultsConfig(ConfigModel):
-    max_tokens: int = Field(default=1024, gt=0)
-    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+class ModelProfileConfig(ConfigModel):
+    """Strategy-owned transforms applied to a trusted deployment target."""
+
+    target: str
+    system_prompt: PromptConfig | None = None
+    parameters: ModelParametersConfig = Field(default_factory=ModelParametersConfig)
+
+    @field_validator("target")
+    @classmethod
+    def target_must_not_be_blank(cls, value: str) -> str:
+        if not value or value != value.strip():
+            raise ValueError("target must be non-empty and trimmed")
+        return value
 
 
 class ClassifierParametersConfig(ConfigModel):
@@ -79,194 +86,27 @@ class ClassifierParametersConfig(ConfigModel):
     reasoning_effort: ReasoningEffort | None = None
 
 
-class ModelProfileConfig(ConfigModel):
-    model: str
-    system_prompt: PromptConfig | None = None
-    parameters: ModelParametersConfig = Field(default_factory=ModelParametersConfig)
-
-    @field_validator("model")
-    @classmethod
-    def model_must_not_be_blank(cls, value: str) -> str:
-        if not value or value != value.strip():
-            raise ValueError("model must be non-empty and trimmed")
-        return value
-
-
-class OpenRouterConnectionConfig(ConfigModel):
-    """Connection settings shared by OpenRouter call sites."""
-
-    type: Literal["openrouter"]
-    base_url: str = DEFAULT_OPENROUTER_BASE_URL
-    api_key_env: str = "OPENROUTER_API_KEY"
-
-    @field_validator("base_url")
-    @classmethod
-    def base_url_must_be_http(cls, value: str) -> str:
-        if not value or value != value.strip():
-            raise ValueError("base_url must be non-empty and trimmed")
-        parsed = urlparse(value)
-        if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            raise ValueError("base_url must be an absolute HTTP(S) URL")
-        return value
-
-    @field_validator("api_key_env")
-    @classmethod
-    def env_name_must_be_valid(cls, value: str) -> str:
-        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
-            raise ValueError("api_key_env must be a valid environment-variable name")
-        return value
-
-
-class OpenRouterExecutorConfig(OpenRouterConnectionConfig):
-    """OpenRouter generation settings, including request fallbacks."""
-
-    defaults: OpenRouterDefaultsConfig = Field(
-        default_factory=OpenRouterDefaultsConfig
-    )
-
-
-class OpenAIConnectionConfig(ConfigModel):
-    """Connection settings for the first-party OpenAI API."""
-
-    type: Literal["openai"]
-    base_url: str = DEFAULT_OPENAI_BASE_URL
-    api_key_env: str = "OPENAI_API_KEY"
-
-    @field_validator("base_url")
-    @classmethod
-    def base_url_must_be_http(cls, value: str) -> str:
-        if not value or value != value.strip():
-            raise ValueError("base_url must be non-empty and trimmed")
-        parsed = urlparse(value)
-        if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            raise ValueError("base_url must be an absolute HTTP(S) URL")
-        return value
-
-    @field_validator("api_key_env")
-    @classmethod
-    def env_name_must_be_valid(cls, value: str) -> str:
-        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
-            raise ValueError("api_key_env must be a valid environment-variable name")
-        return value
-
-
-class ResponsesDefaultsConfig(ConfigModel):
-    max_tokens: int = Field(default=8192, gt=0)
-    reasoning_effort: ReasoningEffort = "medium"
-
-
-class OpenAIExecutorConfig(OpenAIConnectionConfig):
-    """First-party OpenAI generation settings."""
-
-    defaults: ResponsesDefaultsConfig = Field(default_factory=ResponsesDefaultsConfig)
-
-
-class GroqConnectionConfig(ConfigModel):
-    """Connection settings for Groq's Responses-compatible API."""
-
-    type: Literal["groq"]
-    base_url: str = DEFAULT_GROQ_BASE_URL
-    api_key_env: str = "GROQ_API_KEY"
-
-    @field_validator("base_url")
-    @classmethod
-    def base_url_must_be_http(cls, value: str) -> str:
-        if not value or value != value.strip():
-            raise ValueError("base_url must be non-empty and trimmed")
-        parsed = urlparse(value)
-        if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            raise ValueError("base_url must be an absolute HTTP(S) URL")
-        return value
-
-    @field_validator("api_key_env")
-    @classmethod
-    def env_name_must_be_valid(cls, value: str) -> str:
-        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
-            raise ValueError("api_key_env must be a valid environment-variable name")
-        return value
-
-
-class GroqExecutorConfig(GroqConnectionConfig):
-    """Groq generation settings."""
-
-    defaults: ResponsesDefaultsConfig = Field(default_factory=ResponsesDefaultsConfig)
-
-    @model_validator(mode="after")
-    def reasoning_effort_must_be_supported(self):
-        if self.defaults.reasoning_effort not in ("low", "medium", "high"):
-            raise ValueError(
-                "Groq reasoning_effort must be low, medium, or high"
-            )
-        return self
-
-
-class OllamaExecutorConfig(ConfigModel):
-    """Native local Ollama chat transport with no provider credential."""
-
-    type: Literal["ollama"]
-    base_url: str = "http://127.0.0.1:11434/api"
-    think: bool = False
-    timeout_seconds: float = Field(default=300.0, gt=0)
-    defaults: OpenRouterDefaultsConfig = Field(
-        default_factory=OpenRouterDefaultsConfig
-    )
-
-    @field_validator("base_url")
-    @classmethod
-    def base_url_must_be_http(cls, value: str) -> str:
-        if not value or value != value.strip():
-            raise ValueError("base_url must be non-empty and trimmed")
-        parsed = urlparse(value)
-        if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            raise ValueError("base_url must be an absolute HTTP(S) URL")
-        return value
-
-
-class HermesExecutorConfig(ConfigModel):
-    type: Literal["hermes"]
-    command: str = "hermes"
-    provider: str = "openrouter"
-
-    @field_validator("command", "provider")
-    @classmethod
-    def values_must_not_be_blank(cls, value: str) -> str:
-        if not value or value != value.strip():
-            raise ValueError("value must be non-empty and trimmed")
-        return value
-
-
-ExecutorConfig = Annotated[
-    OpenRouterExecutorConfig
-    | OpenAIExecutorConfig
-    | GroqExecutorConfig
-    | OllamaExecutorConfig
-    | HermesExecutorConfig,
-    Field(discriminator="type"),
-]
-
-ModelConnectionConfig = Annotated[
-    OpenRouterConnectionConfig | OpenAIConnectionConfig | GroqConnectionConfig,
-    Field(discriminator="type"),
-]
-
-
 class LLMClassifierConfig(ConfigModel):
     type: Literal["llm"]
-    model: str
-    executor: ModelConnectionConfig
+    target: str
     prompt: PromptConfig
     fallback: Literal["easy", "hard", "raise"]
+    missing_input: Literal["easy", "hard", "raise"] = "hard"
+    projection: Literal["latest-user-text", "full-conversation"] = (
+        "latest-user-text"
+    )
     max_prompt_chars: int = Field(default=1200, gt=0)
     parameters: ClassifierParametersConfig = Field(
         default_factory=ClassifierParametersConfig
     )
 
-    @field_validator("model")
+    @field_validator("target")
     @classmethod
-    def model_must_not_be_blank(cls, value: str) -> str:
+    def target_must_not_be_blank(cls, value: str) -> str:
         if not value or value != value.strip():
-            raise ValueError("model must be non-empty and trimmed")
+            raise ValueError("classifier target must be non-empty and trimmed")
         return value
+
 
 ClassifierConfig = Annotated[LLMClassifierConfig, Field(discriminator="type")]
 
@@ -276,12 +116,20 @@ class MarkerEscalationConfig(ConfigModel):
     marker: str
     self_check_suffix: PromptConfig
     escalation_prefix: PromptConfig
+    tool_output: Literal["accept-and-pin", "escalate", "fail"] = (
+        "accept-and-pin"
+    )
 
     @field_validator("marker")
     @classmethod
     def marker_must_be_one_line(cls, value: str) -> str:
-        if not value.strip() or value != value.strip() or "\n" in value or "\r" in value:
-            raise ValueError("marker must be a nonempty, trimmed, single-line value")
+        if (
+            not value.strip()
+            or value != value.strip()
+            or "\n" in value
+            or "\r" in value
+        ):
+            raise ValueError("marker must be nonempty, trimmed, and single-line")
         return value
 
 
@@ -291,25 +139,33 @@ EscalationConfig = Annotated[
 ]
 
 
+class RouteMemoryConfig(ConfigModel):
+    enabled: bool = False
+    ttl_seconds: float = Field(default=3600.0, gt=0)
+    max_entries: int = Field(default=10000, gt=0)
+
+
 class DifficultyMethodConfig(ConfigModel):
     type: Literal["difficulty"]
     classifier: ClassifierConfig
-    easy: ModelProfileConfig
-    hard: ModelProfileConfig
+    easy: str
+    hard: str
+    route_memory: RouteMemoryConfig = Field(default_factory=RouteMemoryConfig)
 
 
 class CascadeMethodConfig(ConfigModel):
     type: Literal["cascade"]
     classifier: ClassifierConfig
     escalation: EscalationConfig
-    easy: ModelProfileConfig
-    hard: ModelProfileConfig
+    easy: str
+    hard: str
+    route_memory: RouteMemoryConfig = Field(default_factory=RouteMemoryConfig)
 
 
 class FixedMethodConfig(ConfigModel):
     type: Literal["fixed"]
     role: Literal["generator", "writer", "fixer"]
-    model: ModelProfileConfig
+    profile: str
     prompt_prefix: PromptConfig | None = None
     prompt_suffix: PromptConfig | None = None
 
@@ -320,13 +176,20 @@ MethodConfig = Annotated[
 ]
 
 
-class StrategyConfig(ConfigModel):
-    """One complete, reproducible smart-ask strategy."""
+class RunLimitsConfig(ConfigModel):
+    max_model_calls: int = Field(default=4, gt=0)
+    max_buffered_bytes: int = Field(default=8 * 1024 * 1024, gt=0)
+    deadline_seconds: float = Field(default=600.0, gt=0)
 
-    schema_version: Literal[2]
+
+class StrategyConfig(ConfigModel):
+    """One reproducible method over deployment-approved model targets."""
+
+    schema_version: Literal[3]
     name: str
+    profiles: dict[str, ModelProfileConfig]
     method: MethodConfig
-    generation: ExecutorConfig
+    limits: RunLimitsConfig = Field(default_factory=RunLimitsConfig)
 
     @field_validator("name")
     @classmethod
@@ -335,77 +198,49 @@ class StrategyConfig(ConfigModel):
             raise ValueError("name must be non-empty and trimmed")
         return value
 
+    @field_validator("profiles")
+    @classmethod
+    def profiles_must_be_named(cls, value: dict[str, ModelProfileConfig]):
+        if not value:
+            raise ValueError("profiles must not be empty")
+        if any(
+            not isinstance(name, str)
+            or not name
+            or name != name.strip()
+            for name in value
+        ):
+            raise ValueError("profile names must be non-empty and trimmed")
+        return value
+
     @property
     def model_profiles(self) -> tuple[ModelProfileConfig, ...]:
-        if isinstance(self.method, FixedMethodConfig):
-            return (self.method.model,)
-        return (self.method.easy, self.method.hard)
+        return tuple(self.profiles.values())
+
+    @property
+    def target_ids(self) -> frozenset[str]:
+        values = {profile.target for profile in self.profiles.values()}
+        classifier = getattr(self.method, "classifier", None)
+        if classifier is not None:
+            values.add(classifier.target)
+        return frozenset(values)
 
     @model_validator(mode="after")
-    def validate_composition(self) -> "StrategyConfig":
-        if isinstance(self.method, CascadeMethodConfig):
-            if isinstance(self.generation, HermesExecutorConfig):
-                raise ValueError("cascade requires a generation executor that captures output")
-
-        if isinstance(self.generation, HermesExecutorConfig):
-            for profile in self.model_profiles:
-                if profile.system_prompt is not None:
-                    raise ValueError("Hermes generation does not support system prompts")
-                if (
-                    profile.parameters.max_tokens is not None
-                    or profile.parameters.temperature is not None
-                    or profile.parameters.reasoning_effort is not None
-                ):
-                    raise ValueError("Hermes generation does not support model tuning parameters")
-
-        if not isinstance(
-            self.generation,
-            (OpenAIExecutorConfig, GroqExecutorConfig),
-        ):
-            for profile in self.model_profiles:
-                if profile.parameters.reasoning_effort is not None:
-                    raise ValueError(
-                        "reasoning_effort requires a Responses generation executor"
-                    )
-
-        if isinstance(self.generation, GroqExecutorConfig):
-            for profile in self.model_profiles:
-                effort = profile.parameters.reasoning_effort
-                if effort is not None and effort not in ("low", "medium", "high"):
-                    raise ValueError(
-                        "Groq reasoning_effort must be low, medium, or high"
-                    )
-
-        classifier = getattr(self.method, "classifier", None)
-        if (
-            classifier is not None
-            and classifier.parameters.reasoning_effort is not None
-            and not isinstance(
-                classifier.executor,
-                (OpenAIConnectionConfig, GroqConnectionConfig),
-            )
-        ):
+    def validate_profile_references(self) -> "StrategyConfig":
+        if isinstance(self.method, FixedMethodConfig):
+            references = (self.method.profile,)
+        else:
+            references = (self.method.easy, self.method.hard)
+        missing = sorted(set(references) - set(self.profiles))
+        if missing:
             raise ValueError(
-                "classifier reasoning_effort requires a Responses executor"
+                "method references undefined profiles: " + ", ".join(missing)
             )
         if (
-            classifier is not None
-            and isinstance(classifier.executor, GroqConnectionConfig)
-            and classifier.parameters.reasoning_effort not in (
-                None,
-                "low",
-                "medium",
-                "high",
-            )
+            isinstance(self.method, CascadeMethodConfig)
+            and self.method.escalation.tool_output == "accept-and-pin"
+            and not self.method.route_memory.enabled
         ):
             raise ValueError(
-                "Groq classifier reasoning_effort must be low, medium, or high"
+                "cascade accept-and-pin requires route_memory.enabled"
             )
-
-        profiles = self.model_profiles
-        if len(profiles) == 2 and profiles[0].model == profiles[1].model:
-            if profiles[0] != profiles[1]:
-                raise ValueError(
-                    "profiles sharing a model ID must have identical prompts and parameters"
-                )
         return self

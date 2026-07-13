@@ -1,15 +1,8 @@
-schema_version: 2
+schema_version: 3
 name: python-function-completion-fixed-gemini-v1
-method:
-  type: fixed
-  role: generator
+profiles:
   model:
-    model: google/gemini-2.5-flash-lite
-    system_prompt:
-      type: file
-      path: ../prompts/python-function-completion-system.txt
-    parameters:
-      max_tokens: 1024
-      temperature: 0.0
-generation:
-  type: openrouter
+    target: openrouter-gemini-flash-lite
+    system_prompt: {type: file, path: ../prompts/python-function-completion-system.txt}
+    parameters: {max_tokens: 1024, temperature: 0.0}
+method: {type: fixed, role: generator, profile: model}

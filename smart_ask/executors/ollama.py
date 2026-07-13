@@ -1,24 +1,20 @@
-"""Native local Ollama executors for text tasks and structured conversations."""
+"""Native local Ollama structured conversation transport."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 import json
 from numbers import Integral
-from types import MappingProxyType
 from typing import Any
-from urllib.request import Request, urlopen
 
 import httpx
 
-from ..conversation import (
+from ..conversation.domain import (
     ConversationEvent,
-    ConversationExecutionRequest,
-    ConversationMessage,
-    ConversationRequest,
     thaw_value,
 )
-from ..domain import ExecutionRequest, ModelResult
+from ..conversation.model import Conversation, InputTokenCount
+from ._protocol import ProviderCall
 
 
 class UnsupportedConversationFeature(ValueError):
@@ -75,7 +71,7 @@ def _ollama_think(value: Any, default: bool) -> bool | str:
     )
 
 
-def _ollama_messages(request: ConversationRequest) -> list[dict[str, Any]]:
+def _ollama_messages(request: Conversation) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
     if request.system:
         unsupported = [
@@ -180,112 +176,7 @@ def _ollama_tools(tools: tuple[Mapping[str, Any], ...]) -> list[dict[str, Any]]:
     return encoded
 
 
-class OllamaExecutor:
-    """Execute existing text-task requests through Ollama's native chat API."""
-
-    captures_output = True
-
-    def __init__(
-        self,
-        *,
-        base_url: str,
-        default_max_tokens: int,
-        temperature: float,
-        system_prompts: Mapping[str, str] | None = None,
-        max_tokens: Mapping[str, int] | None = None,
-        temperatures: Mapping[str, float] | None = None,
-        think: bool = False,
-        timeout_seconds: float = 300.0,
-    ):
-        if not isinstance(base_url, str) or not base_url.strip():
-            raise ValueError("base_url must be non-empty text")
-        self._url = base_url.rstrip("/") + "/chat"
-        self._default_max_tokens = int(default_max_tokens)
-        self._temperature = float(temperature)
-        self._system_prompts = MappingProxyType(dict(system_prompts or {}))
-        self._max_tokens = MappingProxyType(dict(max_tokens or {}))
-        self._temperatures = MappingProxyType(dict(temperatures or {}))
-        self._think = bool(think)
-        self._timeout_seconds = float(timeout_seconds)
-
-    def execute(self, request: ExecutionRequest) -> ModelResult:
-        if not isinstance(request, ExecutionRequest):
-            raise TypeError("request must be an ExecutionRequest")
-        max_tokens = (
-            request.max_tokens
-            or self._max_tokens.get(request.model)
-            or self._default_max_tokens
-        )
-        temperature = (
-            request.temperature
-            if request.temperature is not None
-            else self._temperatures.get(request.model, self._temperature)
-        )
-        messages = []
-        system_prompt = self._system_prompts.get(request.model)
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": request.prompt})
-        payload = json.dumps({
-            "model": request.model,
-            "messages": messages,
-            "stream": False,
-            "think": self._think,
-            "options": {
-                "num_predict": max_tokens,
-                "temperature": temperature,
-            },
-        }).encode("utf-8")
-        http_request = Request(
-            self._url,
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urlopen(http_request, timeout=self._timeout_seconds) as response:
-            result = json.load(response)
-        message = result.get("message")
-        if not isinstance(message, Mapping):
-            raise ValueError("Ollama response is missing message")
-        text = message.get("content", "")
-        if not isinstance(text, str):
-            raise ValueError("Ollama message content must be text")
-        prompt_tokens = _non_negative_integer(
-            result.get("prompt_eval_count"),
-            "prompt_eval_count",
-        )
-        completion_tokens = _non_negative_integer(
-            result.get("eval_count"),
-            "eval_count",
-        )
-        usage = None
-        if prompt_tokens is not None and completion_tokens is not None:
-            usage = {
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": prompt_tokens + completion_tokens,
-            }
-        native_finish = result.get("done_reason")
-        finish_reason = {
-            "stop": "stop",
-            "length": "length",
-        }.get(native_finish, "unknown")
-        return ModelResult(
-            model=result.get("model") if isinstance(result.get("model"), str) else None,
-            text=text,
-            raw_text=text,
-            usage=usage,
-            finish_reason=finish_reason,
-            native_finish_reason=(
-                native_finish if isinstance(native_finish, str) and native_finish else None
-            ),
-            applied_max_tokens=max_tokens,
-            visible_output_tokens=completion_tokens if text.strip() else 0,
-            reasoning_tokens=0 if not self._think else None,
-        )
-
-
-class OllamaConversationExecutor:
+class OllamaTransport:
     """Stream structured conversations through Ollama's native chat API."""
 
     def __init__(
@@ -307,7 +198,7 @@ class OllamaConversationExecutor:
         self._timeout = httpx.Timeout(timeout_seconds)
         self._client = client
 
-    def _payload(self, request: ConversationExecutionRequest) -> dict[str, Any]:
+    def _payload(self, request: ProviderCall) -> dict[str, Any]:
         conversation = request.conversation
         parameters = conversation.parameters
         max_tokens = parameters.get("max_tokens", self._default_max_tokens)
@@ -332,10 +223,10 @@ class OllamaConversationExecutor:
 
     async def stream(
         self,
-        request: ConversationExecutionRequest,
+        request: ProviderCall,
     ) -> AsyncIterator[ConversationEvent]:
-        if not isinstance(request, ConversationExecutionRequest):
-            raise TypeError("request must be a ConversationExecutionRequest")
+        if not isinstance(request, ProviderCall):
+            raise TypeError("request must be a ProviderCall")
         owns_client = self._client is None
         client = self._client or httpx.AsyncClient(timeout=self._timeout)
         message_started = False
@@ -455,14 +346,17 @@ class OllamaConversationExecutor:
 
     async def count_tokens(
         self,
-        request: ConversationExecutionRequest,
-    ) -> int | None:
-        if not isinstance(request, ConversationExecutionRequest):
-            raise TypeError("request must be a ConversationExecutionRequest")
+        request: ProviderCall,
+    ) -> InputTokenCount | None:
+        if not isinstance(request, ProviderCall):
+            raise TypeError("request must be a ProviderCall")
         payload = self._payload(request)
         serialized = json.dumps(
             payload["messages"],
             sort_keys=True,
             separators=(",", ":"),
         )
-        return max(1, (len(serialized) + 3) // 4)
+        return InputTokenCount(
+            max(1, (len(serialized) + 3) // 4),
+            "estimate",
+        )

@@ -1,167 +1,207 @@
 ---
 name: smart-ask
-description: Route AI tasks through a configurable smart-ask strategy
+description: Run, validate, inspect, and benchmark conversation-native SmartAsk strategies
 ---
 
-# smart-ask — Configurable Model Router
+# SmartAsk
 
-Use this skill when the user asks to run a task through smart-ask, validate or
-select a smart-ask strategy, force one of its configured routes, or compare
-several strategy YAMLs on a benchmark suite. Also use the separately installed
-adapter to expose strategies as selectable Claude Code models.
+Use this skill when the user wants to run a conversation through SmartAsk,
+select or validate a strategy, inspect its run evidence, use it from Claude
+Code, or compare strategies on a benchmark.
 
-## Default behavior
+## Mental model
 
-`smart-ask` loads the bundled `product.yaml` unless `--strategy` is supplied.
-That configuration:
+Every incoming message/request is one engine invocation:
 
-1. Classifies the task as easy or hard with Gemini 2.5 Flash Lite through a
-   response-capturing OpenRouter executor.
-2. Selects Gemini 2.5 Flash Lite for easy work or Claude Opus 4.8 for hard work.
-3. Sends the selected task to Hermes for generation.
+```text
+complete immutable Conversation
+  → StrategyEngine
+  → configured method performs hidden calls and routing
+  → one visible response
+  → canonical RunRecord
+```
 
-The model IDs, prompts, parameters, method, and transports come from YAML; they
-are not fixed by the CLI.
+The caller owns conversation history and sends the complete applicable snapshot
+on every turn. A session is a group of invocations, not one long-running method
+call.
+
+The YAML uses schema version 3. It describes logical profiles, request
+transforms, and method policy. Profiles reference target IDs from the trusted
+deployment registry. Do not put provider URLs, credential environment names,
+or executable commands in strategy YAML.
 
 ## Prerequisites
 
 ```bash
-# Validate the default strategy and Python dependencies without a model call.
-smart-ask --validate-strategy
+python3.11 -m pip install -e .
 
-# Check the credential used by shipped OpenRouter configurations.
-test -n "$OPENROUTER_API_KEY" && echo "OpenRouter key is set"
+# Optional benchmark support.
+python3.11 -m pip install -e '.[bench]'
 
-# Check the credential used by first-party OpenAI configurations.
-test -n "$OPENAI_API_KEY" && echo "OpenAI key is set"
-
-# Check the credential used by Groq configurations.
-test -n "$GROQ_API_KEY" && echo "Groq key is set"
-
-# Required when the selected strategy uses Hermes generation.
-hermes --version
-```
-
-Install the runtime and command if needed:
-
-```bash
-python3.11 -m pip install .
-
-# Install the external Claude Code adapter only when needed.
+# Optional Claude Code adapter.
 python3.11 -m pip install -e ./integrations/claude_code
 ```
 
-## Product commands
+Set only the key required by the selected trusted target:
 
 ```bash
-smart-ask "task description"                     # default product strategy
-smart-ask --strategy path/to/strategy.yaml "task" # another complete strategy
-smart-ask --validate-strategy --strategy FILE     # schema/prompt validation only
-smart-ask --force-hard "complex task"             # configured hard profile, no classifier
-smart-ask --force-easy "simple task"              # configured easy profile, no classifier
-smart-ask --dry-run "task"                        # classify/plan; skip generation
-smart-ask -f FILE "task"                          # prepend file contents
-smart-ask                                        # prompt for independent tasks
+test -n "$OPENROUTER_API_KEY" && echo "OpenRouter key is set"
+test -n "$OPENAI_API_KEY" && echo "OpenAI key is set"
+test -n "$GROQ_API_KEY" && echo "Groq key is set"
 ```
 
-`ask` may be used as a local alias, but `smart-ask` is the installed command.
-
-Force flags use profiles from the loaded YAML. Do not assume they always mean
-Gemini or Opus when a custom strategy is selected. A fixed strategy has only its
-declared profile and does not accept force overrides.
-
-## Claude Code harness
+Local Qwen uses Ollama instead of a provider key:
 
 ```bash
 ollama serve
-export SMART_ASK_CLAUDE_CODE_TOKEN="local-secret"
-smart-ask-claude-code serve --config claude-code-adapter.example.yaml
-
-export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
-export ANTHROPIC_API_KEY="$SMART_ASK_CLAUDE_CODE_TOKEN"
-claude --model claude-smart-ask-local-qwen
 ```
 
-Every advertised alias identifies exactly one YAML. The external adapter only
-translates the wire protocol; SmartAsk selects and invokes the backend from the
-strategy. `builtin:local-qwen` therefore needs Ollama but no OpenRouter key.
-OpenRouter credentials are needed only for strategies that configure it.
-The bundled `python-code-generation-codex-cascade` instead uses
-`OPENAI_API_KEY` with a small-to-large first-party Codex model pair.
+## Terminal commands
 
-## Choosing a route
+```bash
+smart-ask "task description"
+smart-ask --strategy builtin:local-qwen "hello"
+smart-ask --strategy path/to/strategy.yaml "review this"
+smart-ask --validate-strategy --strategy builtin:product
+smart-ask --force-easy "use the configured easy profile"
+smart-ask --force-hard "use the configured hard profile"
+smart-ask -f FILE "use this file as context"
+```
 
-With the shipped product strategy:
+The terminal continues as one conversation after the first turn. Force flags
+select profiles declared by the loaded strategy; they do not imply specific
+models. A fixed strategy does not accept a force override.
 
-- Easy: explanations, small scripts, local debugging, formatting, tests for
-  existing code, and straightforward transformations.
-- Hard: multi-system design, subtle algorithms, security analysis, large
-  refactors, and advanced research synthesis.
+## Claude Code harness
 
-Prefer normal classification unless the user explicitly requests a route or
-the task clearly requires a forced profile.
+Prefer the general launcher:
+
+```bash
+cp scripts/claude-smart-ask.local.env.example \
+  scripts/claude-smart-ask.local.env
+# Put the required provider key in the ignored local file.
+
+./scripts/claude-smart-ask \
+  --strategy claude-code-groq-difficulty
+
+./scripts/claude-smart-ask \
+  --strategy python-code-generation-codex-cascade \
+  --trace
+
+./scripts/claude-smart-ask \
+  --strategy local-qwen \
+  -p "hello"
+```
+
+The argument after `--strategy` is a filename stem under
+`smart_ask/resources/strategies/`. The launcher prints the metrics path and,
+when enabled, the unique session trace directory before Claude Code starts.
+
+The request path is:
+
+```text
+Claude Code → external adapter → StrategyEngine → trusted target
+```
+
+Every advertised Claude Code alias identifies one strategy. Claude Code still
+sends its own system instructions and complete conversation; the adapter
+preserves them. SmartAsk chooses the internal profile and backend.
+
+For local service supervision:
+
+```bash
+./scripts/claude-local-qwen
+./scripts/claude-local-qwen status
+./scripts/claude-local-qwen logs
+./scripts/claude-local-qwen stop
+```
+
+## Strategy YAML
+
+Use schema version 3:
+
+```yaml
+schema_version: 3
+name: example-fixed
+profiles:
+  main:
+    target: local-qwen3-14b
+    parameters: {max_tokens: 2048, reasoning_effort: low}
+method:
+  type: fixed
+  role: generator
+  profile: main
+limits:
+  max_model_calls: 2
+  max_buffered_bytes: 8388608
+  deadline_seconds: 600
+```
+
+Method types:
+
+- `fixed`: one selected profile.
+- `difficulty`: classifier followed by easy or hard profile.
+- `cascade`: classifier, cheap candidate assessment, optional escalation.
+
+Validate before a paid run:
+
+```bash
+smart-ask --validate-strategy --strategy path/to/strategy.yaml
+```
+
+Prompt-file paths are relative to the strategy source. Loading rejects
+duplicate keys, unknown fields, disallowed roots, oversized files, missing
+prompts, and invalid profile references. Building rejects targets absent from
+the deployment registry or lacking required capabilities.
+
+## Inspecting evidence
+
+One completed invocation has:
+
+- decisions: route gates, outcomes, reasons, selected profiles, evidence calls;
+- logical model calls: role, phase, profile, target, causing decision;
+- provider requests: physical attempts, actual model, tokens, cost, output
+  status, timing, retries, and errors.
+
+Normal metrics are prompt-free. The opt-in trace includes full conversation
+content and can expose code, tool data, system prompts, or secrets.
+
+Do not count unknown tokens or price as zero. Do not equate a successful
+provider response with a correct benchmark result. Do not attribute a
+multi-model task failure to the final model alone.
 
 ## Comparing strategies
 
-Install benchmark support, then repeat `--strategy` on a suite module:
-
 ```bash
-python -m pip install -e '.[bench]'
-
 python -m smart_ask.benchmarks.humaneval \
-  --strategy builtin:python-function-completion-difficulty-v1 \
-  --strategy builtin:python-function-completion-difficulty-v2 \
-  --limit 20 \
+  --strategy builtin:python-function-completion-cascade \
+  --strategy builtin:python-function-completion-fixed-gemini-self-check \
+  --strategy builtin:python-function-completion-fixed-opus \
+  --limit 50 \
   --workers 4 \
-  --output benchmark-results/humaneval/prompt-comparison
+  --output benchmark-results/humaneval/comparison
 ```
 
-The benchmark writes strict schema-v5 `manifest.json`, `records.jsonl`, and
-`summary.json`. Each record has one canonical metrics-v2 envelope and a call
-ledger; attempts and routing events reference calls rather than copying their
-usage or cost. Summaries include explicit task outcomes, resource rollups,
-routing transition/path ledgers, and counterfactual diagnostics when matching
-fixed cheap/expensive baselines are present. A cascade cheap baseline must use
-the same prompt suffix; the bundled `*-fixed-gemini-self-check` strategies do
-so. Use `--resume` only with an explicit existing `--output` directory.
-Benchmark controls stay on the command line;
-there is no separate experiment configuration object. Supply
-`--price-catalog JSON` for models not present in the bundled versioned catalog.
-
-## Output interpretation
+Artifacts:
 
 ```text
-▸ gemini-2.5-flash-lite  [easy]  classified easy
-▸ claude-opus-4.8        [hard]  classified hard
+manifest.json   reproducibility identity
+records.jsonl   one canonical result per strategy/case pair
+summary.json    quality, resource, route, and comparison summaries
 ```
 
-Direct OpenRouter generation strategies print captured response text. Hermes
-strategies let Hermes own terminal output. Every completed turn prints per-call
-and turn/session token and cost accounting when those values are observable.
+Use matched cheap-only and expensive-only fixed strategies to measure routing
+regret. A single routed production trace cannot reveal whether the unchosen
+model would have succeeded more cheaply.
 
 ## Troubleshooting
 
-| Error | Action |
+| Symptom | Check |
 |---|---|
-| Strategy YAML or prompt error | Run `smart-ask --validate-strategy --strategy FILE`; paths are relative to the YAML |
-| Required environment variable is not set | Export the `api_key_env` named in the strategy |
-| `hermes: command not found` | Install Hermes or set `generation.command` to its executable |
-| Classifier repeatedly falls back to easy | Check provider access and inspect the classifier prompt/model settings |
-| Product routing cost is `unknown` | The configured classifier has no local price entry; token usage is still retained |
-| Benchmark rejects a model price | Add that configured model to the benchmark price catalog before running |
-| Resume manifest mismatch | Use the original suite/evaluator/strategies/cases/pricing/metrics schema or start a new output directory |
-| Claude Code cannot reach SmartAsk | Verify the external adapter is running, its token matches `ANTHROPIC_API_KEY`, and the selected alias is configured |
-
-## Installation for a new checkout
-
-```bash
-git clone https://github.com/arshiaafzal/smart-ask.git
-cd smart-ask
-
-python3.11 -m pip install .
-smart-ask --validate-strategy
-
-# Optional shorthand:
-alias ask=smart-ask
-export OPENROUTER_API_KEY="sk-or-your-key"
-```
+| Invalid YAML or prompt | Validate the strategy; paths are relative to its file |
+| Missing credential | Inspect the selected target and export its trusted credential variable |
+| Unknown target | Add it to the deployment `TargetRegistry`, not the strategy YAML |
+| Claude Code cannot connect | Check adapter readiness, loopback URL, token, and advertised alias |
+| Local Qwen is slow | Check Ollama model load, context size, thinking mode, and hardware throughput |
+| Empty visible output | Inspect stop reason, output status, reasoning tokens, and requested token cap |
+| Benchmark resume mismatch | Use the original manifest identity or start a new output directory |

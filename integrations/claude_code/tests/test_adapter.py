@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 import tempfile
@@ -5,59 +6,149 @@ import unittest
 
 import httpx
 
-from smart_ask.conversation import ConversationEvent, ConversationRuntime
-from smart_ask.strategy import StrategyBuilder, load_strategy
+from smart_ask.conversation import (
+    Conversation,
+    ConversationEvent,
+    InputTokenCount,
+    ModelCallSpec,
+    RunMetadata,
+    StrategyEngine,
+)
+from smart_ask.methods import FixedStrategyMethod, ModelProfile, RequestTransform
+from smart_ask.strategy import load_strategy
 from smart_ask_claude_code import (
     AdapterConfig,
     AdapterConfigError,
-    JsonlMetricsSink,
+    JsonlSink,
     StrategyCatalog,
+    TraceSessionSink,
     create_app,
 )
-from smart_ask_claude_code.config import SecurityConfig
+from smart_ask_claude_code.config import MetricsConfig, SecurityConfig
 
 
 MODEL_ID = "claude-smart-ask-local-qwen"
 
 
-class RecordingExecutor:
-    def __init__(self, actual_model):
-        self.actual_model = actual_model
-        self.requests = []
-
-    async def stream(self, request):
-        self.requests.append(request)
-        yield ConversationEvent("message_start", {"model": self.actual_model})
-        yield ConversationEvent("content_start", {
+def text_events(text="adapter-ok", *, actual_model="qwen3:14b"):
+    return (
+        ConversationEvent("message_start", {
+            "model": actual_model,
+            "selected_model": "qwen3:14b",
+        }),
+        ConversationEvent("content_start", {
             "index": 0,
             "block": {"type": "text"},
-        })
-        yield ConversationEvent("content_delta", {
+        }),
+        ConversationEvent("content_delta", {
             "index": 0,
-            "delta": {"type": "text", "text": "adapter-ok"},
-        })
-        yield ConversationEvent("content_stop", {"index": 0})
-        yield ConversationEvent("usage", {
+            "delta": {"type": "text", "text": text},
+        }),
+        ConversationEvent("content_stop", {"index": 0}),
+        ConversationEvent("usage", {
             "input_tokens": 12,
             "output_tokens": 3,
-        })
-        yield ConversationEvent("message_delta", {"stop_reason": "stop"})
-        yield ConversationEvent("message_stop")
+        }),
+        ConversationEvent("message_delta", {"stop_reason": "stop"}),
+        ConversationEvent("message_stop"),
+    )
 
-    async def count_tokens(self, request):
-        self.requests.append(request)
-        return 55
+
+def tool_events():
+    return (
+        ConversationEvent("message_start", {
+            "model": "qwen3:14b",
+            "selected_model": "qwen3:14b",
+        }),
+        ConversationEvent("content_start", {
+            "index": 0,
+            "block": {"type": "tool_call", "id": "call-1", "name": "read"},
+        }),
+        ConversationEvent("content_delta", {
+            "index": 0,
+            "delta": {
+                "type": "tool_arguments_json",
+                "json": '{"path":"a.py"}',
+            },
+        }),
+        ConversationEvent("content_stop", {"index": 0}),
+        ConversationEvent("usage", {
+            "input_tokens": 14,
+            "output_tokens": 5,
+        }),
+        ConversationEvent("message_delta", {"stop_reason": "tool_call"}),
+        ConversationEvent("message_stop"),
+    )
+
+
+class RecordingModelCallExecutor:
+    def __init__(self, responses=None, *, token_count=55):
+        self.responses = list(responses or [text_events()])
+        self.token_count = token_count
+        self.requests = []
+        self.token_requests = []
+        self.closed = False
+
+    async def stream(self, spec):
+        self.requests.append(spec)
+        for event in self.responses.pop(0):
+            yield event
+
+    async def count_tokens(self, spec):
+        self.token_requests.append(spec)
+        return InputTokenCount(self.token_count, "exact")
+
+    async def aclose(self):
+        self.closed = True
+
+
+class BlockingModelCallExecutor(RecordingModelCallExecutor):
+    def __init__(self):
+        super().__init__(responses=[])
+        self.started = asyncio.Event()
+        self.cancelled = asyncio.Event()
+
+    async def stream(self, spec):
+        self.requests.append(spec)
+        self.started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            self.cancelled.set()
+        if False:
+            yield ConversationEvent("message_stop")
+
+
+class FailingModelCallExecutor(RecordingModelCallExecutor):
+    async def stream(self, spec):
+        self.requests.append(spec)
+        raise RuntimeError("provider exploded")
+        if False:
+            yield ConversationEvent("message_stop")
+
+
+def engine_for(executor, observer=None):
+    method = FixedStrategyMethod(
+        profile=ModelProfile(
+            profile_id="writer",
+            target_id="local-qwen",
+            transform=RequestTransform(),
+        ),
+        role="writer",
+        transform=RequestTransform(),
+    )
+    return StrategyEngine(
+        method,
+        executor,
+        heartbeat_seconds=0.01,
+        observer=observer,
+    )
 
 
 class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
-    async def make_client(self):
+    async def make_client(self, executor=None, *, trace_sink=None):
         loaded = load_strategy("builtin:local-qwen")
-        executor = RecordingExecutor("qwen3:14b")
-        runtime = ConversationRuntime(
-            loaded_strategy=loaded,
-            router=StrategyBuilder(env={}).build_router(loaded),
-            executor=executor,
-        )
+        executor = executor or RecordingModelCallExecutor()
         config = AdapterConfig(
             schema_version=1,
             strategies=("builtin:local-qwen",),
@@ -65,7 +156,8 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         catalog = StrategyCatalog.from_config(
             config,
             env={},
-            runtime_builder=lambda _loaded: runtime,
+            engine_builder=lambda _loaded, observer: engine_for(executor, observer),
+            trace_observer=trace_sink,
         )
         app = create_app(
             config,
@@ -79,7 +171,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(client.aclose)
         return client, app, executor
 
-    async def test_streams_complete_structured_request_through_smartask(self):
+    async def test_streams_complete_structured_request_through_engine(self):
         client, app, executor = await self.make_client()
         body = {
             "model": MODEL_ID,
@@ -134,21 +226,70 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"adapter-ok", response.content)
-        self.assertIn(b'"input_tokens":55', response.content)
+        self.assertIn(b'"input_tokens":0', response.content)
         submitted = executor.requests[0].conversation
         self.assertEqual(submitted.system[0]["cache_control"]["type"], "ephemeral")
         self.assertEqual(submitted.messages[0].content[0]["signature"], "signature")
         self.assertEqual(submitted.messages[1].content[1]["data"], "AA==")
-        self.assertTrue(
-            submitted.messages[1].extensions["future_message_field"]
-        )
+        self.assertTrue(submitted.messages[1].extensions["future_message_field"])
         self.assertEqual(submitted.tools[0]["extensions"]["future_tool_field"], 1)
         self.assertTrue(submitted.extensions["future_request_field"]["keep"])
-        run = next(iter(app.state.strategy_catalog)).runtime.metrics.records[0]
-        self.assertEqual(run["attempts"][0]["actual_model"], "qwen3:14b")
-        self.assertEqual(run["totals"]["total_tokens"], 15)
 
-    async def test_discovery_and_token_count_use_same_runtime(self):
+        run = app.state.strategy_catalog.metrics.records[0]
+        self.assertEqual(run["schema"], "smart-ask.run/v2")
+        self.assertEqual(run["provider_requests"][0]["actual_model"], "qwen3:14b")
+        session = app.state.strategy_catalog.metrics.sessions["session-1"]
+        self.assertEqual(
+            session["resources"]["overall"]["known_total_tokens"],
+            15,
+        )
+
+    async def test_non_streaming_response_uses_the_same_engine(self):
+        client, app, _executor = await self.make_client()
+
+        response = await client.post(
+            "/v1/messages",
+            headers={"x-api-key": "local-secret"},
+            json={
+                "model": MODEL_ID,
+                "stream": False,
+                "max_tokens": 100,
+                "messages": [{"role": "user", "content": "hello"}],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["content"][0]["text"], "adapter-ok")
+        self.assertEqual(response.json()["stop_reason"], "end_turn")
+        self.assertEqual(len(app.state.strategy_catalog.metrics.records), 1)
+
+    async def test_streams_tool_use_and_partial_json(self):
+        executor = RecordingModelCallExecutor([tool_events()])
+        client, app, _executor = await self.make_client(executor)
+
+        response = await client.post(
+            "/v1/messages",
+            headers={"x-api-key": "local-secret"},
+            json={
+                "model": MODEL_ID,
+                "stream": True,
+                "max_tokens": 100,
+                "messages": [{"role": "user", "content": "read a.py"}],
+                "tools": [{
+                    "name": "read",
+                    "input_schema": {"type": "object"},
+                }],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'"type":"tool_use"', response.content)
+        self.assertIn(b'"type":"input_json_delta"', response.content)
+        self.assertIn(b'\\"path\\":\\"a.py\\"', response.content)
+        run = app.state.strategy_catalog.metrics.records[0]
+        self.assertEqual(run["provider_requests"][0]["tool_call_count"], 1)
+
+    async def test_discovery_and_token_count_use_compiled_engine(self):
         client, _app, executor = await self.make_client()
         headers = {"x-api-key": "local-secret"}
 
@@ -164,7 +305,27 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(models.json()["data"][0]["id"], MODEL_ID)
         self.assertEqual(count.json(), {"input_tokens": 55})
-        self.assertEqual(executor.requests[-1].model, "qwen3:14b")
+        self.assertEqual(executor.token_requests[-1].target_id, "local-qwen")
+        self.assertEqual(executor.requests, [])
+
+    async def test_requires_authentication_and_accepts_both_credential_headers(self):
+        client, _app, _executor = await self.make_client()
+        body = {
+            "model": MODEL_ID,
+            "stream": False,
+            "max_tokens": 10,
+            "messages": [{"role": "user", "content": "hello"}],
+        }
+
+        missing = await client.post("/v1/messages", json=body)
+        wrong = await client.post(
+            "/v1/messages",
+            headers={"Authorization": "Bearer wrong"},
+            json=body,
+        )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(wrong.status_code, 401)
 
     async def test_rejects_malformed_stream_and_token_limits(self):
         client, _app, _executor = await self.make_client()
@@ -188,6 +349,240 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(bad_stream.status_code, 400)
         self.assertEqual(bad_limit.status_code, 400)
 
+    async def test_client_cancellation_reaches_model_call_and_is_recorded(self):
+        executor = BlockingModelCallExecutor()
+        client, app, _executor = await self.make_client(executor)
+        request = asyncio.create_task(client.post(
+            "/v1/messages",
+            headers={"x-api-key": "local-secret"},
+            json={
+                "model": MODEL_ID,
+                "stream": True,
+                "max_tokens": 100,
+                "messages": [{"role": "user", "content": "wait"}],
+            },
+        ))
+        await asyncio.wait_for(executor.started.wait(), timeout=1)
+
+        request.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await request
+        await asyncio.wait_for(executor.cancelled.wait(), timeout=1)
+        for _ in range(10):
+            if app.state.strategy_catalog.metrics.records:
+                break
+            await asyncio.sleep(0)
+
+        run = app.state.strategy_catalog.metrics.records[0]
+        self.assertEqual(run["status"], "cancelled")
+        self.assertEqual(run["provider_requests"][0]["status"], "cancelled")
+
+    async def test_trace_records_conversation_once_and_canonical_run_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            client, _app, _executor = await self.make_client(
+                trace_sink=trace,
+            )
+
+            response = await client.post(
+                "/v1/messages",
+                headers={"x-api-key": "local-secret"},
+                json={
+                    "model": MODEL_ID,
+                    "stream": False,
+                    "max_tokens": 100,
+                    "messages": [{"role": "user", "content": "trace me"}],
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+            trace.close()
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(index["schema"], "smart-ask.trace-session-index/v3")
+            self.assertEqual(index["invocation_count"], 1)
+            self.assertEqual(len(index["contexts"]), 1)
+            self.assertEqual(len(index["inputs"]), 1)
+            self.assertEqual(index["invocations"][0]["ordinal"], 1)
+            self.assertEqual(index["invocations"][0]["status"], "completed")
+            invocation_path = path / index["invocations"][0]["file"]
+            self.assertEqual(path.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(
+                (path / "session.json").stat().st_mode & 0o777,
+                0o600,
+            )
+            self.assertEqual(invocation_path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(invocation_path.suffix, ".log")
+            log = invocation_path.read_text(encoding="utf-8")
+            self.assertRegex(
+                log.splitlines()[0],
+                r"^\d{2}:\d{2}:\d{2}\.\d{3} INFO  run +started strategy=",
+            )
+            self.assertEqual(log.count("DEBUG input      context "), 1)
+            self.assertEqual(log.count("planned call=call-1"), 1)
+            self.assertEqual(log.count("started model=qwen3:14b"), 1)
+            self.assertIn("context=run_input", log)
+            self.assertIn('DEBUG input      user="trace me"', log)
+            output_at = log.index('output="adapter-ok"')
+            finished_at = log.index("finished stop=stop tokens_in=12 tokens_out=3")
+            self.assertLess(output_at, finished_at)
+            self.assertIn("run        completed calls=1 tokens=15", log)
+            self.assertNotIn("Schema:", log)
+            self.assertNotIn("run_id=", log)
+            self.assertNotIn("\n\n", log)
+
+    async def test_trace_is_updated_before_a_slow_model_finishes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            executor = BlockingModelCallExecutor()
+            client, _app, _executor = await self.make_client(
+                executor,
+                trace_sink=trace,
+            )
+            request = asyncio.create_task(client.post(
+                "/v1/messages",
+                headers={"x-api-key": "local-secret"},
+                json={
+                    "model": MODEL_ID,
+                    "stream": True,
+                    "max_tokens": 100,
+                    "messages": [{"role": "user", "content": "slow trace"}],
+                },
+            ))
+            await asyncio.wait_for(executor.started.wait(), timeout=1)
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(index["invocations"][0]["status"], "running")
+            invocation_path = path / index["invocations"][0]["file"]
+            log = invocation_path.read_text(encoding="utf-8")
+            self.assertIn("INFO  run        started", log)
+            self.assertIn("DEBUG input      context", log)
+            self.assertIn("planned call=call-1", log)
+            self.assertNotIn("run        completed", log)
+
+            request.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await request
+            await asyncio.wait_for(executor.cancelled.wait(), timeout=1)
+            trace.close()
+
+    async def test_concurrent_invocations_receive_separate_trace_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            executor = RecordingModelCallExecutor(responses=[
+                text_events("first"),
+                text_events("second"),
+            ])
+            client, _app, _executor = await self.make_client(
+                executor,
+                trace_sink=trace,
+            )
+
+            responses = await asyncio.gather(*(
+                client.post(
+                    "/v1/messages",
+                    headers={"x-api-key": "local-secret"},
+                    json={
+                        "model": MODEL_ID,
+                        "stream": False,
+                        "max_tokens": 100,
+                        "messages": [{"role": "user", "content": "repeat"}],
+                    },
+                )
+                for _ in range(2)
+            ))
+            self.assertEqual(
+                [response.status_code for response in responses],
+                [200, 200],
+            )
+            trace.close()
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(index["invocation_count"], 2)
+            self.assertEqual(len(index["contexts"]), 1)
+            self.assertEqual(len(index["inputs"]), 1)
+            self.assertEqual(index["invocations"][1]["same_input_as"], 1)
+            self.assertEqual(
+                [value["status"] for value in index["invocations"]],
+                ["completed", "completed"],
+            )
+            files = [path / value["file"] for value in index["invocations"]]
+            self.assertEqual(len(set(files)), 2)
+            for invocation_path in files:
+                self.assertEqual(invocation_path.suffix, ".log")
+                log = invocation_path.read_text(encoding="utf-8")
+                self.assertIn("INFO  run        started", log)
+                self.assertIn("INFO  run        completed", log)
+
+    async def test_trace_references_propagated_model_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            client, _app, _executor = await self.make_client(
+                FailingModelCallExecutor(),
+                trace_sink=trace,
+            )
+
+            response = await client.post(
+                "/v1/messages",
+                headers={"x-api-key": "local-secret"},
+                json={
+                    "model": MODEL_ID,
+                    "stream": False,
+                    "max_tokens": 100,
+                    "messages": [{"role": "user", "content": "fail"}],
+                },
+            )
+            self.assertEqual(response.status_code, 500)
+            trace.close()
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            invocation_path = path / index["invocations"][0]["file"]
+            log = invocation_path.read_text(encoding="utf-8")
+            self.assertEqual(log.count("provider exploded"), 1)
+            self.assertIn("run        failed type=ModelCallFailed caused_by=call-1", log)
+
+    async def test_long_output_remains_incremental_in_trace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            client, _app, _executor = await self.make_client(
+                RecordingModelCallExecutor(responses=[text_events("x" * 600)]),
+                trace_sink=trace,
+            )
+
+            response = await client.post(
+                "/v1/messages",
+                headers={"x-api-key": "local-secret"},
+                json={
+                    "model": MODEL_ID,
+                    "stream": False,
+                    "max_tokens": 1000,
+                    "messages": [{"role": "user", "content": "long"}],
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+            trace.close()
+
+            index = json.loads(
+                (path / "session.json").read_text(encoding="utf-8")
+            )
+            invocation_path = path / index["invocations"][0]["file"]
+            log = invocation_path.read_text(encoding="utf-8")
+            self.assertIn("writer     output begin", log)
+            self.assertIn("\n  " + "x" * 512, log)
+            self.assertIn("writer     output end", log)
+
     async def test_adapter_source_contains_no_backend_or_routing_policy(self):
         source_root = Path(__file__).parents[1] / "src" / "smart_ask_claude_code"
         source = "\n".join(
@@ -207,6 +602,45 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
 
 
 class DependencyBoundaryTests(unittest.TestCase):
+    def test_trace_call_replaces_only_changed_conversation_components(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace"
+            trace = TraceSessionSink(str(path))
+            conversation = Conversation.from_text(
+                "hello",
+                system="system",
+                parameters={"max_tokens": 100, "temperature": 0.0},
+            )
+            metadata = RunMetadata(
+                strategy_name="test",
+                strategy_digest="a" * 64,
+                session_id="session",
+            )
+            trace.run_started("b" * 32, conversation, metadata)
+            trace.model_call_planned(
+                "b" * 32,
+                "call-1",
+                1,
+                ModelCallSpec(
+                    profile_id="profile",
+                    target_id="target",
+                    role="writer",
+                    phase="generation",
+                    conversation=conversation.with_parameters({
+                        "max_tokens": 50,
+                    }),
+                ),
+                None,
+            )
+            trace.close()
+
+            invocation = next(path.glob("*.log"))
+            log = invocation.read_text(encoding="utf-8")
+            self.assertIn("context=run_input changed=[\"parameters\"]", log)
+            self.assertIn("context.parameters", log)
+            self.assertIn("max_tokens=50", log)
+            self.assertIn("temperature=0.0", log)
+
     def test_smartask_core_has_no_claude_adapter_or_asgi_dependency(self):
         root = Path(__file__).parents[3] / "smart_ask"
         source = "\n".join(
@@ -226,13 +660,20 @@ class DependencyBoundaryTests(unittest.TestCase):
     def test_jsonl_sink_persists_complete_envelopes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "metrics.jsonl"
-            sink = JsonlMetricsSink(str(path))
+            sink = JsonlSink(str(path))
             sink.write({"run": {"run_id": "one"}, "session": {"runs": 1}})
             sink.close()
 
             self.assertEqual(
                 json.loads(path.read_text(encoding="utf-8")),
                 {"run": {"run_id": "one"}, "session": {"runs": 1}},
+            )
+
+    def test_metrics_file_and_trace_directory_must_be_distinct(self):
+        with self.assertRaisesRegex(ValueError, "distinct paths"):
+            MetricsConfig(
+                jsonl_path="/tmp/combined.jsonl",
+                trace_directory="/tmp/combined.jsonl",
             )
 
     def test_custom_strategy_cannot_escape_prompt_allowlist(self):
@@ -243,18 +684,18 @@ class DependencyBoundaryTests(unittest.TestCase):
             (root / "secret.txt").write_text("secret", encoding="utf-8")
             strategy = allowed / "escape.yaml"
             strategy.write_text(
-                """schema_version: 2
+                """schema_version: 3
 name: escape-v1
-method:
-  type: fixed
-  role: writer
-  model:
-    model: local-model
+profiles:
+  local:
+    target: local-model
     system_prompt:
       type: file
       path: ../secret.txt
-generation:
-  type: ollama
+method:
+  type: fixed
+  role: writer
+  profile: local
 """,
                 encoding="utf-8",
             )
@@ -266,7 +707,10 @@ generation:
                 ),
             )
 
-            with self.assertRaisesRegex(AdapterConfigError, "prompts"):
+            with self.assertRaisesRegex(
+                AdapterConfigError,
+                r"outside .*allowed roots",
+            ):
                 StrategyCatalog.from_config(config, env={})
 
 

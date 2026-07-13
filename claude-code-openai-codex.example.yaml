@@ -17,7 +17,7 @@ limits:
   max_output_tokens: 65536
 
 metrics:
-  jsonl_path: benchmark-results/claude-code/openai-codex-metrics.jsonl
+  jsonl_path: .smart-ask/claude-code/openai-codex-metrics.jsonl
 
 security:
   allowed_strategy_roots: []

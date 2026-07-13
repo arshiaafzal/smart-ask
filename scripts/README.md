@@ -1,141 +1,167 @@
 # Development launchers
 
-This directory contains deployment-specific convenience scripts. These scripts
-compose already-separated components for local development; they are not part
-of the `smart_ask` Python package or its external protocol adapters.
+These scripts make local harness testing convenient. They compose public
+interfaces; they do not contain routing, provider translation, or model policy.
 
 ## `claude-smart-ask`
 
-`claude-smart-ask` is the general one-command Claude Code launcher. Give it a
-strategy name from `smart_ask/resources/strategies/`, followed by normal Claude
-Code arguments:
+The general launcher accepts a bundled strategy name and normal Claude Code
+arguments:
 
 ```bash
 cp scripts/claude-smart-ask.local.env.example \
   scripts/claude-smart-ask.local.env
-# Edit the local file and set the key required by your strategy.
+# Add OPENAI_API_KEY, OPENROUTER_API_KEY, or GROQ_API_KEY as needed.
 
 ./scripts/claude-smart-ask \
   --strategy python-code-generation-codex-cascade
 
-./scripts/claude-smart-ask --strategy local-qwen -p "hello"
-./scripts/claude-smart-ask --strategy python-code-generation-groq-cascade
-./scripts/claude-smart-ask --strategy claude-code-groq-difficulty
+./scripts/claude-smart-ask \
+  --strategy claude-code-groq-difficulty \
+  --trace
+
+./scripts/claude-smart-ask \
+  --strategy local-qwen \
+  -p "hello"
 ```
+
+`--strategy NAME` searches
+`smart_ask/resources/strategies/NAME.yaml`. The launcher intentionally does not
+accept provider configuration in place of a strategy.
 
 For each invocation it:
 
 ```text
-strategy reference
-  → validates and loads the strategy
-  → generates a private, one-strategy adapter configuration
-  → starts the external adapter on an available loopback port
-  → discovers the exact model alias advertised by the adapter
-  → launches Claude Code with that alias
-  → stops the adapter and removes transient state when Claude exits
+strategy name
+  → validate and load schema-v3 YAML
+  → discover required credentials from trusted targets
+  → generate a private one-strategy adapter configuration
+  → start the external adapter on a free loopback port
+  → discover its advertised Claude Code model alias
+  → print the metrics path and optional trace directory
+  → launch Claude Code with that alias
+  → stop the owned adapter and remove transient state
 ```
 
-The strategy remains the source of truth for the backend, models, credentials,
-prompts, and routing. The launcher passes provider credentials to the adapter
-but removes the strategy's provider-key variables from the Claude Code child
-process. It automatically generates loopback authentication and writes metrics
-to `benchmark-results/claude-code/strategy-runs.jsonl` by default.
+The strategy owns profiles, prompts, routing, and target IDs. The trusted
+target registry owns the physical model, transport, endpoint, credential
+handle, and hard limits. The launcher only supplies required environment values
+and connects processes.
 
-Provider keys are loaded automatically from
-`scripts/claude-smart-ask.local.env`. That file is ignored by Git; the tracked
-`.local.env.example` documents the supported entries. Set
-`SMART_ASK_SECRETS_FILE` to use a different local file. Normal exported
-environment variables continue to work when the local file does not override
-them.
+### Local credentials
 
-The launcher intentionally does not start provider-specific services. For
-`local-qwen`, run `ollama serve` first or use the specialized
-`claude-local-qwen` launcher below. For an OpenAI strategy, export the configured
-OpenAI key before starting it.
+Provider keys are loaded automatically from the ignored file:
+
+```text
+scripts/claude-smart-ask.local.env
+```
+
+Use `SMART_ASK_SECRETS_FILE` to select another file. Exported environment
+variables are also accepted. Provider credentials are passed to the adapter but
+removed from the Claude Code child environment; Claude Code receives only the
+generated loopback adapter token.
+
+The script never writes real keys into a tracked file. The example file lists
+supported names without secret values.
+
+### Metrics and traces
+
+The launcher prints its resolved metrics path before starting Claude Code. By
+default it is:
+
+```text
+.smart-ask/claude-code/metrics.jsonl
+```
+
+This file is prompt-free. Each completed method invocation appends its
+canonical record and current session aggregate.
+
+Add `--trace` immediately after the strategy name to create one unique trace
+directory for this launcher session:
+
+```bash
+./scripts/claude-smart-ask \
+  --strategy claude-code-groq-difficulty \
+  --trace
+```
+
+Use `--trace-dir DIR` or `SMART_ASK_TRACE_DIR` for an explicit destination.
+The launcher prints the directory before starting Claude Code. Its layout is:
+
+```text
+.smart-ask/claude-code/traces/<timestamp-id>/
+├── session.json
+├── 001-<run-id>.log
+├── 002-<run-id>.log
+└── ...
+```
+
+`session.json` is a live index of method invocations and their terminal
+status. Each numbered file is an append-only, classic text log for one
+invocation. Every event is one timestamped `LEVEL component message key=value`
+line. `INFO` shows calls, decisions, output, usage, and terminal state; `DEBUG`
+contains input and thinking; `WARN` and `ERROR` expose problems. Long content
+uses `begin`/`end` lines with indented continuations.
+
+The index normalizes repeated session/strategy context and identifies exact
+input repetition with `same_input_as`. A call that reuses the input says
+`context=run_input`; changed parameters are printed directly. Custom contexts
+are logged only for calls that actually replace the invocation input.
+
+Trace directories can contain source code, system instructions, tool inputs/results, and
+secrets. They are opt-in and local. `.smart-ask/` is ignored by Git;
+`benchmark-results/` is reserved for deliberate benchmark artifacts.
+
+### What the launcher does not start
+
+The general launcher does not start provider-specific services. Start Ollama
+before using `local-qwen`, or use the specialized launcher below:
+
+```bash
+ollama serve
+./scripts/claude-smart-ask --strategy local-qwen
+```
 
 ## `claude-local-qwen`
 
-`claude-local-qwen` turns the local Claude Code + SmartAsk + Qwen setup into one
-command:
+This specialized launcher adds local service supervision:
 
 ```text
-scripts/claude-local-qwen
-  ├── ensures the local Ollama service is running
-  ├── ensures the external Claude Code adapter is running
-  ├── waits for both health checks
-  ├── supplies local adapter authentication to Claude Code
-  └── launches Claude Code with claude-smart-ask-local-qwen
+claude-local-qwen
+  ├─ ensure Ollama is running
+  ├─ ensure the Claude Code adapter is running
+  ├─ wait for both health checks
+  ├─ configure loopback authentication
+  └─ launch Claude Code using the local-qwen strategy
 ```
 
-The resulting request path remains:
+The resulting request path is:
 
 ```text
 Claude Code
-  → external Claude Code protocol adapter
-  → SmartAsk conversation runtime
-  → builtin:local-qwen strategy
-  → OllamaConversationExecutor
-  → qwen3:14b
+  → external Anthropic Messages adapter
+  → SmartAsk StrategyEngine
+  → local-qwen profile
+  → trusted local-qwen3-14b target
+  → Ollama
 ```
 
-The launcher does not route requests, translate protocol messages, execute
-models, or calculate metrics. It only starts processes and connects their
-existing public interfaces.
-
-## Why this encapsulation matters
-
-Each layer has one responsibility:
-
-| Layer | Owns | Must not own |
-|---|---|---|
-| SmartAsk core | Strategy loading, routing, execution, escalation, metrics | Claude Code, HTTP routes, ASGI, SSE |
-| External Claude Code adapter | Protocol translation, authentication, server limits | Provider selection, Ollama startup, routing policy |
-| Ollama executor | Encoding neutral conversations for Ollama | Claude Code protocol behavior |
-| Local launcher | Development process startup, readiness, PIDs, logs | Application behavior from any layer above |
-
-Starting Ollama is specific to the local-Qwen deployment. Putting that behavior
-inside the generic adapter would make the adapter provider-aware. Putting it
-inside SmartAsk would invert the intended dependency direction. Keeping it in a
-development launcher preserves the invariant:
-
-```text
-external adapter → SmartAsk → strategy-configured backend
-```
-
-## Usage
-
-On first use, the launcher creates a private environment under its runtime state
-directory and installs both checkout packages there. Subsequent runs reuse it:
+Usage:
 
 ```bash
-./scripts/claude-local-qwen
-```
-
-Manual installation remains supported but is not required:
-
-```bash
-python3.11 -m pip install -e .
-python3.11 -m pip install -e ./integrations/claude_code
-```
-
-Then use:
-
-```bash
-./scripts/claude-local-qwen                 # interactive Claude Code
-./scripts/claude-local-qwen -p "your task"  # one-shot harness run
+./scripts/claude-local-qwen                 # interactive harness
+./scripts/claude-local-qwen -p "your task"  # one-shot harness request
 ./scripts/claude-local-qwen start           # services only
 ./scripts/claude-local-qwen status          # health and ownership
 ./scripts/claude-local-qwen logs            # follow service logs
 ./scripts/claude-local-qwen stop            # stop owned services
 ```
 
-Background services remain available between harness runs. `stop` only signals
-processes whose PIDs were created by this launcher; an Ollama or adapter process
-started elsewhere is left alone.
+On first use it creates a private environment under its runtime state directory
+and installs both checkout packages. Later runs reuse it. `stop` only signals
+processes whose PID files were created by this launcher.
 
-## Runtime state and security
-
-By default, runtime state is stored under:
+Default runtime state:
 
 ```text
 ${TMPDIR:-/tmp}/smart-ask-claude-local-qwen/
@@ -146,18 +172,10 @@ ${TMPDIR:-/tmp}/smart-ask-claude-local-qwen/
 └── token
 ```
 
-The directory and generated token use the invoking user's restrictive umask.
-The token authenticates only the loopback adapter; it is not a model-provider
-credential. The launcher removes `OPENROUTER_API_KEY` from the local adapter and
-Claude Code child environments because `builtin:local-qwen` does not need it.
+The directory and generated loopback token use restrictive permissions. The
+token is not a provider credential.
 
-SmartAsk's prompt-free run/session metrics continue to be written to the path
-configured in `claude-code-adapter.example.yaml`.
-
-## Overrides
-
-The launcher supports these environment overrides for alternate installations
-and isolated tests:
+Supported deployment overrides include:
 
 ```text
 SMART_ASK_CLAUDE_CONFIG
@@ -174,5 +192,18 @@ SMART_ASK_LAUNCHER_STATE_DIR
 SMART_ASK_START_ATTEMPTS
 ```
 
-This launcher is intended for local development and harness testing. Production
-process supervision should use the deployment environment's service manager.
+## Encapsulation
+
+| Layer | Owns | Does not own |
+|---|---|---|
+| SmartAsk core | Conversation execution, routing, hidden calls, run evidence | Claude Code HTTP/SSE behavior |
+| Claude Code adapter | Protocol translation, authentication, discovery, server limits | Provider selection or routing policy |
+| Target transport | Encoding a neutral model call for one approved backend | Harness semantics |
+| Launcher | Process startup, readiness, environment wiring, logs, cleanup | Application decisions |
+
+Starting Ollama belongs in a deployment launcher because it is specific to one
+local target. The dependency direction remains:
+
+```text
+launcher → external adapter → SmartAsk → trusted target transport
+```

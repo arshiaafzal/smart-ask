@@ -8,7 +8,7 @@ from importlib.resources import files
 import json
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterator, Mapping, Sequence
 
 from pydantic import BaseModel, ValidationError
 
@@ -23,6 +23,8 @@ from .schema import (
 
 
 BUILTIN_STRATEGY_PREFIX = "builtin:"
+MAX_STRATEGY_BYTES = 1_048_576
+MAX_PROMPT_BYTES = 1_048_576
 
 
 class _UniqueKeyLoader:
@@ -213,14 +215,46 @@ def _format_validation_error(error: ValidationError) -> str:
     return "; ".join(details)
 
 
-def load_strategy(path: str | Path) -> LoadedStrategy:
+def _inside_roots(path: Path, roots: tuple[Path, ...]) -> bool:
+    return any(path == root or path.is_relative_to(root) for root in roots)
+
+
+def _checked_text(path: Path, *, limit: int, label: str) -> str:
+    try:
+        size = path.stat().st_size
+        if size > limit:
+            raise StrategyConfigError(
+                f"{label} exceeds the {limit}-byte deployment limit: {path}"
+            )
+        return path.read_text(encoding="utf-8")
+    except StrategyConfigError:
+        raise
+    except (OSError, UnicodeError) as exc:
+        raise StrategyConfigError(f"cannot read {label} {path}: {exc}") from exc
+
+
+def load_strategy(
+    path: str | Path,
+    *,
+    allowed_roots: Sequence[str | Path] | None = None,
+) -> LoadedStrategy:
     """Load a filesystem YAML or a ``builtin:<name>`` package resource."""
 
+    builtin = isinstance(path, str) and path.startswith(BUILTIN_STRATEGY_PREFIX)
     source_path = _strategy_path(path).expanduser().resolve()
-    try:
-        source_text = source_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as exc:
-        raise StrategyConfigError(f"cannot read strategy {source_path}: {exc}") from exc
+    roots = tuple(
+        Path(root).expanduser().resolve()
+        for root in (() if allowed_roots is None else allowed_roots)
+    )
+    if not builtin and roots and not _inside_roots(source_path, roots):
+        raise StrategyConfigError(
+            f"strategy is outside the deployment's allowed roots: {source_path}"
+        )
+    source_text = _checked_text(
+        source_path,
+        limit=MAX_STRATEGY_BYTES,
+        label="strategy",
+    )
 
     yaml, loader = _yaml_loader()
     try:
@@ -244,12 +278,17 @@ def load_strategy(path: str | Path) -> LoadedStrategy:
         if prompt.path in prompt_texts:
             continue
         prompt_path = _resolve_prompt_path(source_path, prompt.path)
+        if not builtin and roots and not _inside_roots(prompt_path, roots):
+            raise StrategyConfigError(
+                f"prompt is outside the deployment's allowed roots: {prompt_path}"
+            )
         if not prompt_path.is_file():
             raise StrategyConfigError(f"prompt file does not exist: {prompt_path}")
-        try:
-            text = prompt_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError) as exc:
-            raise StrategyConfigError(f"cannot read prompt {prompt_path}: {exc}") from exc
+        text = _checked_text(
+            prompt_path,
+            limit=MAX_PROMPT_BYTES,
+            label="prompt",
+        )
         if not text.strip():
             raise StrategyConfigError(f"prompt file is empty: {prompt_path}")
         prompt_texts[prompt.path] = text

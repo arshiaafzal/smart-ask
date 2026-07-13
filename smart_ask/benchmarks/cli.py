@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 from datetime import datetime, timezone
 import json
 import os
@@ -47,6 +48,11 @@ def run_suite_cli(
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument(
+        "--allow-unsafe-code-execution",
+        action="store_true",
+        help="Allow benchmark-generated code to run without an OS sandbox",
+    )
+    parser.add_argument(
         "--price-catalog",
         type=Path,
         default=None,
@@ -54,6 +60,17 @@ def run_suite_cli(
         help="Versioned price catalog for models absent from the bundled snapshot",
     )
     args = parser.parse_args(argv)
+
+    if getattr(suite, "executes_untrusted_code", False):
+        if not args.allow_unsafe_code_execution:
+            parser.error(
+                "this suite executes model-generated code without an OS sandbox; "
+                "pass --allow-unsafe-code-execution only in an isolated environment"
+            )
+        enable = getattr(suite, "allow_unsafe_code_execution", None)
+        if not callable(enable):
+            raise TypeError("unsafe benchmark suite lacks an explicit opt-in hook")
+        enable()
 
     if args.resume and args.output is None:
         parser.error("--resume requires an explicit --output directory")
@@ -70,14 +87,17 @@ def run_suite_cli(
     sink = sink_factory(output, resume=args.resume)
     builder = None
 
-    def application_factory(strategy, recorder):
+    def get_builder():
         nonlocal builder
         if builder is None:
-            builder = builder_factory(
-                env=os.environ,
-                stats_collector=recorder,
-            )
-        return builder.build(strategy)
+            builder = builder_factory(env=os.environ)
+        return builder
+
+    def engine_factory(strategy):
+        return get_builder().build_engine(strategy)
+
+    def deployment_manifest_factory(strategy):
+        return get_builder().deployment_manifest(strategy)
 
     def progress(record, done, total):
         evaluation = record["evaluation"]
@@ -87,16 +107,23 @@ def run_suite_cli(
             f"{record['strategy_id']:<20} {record['task_id']}"
         )
 
-    result = run_matrix(
-        suite,
-        loaded,
-        application_factory=application_factory,
-        sink=sink,
-        workers=args.workers,
-        limit=args.limit,
-        price_catalog=price_catalog,
-        progress=progress,
-    )
+    try:
+        result = run_matrix(
+            suite,
+            loaded,
+            engine_factory=engine_factory,
+            sink=sink,
+            workers=args.workers,
+            limit=args.limit,
+            price_catalog=price_catalog,
+            deployment_manifest_factory=deployment_manifest_factory,
+            progress=progress,
+        )
+    finally:
+        if builder is not None:
+            closer = getattr(builder, "aclose", None)
+            if callable(closer):
+                asyncio.run(closer())
     print()
     print(format_report(result.summaries, result.comparison))
     print(f"\nArtifacts: {output}")

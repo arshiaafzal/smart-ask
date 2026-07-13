@@ -6,12 +6,13 @@ import argparse
 import os
 import sys
 
-from smart_ask.conversation import ConversationMetricsStore
+from smart_ask.conversation import RunMetricsStore
 
 from .app import create_app
 from .catalog import StrategyCatalog
 from .config import AdapterConfigError, load_adapter_config
-from .metrics import JsonlMetricsSink
+from .metrics import JsonlSink
+from .trace import TraceSessionSink
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -25,22 +26,32 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if args.command != "serve":
         parser.error("unknown command")
-    sink = None
+    metrics_sink = None
+    trace_sink = None
     try:
         import uvicorn
 
         config = load_adapter_config(args.config)
         env = dict(os.environ)
         if config.metrics.jsonl_path is not None:
-            sink = JsonlMetricsSink(config.metrics.jsonl_path)
-        metrics = ConversationMetricsStore(
-            sink=None if sink is None else sink.write,
+            metrics_sink = JsonlSink(config.metrics.jsonl_path)
+        if config.metrics.trace_directory is not None:
+            trace_sink = TraceSessionSink(config.metrics.trace_directory)
+        metrics = RunMetricsStore(
+            sink=None if metrics_sink is None else metrics_sink.write,
         )
-        catalog = StrategyCatalog.from_config(config, env=env, metrics=metrics)
+        catalog = StrategyCatalog.from_config(
+            config,
+            env=env,
+            metrics=metrics,
+            trace_observer=trace_sink,
+        )
         app = create_app(config, catalog, env=env)
     except (AdapterConfigError, OSError, ValueError) as exc:
-        if sink is not None:
-            sink.close()
+        if metrics_sink is not None:
+            metrics_sink.close()
+        if trace_sink is not None:
+            trace_sink.close()
         sys.exit(f"error: {exc}")
     for entry in catalog:
         print(
@@ -55,5 +66,7 @@ def main(argv: list[str] | None = None) -> None:
             access_log=False,
         )
     finally:
-        if sink is not None:
-            sink.close()
+        if metrics_sink is not None:
+            metrics_sink.close()
+        if trace_sink is not None:
+            trace_sink.close()

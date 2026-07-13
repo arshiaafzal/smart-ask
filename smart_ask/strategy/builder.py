@@ -1,664 +1,343 @@
-"""Build runtime applications from validated strategy configurations."""
+"""Compile validated declarative strategies into the sole async engine."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 import os
-import subprocess
-from types import MappingProxyType
 from typing import Any, Literal
 
-import httpx
-
-from ..application import SmartAsk
-from ..conversation.metrics import ConversationMetricsStore
-from ..conversation.runtime import ConversationRuntime
-from ..executors import (
-    GroqExecutor,
-    GroqConversationExecutor,
-    HermesExecutor,
-    ModelExecutor,
-    OllamaExecutor,
-    OllamaConversationExecutor,
-    OpenAIExecutor,
-    OpenAIConversationExecutor,
-    OpenRouterExecutor,
-    OpenRouterConversationExecutor,
+from ..conversation.engine import (
+    ModelCallExecutor,
+    RunObserver,
+    StrategyEngine,
+    StrategyMethod,
 )
-from ..metrics import DEFAULT_PRICE_CATALOG, StatsCollector
-from ..methods import (
-    CascadeRoutingMethod,
-    DifficultyRoutingMethod,
-    FixedRoutingMethod,
-    LLMDifficultyClassifier,
-    MarkerEscalationPolicy,
+from ..executors.target_registry import TargetExecutorRegistry
+from ..methods.memory import InMemoryRouteMemory, RouteMemory
+from ..methods.strategies import (
+    CascadeStrategyMethod,
+    DifficultyStrategyMethod,
+    FixedStrategyMethod,
+    MarkerCandidatePolicy,
+    ModelProfile,
+    RequestTransform,
+    StructuredDifficultyClassifier,
 )
-from ..routing import SmartRouter
 from .errors import StrategyBuildError
 from .loader import LoadedStrategy
 from .schema import (
     CascadeMethodConfig,
     DifficultyMethodConfig,
-    ExecutorConfig,
     FixedMethodConfig,
-    GroqConnectionConfig,
-    GroqExecutorConfig,
-    HermesExecutorConfig,
     LLMClassifierConfig,
+    ModelParametersConfig,
     ModelProfileConfig,
-    OllamaExecutorConfig,
-    OpenAIConnectionConfig,
-    OpenAIExecutorConfig,
-    OpenRouterConnectionConfig,
-    OpenRouterExecutorConfig,
 )
-
-OpenRouterClientFactory = Callable[[str, str], Any]
-OpenRouterConversationClientFactory = Callable[[str, str], httpx.AsyncClient]
-OpenAIClientFactory = Callable[[str, str], Any]
-OpenAIConversationClientFactory = Callable[[str, str], httpx.AsyncClient]
-GroqClientFactory = Callable[[str, str], Any]
-GroqConversationClientFactory = Callable[[str, str], httpx.AsyncClient]
+from .targets import (
+    TargetDefinition,
+    TargetRegistry,
+    default_target_registry,
+)
 
 
 class StrategyBuilder:
-    """Construct SmartAsk applications while keeping runtime dependencies injectable."""
-
-    __slots__ = (
-        "_env",
-        "_openrouter_client_factory",
-        "_openrouter_conversation_client_factory",
-        "_openai_client_factory",
-        "_openai_conversation_client_factory",
-        "_groq_client_factory",
-        "_groq_conversation_client_factory",
-        "_hermes_runner",
-        "_stats_collector",
-        "_clients",
-        "_conversation_clients",
-    )
+    """Resolve policy against trusted targets and build one StrategyEngine."""
 
     def __init__(
         self,
         *,
         env: Mapping[str, str] | None = None,
-        openrouter_client_factory: OpenRouterClientFactory | None = None,
-        openrouter_conversation_client_factory: (
-            OpenRouterConversationClientFactory | None
-        ) = None,
-        openai_client_factory: OpenAIClientFactory | None = None,
-        openai_conversation_client_factory: (
-            OpenAIConversationClientFactory | None
-        ) = None,
-        groq_client_factory: GroqClientFactory | None = None,
-        groq_conversation_client_factory: (
-            GroqConversationClientFactory | None
-        ) = None,
-        hermes_runner: Callable[..., Any] | None = None,
-        stats_collector: StatsCollector | None = None,
-    ):
+        targets: TargetRegistry | None = None,
+        executor: ModelCallExecutor | None = None,
+        http_client_factory=None,
+    ) -> None:
         if env is not None and not isinstance(env, Mapping):
             raise TypeError("env must be a mapping or None")
-        if openrouter_client_factory is not None and not callable(
-            openrouter_client_factory
-        ):
-            raise TypeError("openrouter_client_factory must be callable or None")
-        if (
-            openrouter_conversation_client_factory is not None
-            and not callable(openrouter_conversation_client_factory)
-        ):
-            raise TypeError(
-                "openrouter_conversation_client_factory must be callable or None"
-            )
-        if openai_client_factory is not None and not callable(openai_client_factory):
-            raise TypeError("openai_client_factory must be callable or None")
-        if (
-            openai_conversation_client_factory is not None
-            and not callable(openai_conversation_client_factory)
-        ):
-            raise TypeError(
-                "openai_conversation_client_factory must be callable or None"
-            )
-        if groq_client_factory is not None and not callable(groq_client_factory):
-            raise TypeError("groq_client_factory must be callable or None")
-        if (
-            groq_conversation_client_factory is not None
-            and not callable(groq_conversation_client_factory)
-        ):
-            raise TypeError(
-                "groq_conversation_client_factory must be callable or None"
-            )
-        if hermes_runner is not None and not callable(hermes_runner):
-            raise TypeError("hermes_runner must be callable or None")
-        if stats_collector is not None and not isinstance(
-            stats_collector,
-            StatsCollector,
-        ):
-            raise TypeError("stats_collector must be a StatsCollector or None")
         resolved_env = dict(os.environ if env is None else env)
-        if any(
-            not isinstance(key, str) or not isinstance(value, str)
-            for key, value in resolved_env.items()
-        ):
-            raise TypeError("env keys and values must be strings")
-        self._env = MappingProxyType(resolved_env)
-        self._openrouter_client_factory = (
-            self._default_openrouter_client
-            if openrouter_client_factory is None
-            else openrouter_client_factory
-        )
-        self._openrouter_conversation_client_factory = (
-            self._default_openrouter_conversation_client
-            if openrouter_conversation_client_factory is None
-            else openrouter_conversation_client_factory
-        )
-        self._openai_client_factory = (
-            self._default_openai_client
-            if openai_client_factory is None
-            else openai_client_factory
-        )
-        self._openai_conversation_client_factory = (
-            self._default_openai_conversation_client
-            if openai_conversation_client_factory is None
-            else openai_conversation_client_factory
-        )
-        self._groq_client_factory = (
-            self._default_groq_client
-            if groq_client_factory is None
-            else groq_client_factory
-        )
-        self._groq_conversation_client_factory = (
-            self._default_groq_conversation_client
-            if groq_conversation_client_factory is None
-            else groq_conversation_client_factory
-        )
-        self._hermes_runner = (
-            subprocess.run if hermes_runner is None else hermes_runner
-        )
-        self._stats_collector = (
-            stats_collector
-            if stats_collector is not None
-            else StatsCollector(price_catalog=DEFAULT_PRICE_CATALOG)
-        )
-        self._clients: dict[tuple[str, ...], Any] = {}
-        self._conversation_clients: dict[tuple[str, ...], httpx.AsyncClient] = {}
+        if targets is None:
+            targets = default_target_registry(resolved_env)
+        if not isinstance(targets, TargetRegistry):
+            raise TypeError("targets must be a TargetRegistry")
+        if executor is not None and not callable(getattr(executor, "stream", None)):
+            raise TypeError("executor must expose an async stream operation")
+        self._env = resolved_env
+        self._targets = targets
+        if executor is None:
+            options: dict[str, Any] = {"env": self._env}
+            if http_client_factory is not None:
+                options["http_client_factory"] = http_client_factory
+            executor = TargetExecutorRegistry(targets, **options)
+        self._executor = executor
 
     @property
-    def stats_collector(self) -> StatsCollector:
-        return self._stats_collector
+    def targets(self) -> TargetRegistry:
+        return self._targets
 
-    @staticmethod
-    def _default_openrouter_client(base_url: str, api_key: str):
-        try:
-            from openai import OpenAI
-        except ImportError as exc:
-            raise StrategyBuildError(
-                "the openai package is required for OpenRouter strategies"
-            ) from exc
-        return OpenAI(base_url=base_url, api_key=api_key)
+    @property
+    def executor(self) -> ModelCallExecutor:
+        return self._executor
 
-    @staticmethod
-    def _default_openrouter_conversation_client(
-        base_url: str,
-        api_key: str,
-    ) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            base_url=base_url.rstrip("/"),
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=httpx.Timeout(300.0),
-        )
+    def required_secret_envs(self, loaded: LoadedStrategy) -> frozenset[str]:
+        self._validate_loaded(loaded)
+        return self._targets.required_secret_envs(loaded.config.target_ids)
 
-    @staticmethod
-    def _default_openai_client(base_url: str, api_key: str):
-        try:
-            from openai import OpenAI
-        except ImportError as exc:
-            raise StrategyBuildError(
-                "the openai package is required for OpenAI strategies"
-            ) from exc
-        return OpenAI(base_url=base_url, api_key=api_key)
+    def target_snapshot(self, loaded: LoadedStrategy):
+        self._validate_loaded(loaded)
+        return self._targets.snapshot(loaded.config.target_ids)
 
-    @staticmethod
-    def _default_openai_conversation_client(
-        base_url: str,
-        api_key: str,
-    ) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            base_url=base_url.rstrip("/"),
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=httpx.Timeout(300.0),
-        )
+    def deployment_manifest(self, loaded: LoadedStrategy) -> dict[str, Any]:
+        """Return the secret-free physical target identity used for a run."""
 
-    @staticmethod
-    def _default_groq_client(base_url: str, api_key: str):
-        try:
-            from openai import OpenAI
-        except ImportError as exc:
-            raise StrategyBuildError(
-                "the openai package is required for Groq strategies"
-            ) from exc
-        return OpenAI(base_url=base_url, api_key=api_key)
+        self._validate_loaded(loaded)
+        target_ids = loaded.config.target_ids
+        return {
+            "status": "resolved",
+            "digest": self._targets.digest(target_ids),
+            "targets": list(self._targets.snapshot(target_ids)),
+        }
 
-    @staticmethod
-    def _default_groq_conversation_client(
-        base_url: str,
-        api_key: str,
-    ) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            base_url=base_url.rstrip("/"),
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=httpx.Timeout(300.0),
-        )
-
-    def _openrouter_client(
-        self,
-        config: OpenRouterConnectionConfig,
-    ):
-        api_key = self._env.get(config.api_key_env, "")
-        if not api_key.strip():
-            raise StrategyBuildError(
-                f"required environment variable {config.api_key_env} is not set"
-            )
-        key = ("openrouter", config.base_url, api_key)
-        if key not in self._clients:
-            self._clients[key] = self._openrouter_client_factory(
-                config.base_url,
-                api_key,
-            )
-        return self._clients[key]
-
-    def _openrouter_conversation_client(
-        self,
-        config: OpenRouterConnectionConfig,
-    ) -> httpx.AsyncClient:
-        api_key = self._env.get(config.api_key_env, "")
-        if not api_key.strip():
-            raise StrategyBuildError(
-                f"required environment variable {config.api_key_env} is not set"
-            )
-        key = ("openrouter", config.base_url, api_key)
-        if key not in self._conversation_clients:
-            client = self._openrouter_conversation_client_factory(
-                config.base_url,
-                api_key,
-            )
-            if not isinstance(client, httpx.AsyncClient):
-                raise TypeError(
-                    "openrouter conversation client factory must return "
-                    "httpx.AsyncClient"
-                )
-            self._conversation_clients[key] = client
-        return self._conversation_clients[key]
-
-    def _openai_client(self, config: OpenAIConnectionConfig):
-        api_key = self._env.get(config.api_key_env, "")
-        if not api_key.strip():
-            raise StrategyBuildError(
-                f"required environment variable {config.api_key_env} is not set"
-            )
-        key = ("openai", config.base_url, api_key)
-        if key not in self._clients:
-            self._clients[key] = self._openai_client_factory(
-                config.base_url,
-                api_key,
-            )
-        return self._clients[key]
-
-    def _openai_conversation_client(
-        self,
-        config: OpenAIConnectionConfig,
-    ) -> httpx.AsyncClient:
-        api_key = self._env.get(config.api_key_env, "")
-        if not api_key.strip():
-            raise StrategyBuildError(
-                f"required environment variable {config.api_key_env} is not set"
-            )
-        key = ("openai", config.base_url, api_key)
-        if key not in self._conversation_clients:
-            client = self._openai_conversation_client_factory(
-                config.base_url,
-                api_key,
-            )
-            if not isinstance(client, httpx.AsyncClient):
-                raise TypeError(
-                    "openai conversation client factory must return httpx.AsyncClient"
-                )
-            self._conversation_clients[key] = client
-        return self._conversation_clients[key]
-
-    def _groq_client(self, config: GroqConnectionConfig):
-        api_key = self._env.get(config.api_key_env, "")
-        if not api_key.strip():
-            raise StrategyBuildError(
-                f"required environment variable {config.api_key_env} is not set"
-            )
-        key = ("groq", config.base_url, api_key)
-        if key not in self._clients:
-            self._clients[key] = self._groq_client_factory(
-                config.base_url,
-                api_key,
-            )
-        return self._clients[key]
-
-    def _groq_conversation_client(
-        self,
-        config: GroqConnectionConfig,
-    ) -> httpx.AsyncClient:
-        api_key = self._env.get(config.api_key_env, "")
-        if not api_key.strip():
-            raise StrategyBuildError(
-                f"required environment variable {config.api_key_env} is not set"
-            )
-        key = ("groq", config.base_url, api_key)
-        if key not in self._conversation_clients:
-            client = self._groq_conversation_client_factory(
-                config.base_url,
-                api_key,
-            )
-            if not isinstance(client, httpx.AsyncClient):
-                raise TypeError(
-                    "groq conversation client factory must return httpx.AsyncClient"
-                )
-            self._conversation_clients[key] = client
-        return self._conversation_clients[key]
-
-    def _build_executor(
-        self,
-        config: ExecutorConfig,
-    ) -> ModelExecutor:
-        if isinstance(config, HermesExecutorConfig):
-            return HermesExecutor(
-                provider=config.provider,
-                command=config.command,
-                runner=self._hermes_runner,
-            )
-
-        if isinstance(config, OllamaExecutorConfig):
-            return OllamaExecutor(
-                base_url=config.base_url,
-                default_max_tokens=config.defaults.max_tokens,
-                temperature=config.defaults.temperature,
-                think=config.think,
-                timeout_seconds=config.timeout_seconds,
-            )
-
-        if isinstance(config, OpenRouterExecutorConfig):
-            return OpenRouterExecutor(
-                self._openrouter_client(config),
-                default_max_tokens=config.defaults.max_tokens,
-                temperature=config.defaults.temperature,
-            )
-        if isinstance(config, OpenAIExecutorConfig):
-            return OpenAIExecutor(
-                self._openai_client(config),
-                default_max_tokens=config.defaults.max_tokens,
-                reasoning_effort=config.defaults.reasoning_effort,
-            )
-        if isinstance(config, GroqExecutorConfig):
-            return GroqExecutor(
-                self._groq_client(config),
-                default_max_tokens=config.defaults.max_tokens,
-                reasoning_effort=config.defaults.reasoning_effort,
-            )
-        raise StrategyBuildError(f"unsupported executor configuration: {config}")
-
-    def _build_generation_executor(
-        self,
-        loaded: LoadedStrategy,
-        profiles: tuple[ModelProfileConfig, ...],
-    ) -> ModelExecutor:
-        config = loaded.config.generation
-        if isinstance(config, HermesExecutorConfig):
-            return self._build_executor(config)
-
-        system_prompts = {}
-        max_tokens = {}
-        temperatures = {}
-        reasoning_efforts = {}
-        for profile in profiles:
-            if profile.system_prompt is not None:
-                system_prompts[profile.model] = loaded.resolve_prompt(profile.system_prompt)
-            if profile.parameters.max_tokens is not None:
-                max_tokens[profile.model] = profile.parameters.max_tokens
-            if profile.parameters.temperature is not None:
-                temperatures[profile.model] = profile.parameters.temperature
-            if profile.parameters.reasoning_effort is not None:
-                reasoning_efforts[profile.model] = (
-                    profile.parameters.reasoning_effort
-                )
-        if isinstance(config, OllamaExecutorConfig):
-            return OllamaExecutor(
-                base_url=config.base_url,
-                system_prompts=system_prompts,
-                max_tokens=max_tokens,
-                temperatures=temperatures,
-                default_max_tokens=config.defaults.max_tokens,
-                temperature=config.defaults.temperature,
-                think=config.think,
-                timeout_seconds=config.timeout_seconds,
-            )
-        if isinstance(config, OpenRouterExecutorConfig):
-            return OpenRouterExecutor(
-                self._openrouter_client(config),
-                system_prompts=system_prompts,
-                max_tokens=max_tokens,
-                temperatures=temperatures,
-                default_max_tokens=config.defaults.max_tokens,
-                temperature=config.defaults.temperature,
-            )
-        if isinstance(config, OpenAIExecutorConfig):
-            return OpenAIExecutor(
-                self._openai_client(config),
-                system_prompts=system_prompts,
-                max_tokens=max_tokens,
-                reasoning_efforts=reasoning_efforts,
-                default_max_tokens=config.defaults.max_tokens,
-                reasoning_effort=config.defaults.reasoning_effort,
-            )
-        if isinstance(config, GroqExecutorConfig):
-            return GroqExecutor(
-                self._groq_client(config),
-                system_prompts=system_prompts,
-                max_tokens=max_tokens,
-                reasoning_efforts=reasoning_efforts,
-                default_max_tokens=config.defaults.max_tokens,
-                reasoning_effort=config.defaults.reasoning_effort,
-            )
-        raise StrategyBuildError(f"unsupported generation configuration: {config}")
-
-    def _build_classifier(
-        self,
-        loaded: LoadedStrategy,
-        config: LLMClassifierConfig,
-    ) -> LLMDifficultyClassifier:
-        if isinstance(config.executor, OpenRouterConnectionConfig):
-            executor = OpenRouterExecutor(
-                self._openrouter_client(config.executor),
-                default_max_tokens=config.parameters.max_tokens,
-                temperature=config.parameters.temperature,
-            )
-        elif isinstance(config.executor, OpenAIConnectionConfig):
-            executor = OpenAIExecutor(
-                self._openai_client(config.executor),
-                default_max_tokens=config.parameters.max_tokens,
-                reasoning_effort=(
-                    config.parameters.reasoning_effort or "low"
-                ),
-            )
-        elif isinstance(config.executor, GroqConnectionConfig):
-            executor = GroqExecutor(
-                self._groq_client(config.executor),
-                default_max_tokens=config.parameters.max_tokens,
-                reasoning_effort=(config.parameters.reasoning_effort or "low"),
-            )
-        else:
-            raise StrategyBuildError(
-                f"unsupported classifier executor: {config.executor}"
-            )
-        return LLMDifficultyClassifier(
-            executor,
-            stats_collector=self._stats_collector,
-            model=config.model,
-            prompt_prefix=loaded.resolve_prompt(config.prompt),
-            fallback=config.fallback,
-            max_prompt_chars=config.max_prompt_chars,
-            max_tokens=config.parameters.max_tokens,
-            temperature=config.parameters.temperature,
-        )
-
-    def build(
-        self,
-        loaded: LoadedStrategy,
-        force: Literal["easy", "hard"] | None = None,
-    ) -> SmartAsk:
-        """Build the configured application, optionally forcing an easy/hard profile."""
-
-        router, profiles = self._build_router_and_profiles(loaded, force)
-        executor = self._build_generation_executor(loaded, profiles)
-        return SmartAsk.from_router(router, executor)
-
-    def build_router(
-        self,
-        loaded: LoadedStrategy,
-        force: Literal["easy", "hard"] | None = None,
-    ) -> SmartRouter:
-        """Build only the strategy's routing policy and collaborators."""
-
-        router, _profiles = self._build_router_and_profiles(loaded, force)
-        return router
-
-    def build_conversation_runtime(
+    def build_method(
         self,
         loaded: LoadedStrategy,
         force: Literal["easy", "hard"] | None = None,
         *,
-        metrics: ConversationMetricsStore | None = None,
-    ) -> ConversationRuntime:
-        """Build the complete harness-neutral structured conversation runtime."""
-
-        router, _profiles = self._build_router_and_profiles(loaded, force)
-        generation = loaded.config.generation
-        if isinstance(generation, OllamaExecutorConfig):
-            executor = OllamaConversationExecutor(
-                base_url=generation.base_url,
-                default_max_tokens=generation.defaults.max_tokens,
-                temperature=generation.defaults.temperature,
-                think=generation.think,
-                timeout_seconds=generation.timeout_seconds,
-            )
-        elif isinstance(generation, OpenRouterExecutorConfig):
-            executor = OpenRouterConversationExecutor(
-                self._openrouter_conversation_client(generation),
-                default_max_tokens=generation.defaults.max_tokens,
-                temperature=generation.defaults.temperature,
-            )
-        elif isinstance(generation, OpenAIExecutorConfig):
-            executor = OpenAIConversationExecutor(
-                self._openai_conversation_client(generation),
-                default_max_tokens=generation.defaults.max_tokens,
-                reasoning_effort=generation.defaults.reasoning_effort,
-            )
-        elif isinstance(generation, GroqExecutorConfig):
-            executor = GroqConversationExecutor(
-                self._groq_conversation_client(generation),
-                default_max_tokens=generation.defaults.max_tokens,
-                reasoning_effort=generation.defaults.reasoning_effort,
-            )
-        else:
-            raise StrategyBuildError(
-                f"generation transport {generation.type!r} does not yet expose "
-                "structured conversation execution"
-            )
-        return ConversationRuntime(
-            loaded_strategy=loaded,
-            router=router,
-            executor=executor,
-            metrics=metrics,
-        )
-
-    def _build_router_and_profiles(
-        self,
-        loaded: LoadedStrategy,
-        force: Literal["easy", "hard"] | None,
-    ) -> tuple[SmartRouter, tuple[ModelProfileConfig, ...]]:
-
-        if not isinstance(loaded, LoadedStrategy):
-            raise TypeError("loaded must be a LoadedStrategy")
+        route_memory: RouteMemory | None = None,
+    ) -> StrategyMethod:
+        self._validate_loaded(loaded)
         if force not in (None, "easy", "hard"):
             raise StrategyBuildError("force must be 'easy', 'hard', or None")
-
+        self._validate_targets(loaded)
         config = loaded.config
-        method_config = config.method
+        method = config.method
+        profiles = {
+            name: self._profile(loaded, name, profile)
+            for name, profile in config.profiles.items()
+        }
 
         if force is not None:
-            if isinstance(method_config, FixedMethodConfig):
+            if isinstance(method, FixedMethodConfig):
                 raise StrategyBuildError(
                     f"fixed strategy {config.name!r} does not support force overrides"
                 )
-            profile = method_config.easy if force == "easy" else method_config.hard
-            method = FixedRoutingMethod(
-                profile.model,
-                "generator" if force == "easy" else "writer",
-                label=f"forced-{force}",
+            selected = profiles[method.easy if force == "easy" else method.hard]
+            return FixedStrategyMethod(
+                profile=selected,
+                role="generator" if force == "easy" else "writer",
+                transform=RequestTransform(),
             )
-            profiles = (profile,)
-            router = SmartRouter(
-                method,
-                max_attempts=1,
-                strategy_id=config.name,
-                stats_collector=self._stats_collector,
-            )
-            return router, profiles
 
-        if isinstance(method_config, FixedMethodConfig):
-            method = FixedRoutingMethod(
-                method_config.model.model,
-                role=method_config.role,
-                prompt_prefix=(
-                    loaded.resolve_prompt(method_config.prompt_prefix)
-                    if method_config.prompt_prefix is not None
-                    else ""
-                ),
-                prompt_suffix=(
-                    loaded.resolve_prompt(method_config.prompt_suffix)
-                    if method_config.prompt_suffix is not None
-                    else ""
-                ),
-            )
-            profiles = (method_config.model,)
-        elif isinstance(method_config, DifficultyMethodConfig):
-            classifier = self._build_classifier(loaded, method_config.classifier)
-            method = DifficultyRoutingMethod(
-                classifier,
-                easy_model=method_config.easy.model,
-                hard_model=method_config.hard.model,
-            )
-            profiles = (method_config.easy, method_config.hard)
-        elif isinstance(method_config, CascadeMethodConfig):
-            classifier = self._build_classifier(loaded, method_config.classifier)
-            escalation = MarkerEscalationPolicy(
-                marker=method_config.escalation.marker,
-                self_check_suffix=loaded.resolve_prompt(
-                    method_config.escalation.self_check_suffix
-                ),
-                escalation_prefix=loaded.resolve_prompt(
-                    method_config.escalation.escalation_prefix
+        if isinstance(method, FixedMethodConfig):
+            return FixedStrategyMethod(
+                profile=profiles[method.profile],
+                role=method.role,
+                transform=RequestTransform(
+                    latest_user_prefix=(
+                        loaded.resolve_prompt(method.prompt_prefix)
+                        if method.prompt_prefix is not None
+                        else ""
+                    ),
+                    latest_user_suffix=(
+                        loaded.resolve_prompt(method.prompt_suffix)
+                        if method.prompt_suffix is not None
+                        else ""
+                    ),
                 ),
             )
-            method = CascadeRoutingMethod(
-                classifier,
-                escalation,
-                easy_model=method_config.easy.model,
-                hard_model=method_config.hard.model,
-            )
-            profiles = (method_config.easy, method_config.hard)
-        else:
-            raise StrategyBuildError(f"unsupported method configuration: {method_config}")
 
-        router = SmartRouter(
-            method,
-            max_attempts=2 if isinstance(method_config, CascadeMethodConfig) else 1,
-            strategy_id=config.name,
-            stats_collector=self._stats_collector,
+        memory = route_memory
+        memory_config = method.route_memory
+        if memory is None and memory_config.enabled:
+            memory = InMemoryRouteMemory(
+                ttl_seconds=memory_config.ttl_seconds,
+                max_entries=memory_config.max_entries,
+            )
+        classifier = self._classifier(loaded, method.classifier)
+        easy = profiles[method.easy]
+        hard = profiles[method.hard]
+        if isinstance(method, DifficultyMethodConfig):
+            return DifficultyStrategyMethod(
+                classifier=classifier,
+                easy=easy,
+                hard=hard,
+                route_memory=memory,
+            )
+        if isinstance(method, CascadeMethodConfig):
+            escalation = method.escalation
+            tool_policy = {
+                "accept-and-pin": "accept_and_pin",
+                "escalate": "escalate",
+                "fail": "raise",
+            }[escalation.tool_output]
+            return CascadeStrategyMethod(
+                classifier=classifier,
+                candidate_policy=MarkerCandidatePolicy(
+                    marker=escalation.marker,
+                    self_check_suffix=loaded.resolve_prompt(
+                        escalation.self_check_suffix
+                    ),
+                    escalation_prefix=loaded.resolve_prompt(
+                        escalation.escalation_prefix
+                    ),
+                    tool_calls=tool_policy,
+                ),
+                easy=easy,
+                hard=hard,
+                route_memory=memory,
+            )
+        raise StrategyBuildError(f"unsupported method configuration: {method}")
+
+    def build_engine(
+        self,
+        loaded: LoadedStrategy,
+        force: Literal["easy", "hard"] | None = None,
+        *,
+        route_memory: RouteMemory | None = None,
+        heartbeat_seconds: float = 15.0,
+        observer: RunObserver | None = None,
+    ) -> StrategyEngine:
+        method = self.build_method(
+            loaded,
+            force,
+            route_memory=route_memory,
         )
-        return router, profiles
+        limits = loaded.config.limits
+        return StrategyEngine(
+            method,
+            self._executor,
+            heartbeat_seconds=heartbeat_seconds,
+            max_model_calls=limits.max_model_calls,
+            max_buffer_bytes=limits.max_buffered_bytes,
+            max_buffer_seconds=limits.deadline_seconds,
+            deadline_seconds=limits.deadline_seconds,
+            observer=observer,
+            owns_executor=False,
+        )
+
+    async def aclose(self) -> None:
+        """Close the deployment executor shared by engines from this builder."""
+
+        closer = getattr(self._executor, "aclose", None)
+        if callable(closer):
+            await closer()
+
+    def _classifier(
+        self,
+        loaded: LoadedStrategy,
+        config: LLMClassifierConfig,
+    ) -> StructuredDifficultyClassifier:
+        continuation = {
+            "easy": "route_easy",
+            "hard": "route_hard",
+            "raise": "raise",
+        }[config.missing_input]
+        parameters = {
+            "max_tokens": config.parameters.max_tokens,
+            "temperature": config.parameters.temperature,
+        }
+        if config.parameters.reasoning_effort is not None:
+            parameters["reasoning_effort"] = config.parameters.reasoning_effort
+        return StructuredDifficultyClassifier(
+            profile=ModelProfile("classifier", config.target),
+            prompt=loaded.resolve_prompt(config.prompt),
+            projection=config.projection.replace("-", "_"),
+            continuation=continuation,
+            fallback=config.fallback,
+            max_prompt_chars=(
+                None
+                if config.projection == "full-conversation"
+                else config.max_prompt_chars
+            ),
+            parameters=parameters,
+        )
+
+    def _profile(
+        self,
+        loaded: LoadedStrategy,
+        profile_id: str,
+        config: ModelProfileConfig,
+    ) -> ModelProfile:
+        system = (
+            ()
+            if config.system_prompt is None
+            else (loaded.resolve_prompt(config.system_prompt),)
+        )
+        return ModelProfile(
+            profile_id,
+            config.target,
+            RequestTransform(
+                system_suffix=system,
+                parameters=self._parameters(config.parameters),
+            ),
+        )
+
+    @staticmethod
+    def _parameters(config: ModelParametersConfig) -> dict[str, object]:
+        values: dict[str, object] = {}
+        if config.max_tokens is not None:
+            values["max_tokens"] = config.max_tokens
+        if config.temperature is not None:
+            values["temperature"] = config.temperature
+        if config.reasoning_effort is not None:
+            values["reasoning_effort"] = config.reasoning_effort
+        return values
+
+    @staticmethod
+    def _validate_loaded(loaded: LoadedStrategy) -> None:
+        if not isinstance(loaded, LoadedStrategy):
+            raise TypeError("loaded must be a LoadedStrategy")
+
+    def _validate_targets(self, loaded: LoadedStrategy) -> None:
+        config = loaded.config
+        try:
+            targets = {
+                target_id: self._targets.resolve(target_id)
+                for target_id in config.target_ids
+            }
+        except KeyError as exc:
+            raise StrategyBuildError(str(exc)) from exc
+        for name, profile in config.profiles.items():
+            target = targets[profile.target]
+            self._validate_profile(name, profile, target)
+        classifier = getattr(config.method, "classifier", None)
+        if classifier is not None:
+            target = targets[classifier.target]
+            self._validate_reasoning(
+                classifier.parameters.reasoning_effort,
+                target,
+                "classifier",
+            )
+
+    def _validate_profile(
+        self,
+        name: str,
+        profile: ModelProfileConfig,
+        target: TargetDefinition,
+    ) -> None:
+        maximum = profile.parameters.max_tokens
+        if maximum is not None and maximum > target.limits.max_output_tokens:
+            raise StrategyBuildError(
+                f"profile {name!r} requests {maximum} output tokens but target "
+                f"{target.target_id!r} allows {target.limits.max_output_tokens}"
+            )
+        self._validate_reasoning(
+            profile.parameters.reasoning_effort,
+            target,
+            f"profile {name!r}",
+        )
+
+    @staticmethod
+    def _validate_reasoning(
+        effort: str | None,
+        target: TargetDefinition,
+        owner: str,
+    ) -> None:
+        if effort is None:
+            return
+        if "reasoning" not in target.capabilities:
+            raise StrategyBuildError(
+                f"{owner} requests reasoning on target {target.target_id!r}"
+            )
+        if target.transport == "groq" and effort not in ("low", "medium", "high"):
+            raise StrategyBuildError(
+                "Groq reasoning_effort must be low, medium, or high"
+            )
