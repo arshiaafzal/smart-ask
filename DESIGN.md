@@ -360,18 +360,18 @@ is never converted to zero.
 
 The standard JSONL metrics sink stores the prompt-free record plus a current
 session aggregate. An opt-in trace is one private directory per launcher
-session: `session.json` indexes terminal status and one numbered JSONL file
-holds each method invocation's conversation snapshot, decisions, calls,
-provider events, output, usage, and terminal state. Invocation files are
-self-contained; content is not repeated between their event rows merely to
-make individual rows self-contained.
+session: `session.json` indexes terminal status and one numbered `.log` file
+holds each method invocation. Each event is one conventional log line with a
+timestamp, level, component, message, and compact `key=value` evidence. `INFO`
+shows calls, decisions, output, usage, and terminal state; `DEBUG` carries full
+conversation evidence and thinking; `WARN` and `ERROR` mark failures.
 
 The session index normalizes shared strategy/session context and content
 digests. An exact repeated input points to its first ordinal without asserting
-why it repeated. Within an invocation, a model call may reference `run_input`
-and replace only changed top-level conversation components; otherwise it stores
-the complete transformed conversation. Short completed output blocks collapse
-to one event, while long blocks retain incremental chunks.
+why it repeated. Within a log, calls identify reuse of the run input and print
+small parameter changes inline. Custom contexts are logged where the call is
+planned. Short content stays on one line; long content uses `begin`/`end`
+markers with incremental indented continuations.
 
 ## Benchmark architecture
 

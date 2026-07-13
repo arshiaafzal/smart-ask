@@ -140,13 +140,13 @@ debugging. One private directory represents a launcher session:
 ```text
 <trace-directory>/
 ├── session.json
-├── 001-<run-id>.jsonl
-├── 002-<run-id>.jsonl
+├── 001-<run-id>.log
+├── 002-<run-id>.log
 └── ...
 ```
 
 The live `session.json` index links every Claude Code model request to one
-self-contained invocation file containing:
+self-contained, append-only text log containing:
 
 1. the complete immutable conversation once;
 2. every transformed classifier/candidate/escalation call context;
@@ -158,16 +158,26 @@ The index stores shared session/strategy contexts and input digests once.
 `same_input_as` identifies an earlier invocation with exactly the same logical
 input; it deliberately does not claim that the later request was a retry.
 
-Inside an invocation file, the first `conversation` event is the complete run
-input. A transformed `model_call` either stores a complete conversation or
-uses `conversation_ref: run_input` plus a `replace` mapping. Reconstruction is
-exact: replace the named top-level conversation components with the recorded
-values. Short completed output blocks use one `model_output` event; long blocks
-retain incremental start/chunk/end events.
+Every event is a conventional log line:
 
-Invocation files are written during execution, so a slow call appears before
+```text
+16:19:54.102 INFO  run        started strategy=claude-code-groq-difficulty
+16:19:54.103 DEBUG input      user="hi"
+16:19:54.357 INFO  router     decided gate=difficulty outcome=easy
+16:19:54.731 INFO  generator  output="Hi! How can I help you today?"
+16:19:54.732 INFO  generator  finished stop=stop tokens_in=558 tokens_out=26
+16:19:54.733 INFO  run        completed calls=2 tokens=924 duration_ms=632
+```
+
+The invocation input is logged once. Calls that reuse it say
+`context=run_input`; transformed calls log only changed components. `INFO`
+shows the main execution path, `DEBUG` contains input and thinking, and
+`WARN`/`ERROR` show problems. Long content uses `begin`/`end` markers and
+flushes indented continuations incrementally while the invocation runs.
+
+Invocation logs are written during execution, so a slow call appears before
 it finishes. The index reports `running` until the invocation reaches a
-terminal state. Schema and long run IDs occur only at file boundaries.
+terminal state.
 
 This makes it possible to see which prompt was escalated, what context the
 method saw, and which evidence caused the decision. Trace directories can contain

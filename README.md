@@ -263,11 +263,13 @@ tool results, and secrets. The launcher writes local operational data under
 `.smart-ask/`, which is ignored by Git.
 
 Each traced launcher session gets a directory containing a live `session.json`
-index and one self-contained JSONL file per method invocation. This keeps each
-turn independently inspectable without interleaving concurrent invocations.
-Shared index values and unchanged call context are stored by lossless local
-reference, and exact repeated inputs are identified without assuming that they
-were retries.
+index and one append-only `.log` file per method invocation. The log presents a
+classic line-oriented stream: timestamp, level, component, message, and compact
+`key=value` evidence. `INFO` exposes the execution path, `DEBUG` records input
+and thinking, and `WARN`/`ERROR` expose operational problems. Long content uses
+explicit `begin`/`end` lines with indented continuations. Concurrent invocations
+cannot interleave. Exact repeated inputs are identified without assuming that
+they were retries.
 
 Routing summaries should be derived from the decision and call ledgers. The
 provider request started by a decision owns its tokens and cost; the same usage

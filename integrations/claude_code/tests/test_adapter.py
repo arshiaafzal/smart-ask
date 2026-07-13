@@ -401,7 +401,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
             index = json.loads(
                 (path / "session.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(index["schema"], "smart-ask.trace-session-index/v2")
+            self.assertEqual(index["schema"], "smart-ask.trace-session-index/v3")
             self.assertEqual(index["invocation_count"], 1)
             self.assertEqual(len(index["contexts"]), 1)
             self.assertEqual(len(index["inputs"]), 1)
@@ -414,41 +414,24 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
                 0o600,
             )
             self.assertEqual(invocation_path.stat().st_mode & 0o777, 0o600)
-            rows = [
-                json.loads(line)
-                for line in invocation_path.read_text(encoding="utf-8").splitlines()
-            ]
-            self.assertEqual(rows[0], {
-                "event": "trace_start",
-                "schema": "smart-ask.method-invocation-trace/v2",
-            })
-            self.assertEqual(rows[1]["event"], "run_start")
-            self.assertIn("run_id", rows[1])
-            self.assertEqual(rows[1]["ordinal"], 1)
-            self.assertTrue(all("schema" not in row for row in rows[1:]))
-            self.assertTrue(all("run_id" not in row for row in rows[2:]))
-            self.assertEqual(sum(row["event"] == "conversation" for row in rows), 1)
-            self.assertEqual(sum(row["event"] == "decision" for row in rows), 1)
-            self.assertEqual(sum(row["event"] == "model_call" for row in rows), 1)
-            self.assertEqual(sum(row["event"] == "provider_start" for row in rows), 1)
-            self.assertEqual(sum(row["event"] == "model_output" for row in rows), 1)
-            self.assertEqual(
-                sum(row["event"] == "model_output_chunk" for row in rows),
-                0,
+            self.assertEqual(invocation_path.suffix, ".log")
+            log = invocation_path.read_text(encoding="utf-8")
+            self.assertRegex(
+                log.splitlines()[0],
+                r"^\d{2}:\d{2}:\d{2}\.\d{3} INFO  run +started strategy=",
             )
-            self.assertEqual(rows[-1]["event"], "run_end")
-            self.assertEqual(rows[-1]["status"], "completed")
-            conversation = next(
-                row["conversation"] for row in rows if row["event"] == "conversation"
-            )
-            self.assertEqual(conversation["messages"][0]["content"][0]["text"], "trace me")
-            model_call = next(row for row in rows if row["event"] == "model_call")
-            self.assertEqual(model_call["conversation_ref"], "run_input")
-            self.assertNotIn("conversation", model_call)
-            output = next(row for row in rows if row["event"] == "model_output")
-            self.assertEqual(output["text"], "adapter-ok")
-            self.assertNotIn("extensions", conversation["messages"][0])
-            self.assertNotIn("agent_id", rows[1]["metadata"])
+            self.assertEqual(log.count("DEBUG input      context "), 1)
+            self.assertEqual(log.count("planned call=call-1"), 1)
+            self.assertEqual(log.count("started model=qwen3:14b"), 1)
+            self.assertIn("context=run_input", log)
+            self.assertIn('DEBUG input      user="trace me"', log)
+            output_at = log.index('output="adapter-ok"')
+            finished_at = log.index("finished stop=stop tokens_in=12 tokens_out=3")
+            self.assertLess(output_at, finished_at)
+            self.assertIn("run        completed calls=1 tokens=15", log)
+            self.assertNotIn("Schema:", log)
+            self.assertNotIn("run_id=", log)
+            self.assertNotIn("\n\n", log)
 
     async def test_trace_is_updated_before_a_slow_model_finishes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -476,14 +459,11 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(index["invocations"][0]["status"], "running")
             invocation_path = path / index["invocations"][0]["file"]
-            rows = [
-                json.loads(line)
-                for line in invocation_path.read_text(encoding="utf-8").splitlines()
-            ]
-            self.assertIn("run_start", [row["event"] for row in rows])
-            self.assertIn("conversation", [row["event"] for row in rows])
-            self.assertIn("model_call", [row["event"] for row in rows])
-            self.assertNotIn("run_end", [row["event"] for row in rows])
+            log = invocation_path.read_text(encoding="utf-8")
+            self.assertIn("INFO  run        started", log)
+            self.assertIn("DEBUG input      context", log)
+            self.assertIn("planned call=call-1", log)
+            self.assertNotIn("run        completed", log)
 
             request.cancel()
             with self.assertRaises(asyncio.CancelledError):
@@ -537,15 +517,10 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
             files = [path / value["file"] for value in index["invocations"]]
             self.assertEqual(len(set(files)), 2)
             for invocation_path in files:
-                rows = [
-                    json.loads(line)
-                    for line in invocation_path.read_text(encoding="utf-8").splitlines()
-                ]
-                self.assertEqual(
-                    rows[0]["schema"],
-                    "smart-ask.method-invocation-trace/v2",
-                )
-                self.assertEqual(rows[-1]["event"], "run_end")
+                self.assertEqual(invocation_path.suffix, ".log")
+                log = invocation_path.read_text(encoding="utf-8")
+                self.assertIn("INFO  run        started", log)
+                self.assertIn("INFO  run        completed", log)
 
     async def test_trace_references_propagated_model_error(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -573,18 +548,9 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
                 (path / "session.json").read_text(encoding="utf-8")
             )
             invocation_path = path / index["invocations"][0]["file"]
-            rows = [
-                json.loads(line)
-                for line in invocation_path.read_text(encoding="utf-8").splitlines()
-            ]
-            model_error = next(row for row in rows if row["event"] == "model_error")
-            run_error = next(row for row in rows if row["event"] == "run_error")
-            self.assertEqual(model_error["message"], "provider exploded")
-            self.assertNotIn("message", run_error)
-            self.assertEqual(run_error["caused_by"], {
-                "event": "model_error",
-                "call_id": "call-1",
-            })
+            log = invocation_path.read_text(encoding="utf-8")
+            self.assertEqual(log.count("provider exploded"), 1)
+            self.assertIn("run        failed type=ModelCallFailed caused_by=call-1", log)
 
     async def test_long_output_remains_incremental_in_trace(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -612,14 +578,10 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
                 (path / "session.json").read_text(encoding="utf-8")
             )
             invocation_path = path / index["invocations"][0]["file"]
-            events = [
-                json.loads(line)["event"]
-                for line in invocation_path.read_text(encoding="utf-8").splitlines()
-            ]
-            self.assertIn("model_output_start", events)
-            self.assertIn("model_output_chunk", events)
-            self.assertIn("model_output_end", events)
-            self.assertNotIn("model_output", events)
+            log = invocation_path.read_text(encoding="utf-8")
+            self.assertIn("writer     output begin", log)
+            self.assertIn("\n  " + "x" * 512, log)
+            self.assertIn("writer     output end", log)
 
     async def test_adapter_source_contains_no_backend_or_routing_policy(self):
         source_root = Path(__file__).parents[1] / "src" / "smart_ask_claude_code"
@@ -672,17 +634,12 @@ class DependencyBoundaryTests(unittest.TestCase):
             )
             trace.close()
 
-            invocation = next(path.glob("*.jsonl"))
-            rows = [
-                json.loads(line)
-                for line in invocation.read_text(encoding="utf-8").splitlines()
-            ]
-            call = next(row for row in rows if row["event"] == "model_call")
-            self.assertEqual(call["conversation_ref"], "run_input")
-            self.assertEqual(call["replace"], {
-                "parameters": {"max_tokens": 50, "temperature": 0.0},
-            })
-            self.assertNotIn("conversation", call)
+            invocation = next(path.glob("*.log"))
+            log = invocation.read_text(encoding="utf-8")
+            self.assertIn("context=run_input changed=[\"parameters\"]", log)
+            self.assertIn("context.parameters", log)
+            self.assertIn("max_tokens=50", log)
+            self.assertIn("temperature=0.0", log)
 
     def test_smartask_core_has_no_claude_adapter_or_asgi_dependency(self):
         root = Path(__file__).parents[3] / "smart_ask"

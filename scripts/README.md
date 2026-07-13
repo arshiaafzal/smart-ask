@@ -91,21 +91,22 @@ The launcher prints the directory before starting Claude Code. Its layout is:
 ```text
 .smart-ask/claude-code/traces/<timestamp-id>/
 ├── session.json
-├── 001-<run-id>.jsonl
-├── 002-<run-id>.jsonl
+├── 001-<run-id>.log
+├── 002-<run-id>.log
 └── ...
 ```
 
 `session.json` is a live index of method invocations and their terminal
-status. Each numbered file is self-contained and stores one invocation's
-complete immutable conversation, transformed logical calls, decisions,
-streamed output, usage, errors, and terminal state.
+status. Each numbered file is an append-only, classic text log for one
+invocation. Every event is one timestamped `LEVEL component message key=value`
+line. `INFO` shows calls, decisions, output, usage, and terminal state; `DEBUG`
+contains input and thinking; `WARN` and `ERROR` expose problems. Long content
+uses `begin`/`end` lines with indented continuations.
 
 The index normalizes repeated session/strategy context and identifies exact
-input repetition with `same_input_as`. Within an invocation, transformed calls
-reference the initial conversation and store only changed top-level components
-when that representation is smaller. These are lossless references within the
-same invocation file, not omitted context.
+input repetition with `same_input_as`. A call that reuses the input says
+`context=run_input`; changed parameters are printed directly. Custom contexts
+are logged only for calls that actually replace the invocation input.
 
 Trace directories can contain source code, system instructions, tool inputs/results, and
 secrets. They are opt-in and local. `.smart-ask/` is ignored by Git;
