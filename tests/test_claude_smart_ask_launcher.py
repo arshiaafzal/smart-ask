@@ -38,9 +38,9 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                 encoding="utf-8",
             )
             port = unused_port()
-            adapter = temporary / "fake-adapter"
+            gateway = temporary / "fake-gateway"
             claude = temporary / "fake-claude"
-            executable(adapter, """
+            executable(gateway, """
                 #!/usr/bin/env python3
                 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
                 import json
@@ -62,7 +62,7 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
                             self.send_header("content-type", "application/json")
                             self.end_headers()
                             self.wfile.write(json.dumps({"data": [{
-                                "id": "claude-smart-ask-python-code-generation-codex-cascade"
+                                "id": "smart-ask-python-code-generation-codex-cascade"
                             }]}).encode())
                         else:
                             self.send_response(404)
@@ -93,11 +93,11 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             env = {
                 **os.environ,
                 "SMART_ASK_LAUNCHER_STATE_DIR": str(state_parent),
-                "SMART_ASK_ADAPTER_BIN": str(adapter),
+                "SMART_ASK_GATEWAY_BIN": str(gateway),
                 "SMART_ASK_PYTHON": sys.executable,
                 "SMART_ASK_AUTO_INSTALL": "0",
-                "SMART_ASK_ADAPTER_PORT": str(port),
-                "SMART_ASK_CLAUDE_CODE_TOKEN": "test-token",
+                "SMART_ASK_GATEWAY_PORT": str(port),
+                "SMART_ASK_GATEWAY_TOKEN": "test-token",
                 "SMART_ASK_START_ATTEMPTS": "40",
                 "SMART_ASK_METRICS_PATH": str(metrics_path),
                 "SMART_ASK_SECRETS_FILE": str(secrets_path),
@@ -128,7 +128,7 @@ class ClaudeSmartAskLauncherTests(unittest.TestCase):
             payload = json.loads(run.stdout.strip().splitlines()[-1])
             self.assertEqual(payload["argv"], [
                 "--model",
-                "claude-smart-ask-python-code-generation-codex-cascade",
+                "smart-ask-python-code-generation-codex-cascade",
                 "-p",
                 "hello",
             ])

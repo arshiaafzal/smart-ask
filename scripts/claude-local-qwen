@@ -5,17 +5,17 @@ set -euo pipefail
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 CALLER_DIR=$PWD
 STATE_DIR=${SMART_ASK_LAUNCHER_STATE_DIR:-${TMPDIR:-/tmp}/smart-ask-claude-local-qwen}
-CONFIG=${SMART_ASK_CLAUDE_CONFIG:-$ROOT_DIR/claude-code-adapter.example.yaml}
-MODEL=${SMART_ASK_CLAUDE_MODEL:-claude-smart-ask-local-qwen}
+CONFIG=${SMART_ASK_CLAUDE_CONFIG:-$ROOT_DIR/anthropic-gateway.example.yaml}
+MODEL=${SMART_ASK_CLAUDE_MODEL:-smart-ask-local-qwen}
 OLLAMA_URL=${SMART_ASK_OLLAMA_URL:-http://127.0.0.1:11434}
-ADAPTER_URL=${SMART_ASK_ADAPTER_URL:-http://127.0.0.1:8787}
+GATEWAY_URL=${SMART_ASK_GATEWAY_URL:-http://127.0.0.1:8787}
 START_ATTEMPTS=${SMART_ASK_START_ATTEMPTS:-120}
 
 OLLAMA_PID_FILE=$STATE_DIR/ollama.pid
-ADAPTER_PID_FILE=$STATE_DIR/adapter.pid
+GATEWAY_PID_FILE=$STATE_DIR/gateway.pid
 TOKEN_FILE=$STATE_DIR/token
 OLLAMA_LOG=$STATE_DIR/ollama.log
-ADAPTER_LOG=$STATE_DIR/adapter.log
+GATEWAY_LOG=$STATE_DIR/gateway.log
 LAUNCHER_VENV=$STATE_DIR/venv
 
 umask 077
@@ -33,10 +33,10 @@ Usage:
 
 Environment overrides:
   SMART_ASK_CLAUDE_CONFIG, SMART_ASK_CLAUDE_MODEL
-  SMART_ASK_CLAUDE_CODE_TOKEN
-  SMART_ASK_OLLAMA_BIN, SMART_ASK_ADAPTER_BIN, CLAUDE_BIN
+  SMART_ASK_GATEWAY_TOKEN
+  SMART_ASK_OLLAMA_BIN, SMART_ASK_GATEWAY_BIN, CLAUDE_BIN
   SMART_ASK_PYTHON, SMART_ASK_AUTO_INSTALL
-  SMART_ASK_OLLAMA_URL, SMART_ASK_ADAPTER_URL
+  SMART_ASK_OLLAMA_URL, SMART_ASK_GATEWAY_URL
   SMART_ASK_LAUNCHER_STATE_DIR
 EOF
 }
@@ -62,20 +62,27 @@ resolve_ollama() {
     fi
 }
 
-resolve_adapter() {
-    if [ -n "${SMART_ASK_ADAPTER_BIN:-}" ]; then
-        printf '%s\n' "$SMART_ASK_ADAPTER_BIN"
-    elif command -v smart-ask-claude-code >/dev/null 2>&1; then
-        command -v smart-ask-claude-code
-    elif [ -x "$ROOT_DIR/.venv/bin/smart-ask-claude-code" ]; then
-        printf '%s\n' "$ROOT_DIR/.venv/bin/smart-ask-claude-code"
-    elif [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ]; then
-        printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask-claude-code"
-    elif [ "${SMART_ASK_AUTO_INSTALL:-1}" != "0" ]; then
-        bootstrap_adapter
-    else
-        return 1
+resolve_gateway() {
+    local candidate
+    if [ -n "${SMART_ASK_GATEWAY_BIN:-}" ]; then
+        printf '%s\n' "$SMART_ASK_GATEWAY_BIN"
+        return
     fi
+    for candidate in \
+        "$ROOT_DIR/.venv/bin/smart-ask" \
+        "$LAUNCHER_VENV/bin/smart-ask" \
+        "$(command -v smart-ask 2>/dev/null || true)"; do
+        if [ -x "$candidate" ] && \
+            "$candidate" gateway anthropic --help >/dev/null 2>&1; then
+            printf '%s\n' "$candidate"
+            return
+        fi
+    done
+    if [ "${SMART_ASK_AUTO_INSTALL:-1}" != "0" ]; then
+        bootstrap_gateway
+        return
+    fi
+    return 1
 }
 
 resolve_python() {
@@ -99,21 +106,20 @@ resolve_python() {
     return 1
 }
 
-bootstrap_adapter() {
+bootstrap_gateway() {
     local python
     python=$(resolve_python) || fail \
         "Python 3.11+ was not found; install it or set SMART_ASK_PYTHON"
-    echo "First run: preparing the SmartAsk adapter environment..." >&2
+    echo "First run: preparing the SmartAsk gateway environment..." >&2
     if [ ! -x "$LAUNCHER_VENV/bin/python" ]; then
         "$python" -m venv "$LAUNCHER_VENV" >&2
     fi
     "$LAUNCHER_VENV/bin/python" -m pip install \
         --disable-pip-version-check \
         --quiet \
-        --editable "$ROOT_DIR" \
-        --editable "$ROOT_DIR/integrations/claude_code" >&2
-    [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ] || return 1
-    printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask-claude-code"
+        --editable "$ROOT_DIR[anthropic-gateway]" >&2
+    [ -x "$LAUNCHER_VENV/bin/smart-ask" ] || return 1
+    printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask"
 }
 
 resolve_claude() {
@@ -127,9 +133,9 @@ resolve_claude() {
 }
 
 read_token() {
-    if [ -n "${SMART_ASK_CLAUDE_CODE_TOKEN:-}" ]; then
-        printf '%s\n' "$SMART_ASK_CLAUDE_CODE_TOKEN" >"$TOKEN_FILE"
-        printf '%s\n' "$SMART_ASK_CLAUDE_CODE_TOKEN"
+    if [ -n "${SMART_ASK_GATEWAY_TOKEN:-}" ]; then
+        printf '%s\n' "$SMART_ASK_GATEWAY_TOKEN" >"$TOKEN_FILE"
+        printf '%s\n' "$SMART_ASK_GATEWAY_TOKEN"
         return
     fi
     if [ -s "$TOKEN_FILE" ]; then
@@ -159,7 +165,7 @@ http_ready() {
     curl --silent --fail --max-time 1 "$1" >/dev/null 2>&1
 }
 
-adapter_ready() {
+gateway_ready() {
     local token=$1
     local response
     response=$(curl \
@@ -167,7 +173,7 @@ adapter_ready() {
         --fail \
         --max-time 2 \
         --header "x-api-key: $token" \
-        "$ADAPTER_URL/v1/models" 2>/dev/null) || return 1
+        "$GATEWAY_URL/v1/models" 2>/dev/null) || return 1
     printf '%s' "$response" | grep -Fq "\"$MODEL\""
 }
 
@@ -197,26 +203,26 @@ start_ollama() {
     wait_until "Ollama" http_ready "$OLLAMA_URL/api/version"
 }
 
-start_adapter() {
+start_gateway() {
     local token=$1
-    if http_ready "$ADAPTER_URL/healthz"; then
-        adapter_ready "$token" || fail \
-            "an adapter is already listening at $ADAPTER_URL but its token or model differs"
+    if http_ready "$GATEWAY_URL/healthz"; then
+        gateway_ready "$token" || fail \
+            "a gateway is already listening at $GATEWAY_URL but its token or model differs"
         return
     fi
-    [ -f "$CONFIG" ] || fail "adapter config not found: $CONFIG"
-    local adapter_bin
-    adapter_bin=$(resolve_adapter) || fail \
-        "adapter was not found and automatic installation failed"
+    [ -f "$CONFIG" ] || fail "gateway config not found: $CONFIG"
+    local gateway_bin
+    gateway_bin=$(resolve_gateway) || fail \
+        "gateway was not found and automatic installation failed"
     (
         cd "$ROOT_DIR"
         exec env -u OPENROUTER_API_KEY \
-            SMART_ASK_CLAUDE_CODE_TOKEN="$token" \
+            SMART_ASK_GATEWAY_TOKEN="$token" \
             SMART_ASK_OLLAMA_URL="$OLLAMA_URL/api" \
-            "$adapter_bin" serve --config "$CONFIG"
-    ) >"$ADAPTER_LOG" 2>&1 &
-    printf '%s\n' "$!" >"$ADAPTER_PID_FILE"
-    wait_until "SmartAsk adapter" adapter_ready "$token"
+            "$gateway_bin" gateway anthropic serve --config "$CONFIG"
+    ) >"$GATEWAY_LOG" 2>&1 &
+    printf '%s\n' "$!" >"$GATEWAY_PID_FILE"
+    wait_until "SmartAsk gateway" gateway_ready "$token"
 }
 
 start_stack() {
@@ -224,8 +230,8 @@ start_stack() {
     local token
     token=$(read_token)
     start_ollama
-    start_adapter "$token"
-    echo "ready: $MODEL via $ADAPTER_URL"
+    start_gateway "$token"
+    echo "ready: $MODEL via $GATEWAY_URL"
 }
 
 stop_owned() {
@@ -263,14 +269,14 @@ show_status() {
     else
         echo "Ollama: stopped"
     fi
-    if adapter_ready "$token"; then
-        if pid_is_alive "$ADAPTER_PID_FILE"; then
-            echo "Adapter: ready (started here, pid $(cat "$ADAPTER_PID_FILE"))"
+    if gateway_ready "$token"; then
+        if pid_is_alive "$GATEWAY_PID_FILE"; then
+            echo "Gateway: ready (started here, pid $(cat "$GATEWAY_PID_FILE"))"
         else
-            echo "Adapter: ready (external process)"
+            echo "Gateway: ready (external process)"
         fi
     else
-        echo "Adapter: stopped or not configured for $MODEL"
+        echo "Gateway: stopped or not configured for $MODEL"
     fi
     echo "State: $STATE_DIR"
 }
@@ -281,7 +287,7 @@ case "${1:-}" in
         exit 0
         ;;
     stop)
-        stop_owned "Adapter" "$ADAPTER_PID_FILE"
+        stop_owned "Gateway" "$GATEWAY_PID_FILE"
         stop_owned "Ollama" "$OLLAMA_PID_FILE"
         exit 0
         ;;
@@ -308,7 +314,7 @@ TOKEN=$(read_token)
 CLAUDE=$(resolve_claude) || fail "Claude Code was not found; install it or set CLAUDE_BIN"
 cd "$CALLER_DIR"
 exec env -u OPENROUTER_API_KEY \
-    ANTHROPIC_BASE_URL="$ADAPTER_URL" \
+    ANTHROPIC_BASE_URL="$GATEWAY_URL" \
     ANTHROPIC_API_KEY="$TOKEN" \
     ANTHROPIC_AUTH_TOKEN="$TOKEN" \
     "$CLAUDE" --model "$MODEL" "$@"

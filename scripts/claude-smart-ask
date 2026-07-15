@@ -15,7 +15,7 @@ fi
 CALLER_DIR=$PWD
 STATE_PARENT=${SMART_ASK_LAUNCHER_STATE_DIR:-${TMPDIR:-/tmp}}
 START_ATTEMPTS=${SMART_ASK_START_ATTEMPTS:-120}
-ADAPTER_HOST=${SMART_ASK_ADAPTER_HOST:-127.0.0.1}
+GATEWAY_HOST=${SMART_ASK_GATEWAY_HOST:-127.0.0.1}
 LAUNCHER_VENV=$STATE_PARENT/smart-ask-claude-launcher-venv
 
 usage() {
@@ -29,14 +29,14 @@ Examples:
   scripts/claude-smart-ask --strategy local-qwen -p "hello"
 
 The selected strategy determines its backend and required credentials. This
-launcher starts only the external adapter and Claude Code; provider services
+launcher starts the Anthropic gateway and Claude Code; provider services
 such as Ollama must already be running.
 
 Environment overrides:
   SMART_ASK_SECRETS_FILE
-  SMART_ASK_CLAUDE_CODE_TOKEN
-  SMART_ASK_ADAPTER_BIN, SMART_ASK_PYTHON, SMART_ASK_AUTO_INSTALL
-  SMART_ASK_ADAPTER_HOST, SMART_ASK_ADAPTER_PORT
+  SMART_ASK_GATEWAY_TOKEN
+  SMART_ASK_GATEWAY_BIN, SMART_ASK_PYTHON, SMART_ASK_AUTO_INSTALL
+  SMART_ASK_GATEWAY_HOST, SMART_ASK_GATEWAY_PORT
   SMART_ASK_LAUNCHER_STATE_DIR, SMART_ASK_START_ATTEMPTS
   SMART_ASK_METRICS_PATH, CLAUDE_BIN
   SMART_ASK_TRACE_DIR
@@ -69,37 +69,43 @@ resolve_python() {
     return 1
 }
 
-bootstrap_adapter() {
+bootstrap_gateway() {
     local python
     python=$(resolve_python) || fail \
         "Python 3.11+ was not found; install it or set SMART_ASK_PYTHON"
-    echo "First run: preparing the SmartAsk adapter environment..." >&2
+    echo "First run: preparing the SmartAsk gateway environment..." >&2
     if [ ! -x "$LAUNCHER_VENV/bin/python" ]; then
         "$python" -m venv "$LAUNCHER_VENV" >&2
     fi
     "$LAUNCHER_VENV/bin/python" -m pip install \
         --disable-pip-version-check \
         --quiet \
-        --editable "$ROOT_DIR" \
-        --editable "$ROOT_DIR/integrations/claude_code" >&2
-    [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ] || return 1
-    printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask-claude-code"
+        --editable "$ROOT_DIR[anthropic-gateway]" >&2
+    [ -x "$LAUNCHER_VENV/bin/smart-ask" ] || return 1
+    printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask"
 }
 
-resolve_adapter() {
-    if [ -n "${SMART_ASK_ADAPTER_BIN:-}" ]; then
-        printf '%s\n' "$SMART_ASK_ADAPTER_BIN"
-    elif command -v smart-ask-claude-code >/dev/null 2>&1; then
-        command -v smart-ask-claude-code
-    elif [ -x "$ROOT_DIR/.venv/bin/smart-ask-claude-code" ]; then
-        printf '%s\n' "$ROOT_DIR/.venv/bin/smart-ask-claude-code"
-    elif [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ]; then
-        printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask-claude-code"
-    elif [ "${SMART_ASK_AUTO_INSTALL:-1}" != "0" ]; then
-        bootstrap_adapter
-    else
-        return 1
+resolve_gateway() {
+    local candidate
+    if [ -n "${SMART_ASK_GATEWAY_BIN:-}" ]; then
+        printf '%s\n' "$SMART_ASK_GATEWAY_BIN"
+        return
     fi
+    for candidate in \
+        "$ROOT_DIR/.venv/bin/smart-ask" \
+        "$LAUNCHER_VENV/bin/smart-ask" \
+        "$(command -v smart-ask 2>/dev/null || true)"; do
+        if [ -x "$candidate" ] && \
+            "$candidate" gateway anthropic --help >/dev/null 2>&1; then
+            printf '%s\n' "$candidate"
+            return
+        fi
+    done
+    if [ "${SMART_ASK_AUTO_INSTALL:-1}" != "0" ]; then
+        bootstrap_gateway
+        return
+    fi
+    return 1
 }
 
 resolve_claude() {
@@ -113,8 +119,8 @@ resolve_claude() {
 }
 
 make_token() {
-    if [ -n "${SMART_ASK_CLAUDE_CODE_TOKEN:-}" ]; then
-        printf '%s\n' "$SMART_ASK_CLAUDE_CODE_TOKEN"
+    if [ -n "${SMART_ASK_GATEWAY_TOKEN:-}" ]; then
+        printf '%s\n' "$SMART_ASK_GATEWAY_TOKEN"
     elif command -v openssl >/dev/null 2>&1; then
         openssl rand -hex 24
     else
@@ -132,21 +138,21 @@ with socket.socket() as sock:
 PY
 }
 
-adapter_ready() {
+gateway_ready() {
     curl \
         --silent \
         --fail \
         --max-time 1 \
         --header "x-api-key: $TOKEN" \
-        "$ADAPTER_URL/v1/models" >"$MODELS_FILE" 2>/dev/null
+        "$GATEWAY_URL/v1/models" >"$MODELS_FILE" 2>/dev/null
 }
 
 cleanup() {
     local status=$?
     trap - EXIT INT TERM
-    if [ -n "${ADAPTER_PID:-}" ] && kill -0 "$ADAPTER_PID" 2>/dev/null; then
-        kill "$ADAPTER_PID" 2>/dev/null || true
-        wait "$ADAPTER_PID" 2>/dev/null || true
+    if [ -n "${GATEWAY_PID:-}" ] && kill -0 "$GATEWAY_PID" 2>/dev/null; then
+        kill "$GATEWAY_PID" 2>/dev/null || true
+        wait "$GATEWAY_PID" 2>/dev/null || true
     fi
     rm -rf "$STATE_DIR"
     exit "$status"
@@ -185,38 +191,38 @@ if [ "$GENERATE_TRACE_DIR" = "1" ]; then
     TRACE_DIR=$ROOT_DIR/.smart-ask/claude-code/traces/$TRACE_NAME
 fi
 mkdir -p "$STATE_PARENT"
-ADAPTER=$(resolve_adapter) || fail \
-    "adapter was not found and automatic installation failed"
+GATEWAY=$(resolve_gateway) || fail \
+    "gateway was not found and automatic installation failed"
 if ! "$PYTHON" -c 'import smart_ask.strategy' >/dev/null 2>&1; then
     if [ "${SMART_ASK_AUTO_INSTALL:-1}" = "0" ]; then
         fail "selected Python cannot import smart_ask and automatic installation is disabled"
     fi
-    ADAPTER=$(bootstrap_adapter) || fail \
-        "adapter environment preparation failed"
+    GATEWAY=$(bootstrap_gateway) || fail \
+        "gateway environment preparation failed"
     PYTHON=$LAUNCHER_VENV/bin/python
 fi
 CLAUDE=$(resolve_claude) || fail \
     "Claude Code was not found; install it or set CLAUDE_BIN"
 
 STATE_DIR=$(mktemp -d "$STATE_PARENT/smart-ask-claude.XXXXXX")
-CONFIG=$STATE_DIR/adapter.json
+CONFIG=$STATE_DIR/gateway.json
 PROVIDER_ENVS=$STATE_DIR/provider-envs
 MODELS_FILE=$STATE_DIR/models.json
-ADAPTER_LOG=$STATE_DIR/adapter.log
+GATEWAY_LOG=$STATE_DIR/gateway.log
 TOKEN=$(make_token)
-PORT=${SMART_ASK_ADAPTER_PORT:-$(unused_port)}
-ADAPTER_URL=http://$ADAPTER_HOST:$PORT
+PORT=${SMART_ASK_GATEWAY_PORT:-$(unused_port)}
+GATEWAY_URL=http://$GATEWAY_HOST:$PORT
 METRICS_PATH=${SMART_ASK_METRICS_PATH:-$ROOT_DIR/.smart-ask/claude-code/metrics.jsonl}
 if [ -n "$TRACE_DIR" ]; then
     TRACE_DIR=$("$PYTHON" -c \
         'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser().resolve())' \
         "$TRACE_DIR")
 fi
-ADAPTER_PID=
+GATEWAY_PID=
 trap cleanup EXIT INT TERM
 
 METRICS_PATH=$(
-"$PYTHON" - "$STRATEGY_NAME" "$CONFIG" "$PROVIDER_ENVS" "$ADAPTER_HOST" "$PORT" "$METRICS_PATH" "$TRACE_DIR" <<'PY'
+"$PYTHON" - "$STRATEGY_NAME" "$CONFIG" "$PROVIDER_ENVS" "$GATEWAY_HOST" "$PORT" "$METRICS_PATH" "$TRACE_DIR" <<'PY'
 import json
 from pathlib import Path
 import sys
@@ -244,7 +250,7 @@ config = {
     "schema_version": 1,
     "listen": {"host": host, "port": int(raw_port)},
     "auth": {
-        "token_env": "SMART_ASK_CLAUDE_CODE_TOKEN",
+        "token_env": "SMART_ASK_GATEWAY_TOKEN",
         "required_on_loopback": True,
     },
     "strategies": [reference],
@@ -270,26 +276,26 @@ PY
 
 (
     cd "$ROOT_DIR"
-    exec env SMART_ASK_CLAUDE_CODE_TOKEN="$TOKEN" \
-        "$ADAPTER" serve --config "$CONFIG"
-) >"$ADAPTER_LOG" 2>&1 &
-ADAPTER_PID=$!
+    exec env SMART_ASK_GATEWAY_TOKEN="$TOKEN" \
+        "$GATEWAY" gateway anthropic serve --config "$CONFIG"
+) >"$GATEWAY_LOG" 2>&1 &
+GATEWAY_PID=$!
 
 attempt=0
 while [ "$attempt" -lt "$START_ATTEMPTS" ]; do
-    if adapter_ready; then
+    if gateway_ready; then
         break
     fi
-    if ! kill -0 "$ADAPTER_PID" 2>/dev/null; then
-        sed -n '1,160p' "$ADAPTER_LOG" >&2
-        fail "SmartAsk adapter exited before becoming ready"
+    if ! kill -0 "$GATEWAY_PID" 2>/dev/null; then
+        sed -n '1,160p' "$GATEWAY_LOG" >&2
+        fail "SmartAsk gateway exited before becoming ready"
     fi
     attempt=$((attempt + 1))
     sleep 0.25
 done
-adapter_ready || {
-    sed -n '1,160p' "$ADAPTER_LOG" >&2
-    fail "SmartAsk adapter did not become ready"
+gateway_ready || {
+    sed -n '1,160p' "$GATEWAY_LOG" >&2
+    fail "SmartAsk gateway did not become ready"
 }
 
 MODEL=$(
@@ -301,10 +307,10 @@ import sys
 payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 models = payload.get("data")
 if not isinstance(models, list) or len(models) != 1:
-    raise SystemExit("adapter must expose exactly one model")
+    raise SystemExit("gateway must expose exactly one model")
 model = models[0].get("id")
 if not isinstance(model, str) or not model:
-    raise SystemExit("adapter returned an invalid model id")
+    raise SystemExit("gateway returned an invalid model id")
 print(model)
 PY
 )
@@ -314,7 +320,7 @@ while IFS= read -r credential; do
     [ -n "$credential" ] && CLAUDE_ENV+=(-u "$credential")
 done <"$PROVIDER_ENVS"
 CLAUDE_ENV+=(
-    ANTHROPIC_BASE_URL="$ADAPTER_URL"
+    ANTHROPIC_BASE_URL="$GATEWAY_URL"
     ANTHROPIC_API_KEY="$TOKEN"
     ANTHROPIC_AUTH_TOKEN="$TOKEN"
 )
@@ -323,6 +329,6 @@ echo "metrics: $METRICS_PATH" >&2
 if [ -n "$TRACE_DIR" ]; then
     echo "trace directory: $TRACE_DIR (contains conversation content)" >&2
 fi
-echo "ready: $MODEL via $ADAPTER_URL" >&2
+echo "ready: $MODEL via $GATEWAY_URL" >&2
 cd "$CALLER_DIR"
 "${CLAUDE_ENV[@]}" "$CLAUDE" --model "$MODEL" "$@"

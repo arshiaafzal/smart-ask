@@ -7,7 +7,7 @@ method performs all reasoning needed to select one visible response.
 ## Core model
 
 ```text
-terminal / benchmark / protocol adapter
+terminal / benchmark / protocol gateway
                  │
                  ▼
      Conversation + RunMetadata
@@ -322,27 +322,28 @@ The current Ollama `/chat` transport sends the complete message history;
 keeping the model loaded does not itself establish a persistent conversation
 cache.
 
-## External adapters
+## Protocol gateways
 
-Harness-specific servers are downstream integrations:
+Protocol servers are inbound boundaries:
 
 ```text
 harness
-  → protocol adapter
+  → protocol gateway
       → Conversation + RunMetadata
           → StrategyEngine
 ```
 
-The adapter owns wire parsing, authentication, discovery, concurrency and
+The gateway owns wire parsing, authentication, discovery, concurrency and
 request-size limits, stream framing, and conversion of tools/images/reasoning.
 It maps each advertised model alias to one loaded strategy. It does not inspect
 cheap/hard profiles, start provider services, or implement routing.
 
-The Claude Code adapter is separately packaged under
-`integrations/claude_code/`. Core code never imports it and contains no ASGI,
-Anthropic Messages, or Claude Code behavior. Claude Code's own agent system
-instructions are part of the incoming conversation and are intentionally
-preserved.
+The optional Anthropic gateway lives under `smart_ask/gateways/anthropic/` in
+the main distribution. Its ASGI dependencies are isolated behind the
+`anthropic-gateway` optional extra. The conversation engine, methods, strategy
+loader, and transports never import the gateway. Claude Code is one client of
+this generic protocol boundary; its agent system instructions arrive as
+ordinary conversation input and are intentionally preserved.
 
 ## Metrics and traces
 
@@ -405,7 +406,7 @@ threshold; cost and quality regret compare the routed result to that oracle.
 Arrows mean “imports or depends on”:
 
 ```text
-terminal / benchmark / external adapter
+terminal / benchmark / protocol gateway
   → strategy loader and builder
       → methods + target executor registry
           → conversation engine and immutable values
@@ -413,7 +414,7 @@ terminal / benchmark / external adapter
 methods → conversation contracts
 transports → conversation contracts
 methods ⇛ concrete transports
-core ⇛ external adapters
+engine / methods / transports ⇛ protocol gateways
 core ⇛ benchmark suites
 ```
 
@@ -431,5 +432,6 @@ core ⇛ benchmark suites
 | `smart_ask/strategy/loader.py` | Safe loading, prompt resolution, digest |
 | `smart_ask/strategy/targets.py` | Trusted deployment target definitions |
 | `smart_ask/strategy/builder.py` | Policy compilation into one engine |
+| `smart_ask/gateways/anthropic/` | Optional Anthropic HTTP parsing, auth, discovery, and framing |
+| `smart_ask/observability/` | Human-readable invocation logs |
 | `smart_ask/benchmarks/` | Case matrix, persistence, summaries, routing analysis |
-| `integrations/claude_code/` | External Anthropic-compatible adapter |

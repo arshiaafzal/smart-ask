@@ -1,22 +1,22 @@
-# SmartAsk Claude Code adapter
+# SmartAsk Anthropic gateway
 
-This separately installable adapter exposes SmartAsk strategies through the
-Anthropic Messages protocol used by Claude Code:
+This optional gateway exposes SmartAsk strategies through the Anthropic
+Messages protocol used by Claude Code and other compatible clients:
 
 ```text
 Claude Code
-  → this adapter
+  → this gateway
   → SmartAsk StrategyEngine
   → strategy-selected trusted target
 ```
 
-The adapter translates HTTP requests and streaming events. It owns
+The gateway translates HTTP requests and streaming events. It owns
 authentication, model discovery, request/concurrency limits, tools, images,
 reasoning blocks, token-count requests, and Anthropic-compatible framing. It
 does not choose providers, models, routes, or escalation behavior.
 
 Each advertised Claude Code model name maps to exactly one strategy YAML. On
-every Claude Code model request, the adapter builds one immutable `Conversation`
+every Claude Code model request, the gateway builds one immutable `Conversation`
 containing the complete supplied context and invokes that strategy once. The
 strategy may make hidden classifier or candidate calls before selecting the one
 response streamed back to Claude Code.
@@ -26,8 +26,7 @@ response streamed back to Claude Code.
 From the repository root:
 
 ```bash
-python3.11 -m pip install -e .
-python3.11 -m pip install -e ./integrations/claude_code
+python3.11 -m pip install -e '.[anthropic-gateway]'
 
 cp scripts/claude-smart-ask.local.env.example \
   scripts/claude-smart-ask.local.env
@@ -42,7 +41,7 @@ cp scripts/claude-smart-ask.local.env.example \
 ```
 
 The launcher searches the bundled strategies directory, generates a private
-adapter configuration, starts the server on loopback, selects its advertised
+gateway configuration, starts the server on loopback, selects its advertised
 alias, launches Claude Code, and cleans up the owned server afterward.
 
 For local Qwen:
@@ -52,36 +51,36 @@ ollama serve
 ./scripts/claude-smart-ask --strategy local-qwen
 ```
 
-Or use `../../scripts/claude-local-qwen`, which also starts and checks Ollama.
+Or use `./scripts/claude-local-qwen`, which also starts and checks Ollama.
 
 ## Manual launch
 
-Install both packages, configure the adapter token, and start the server:
+Install the optional gateway dependencies, configure the token, and start the
+server:
 
 ```bash
-python3.11 -m pip install -e .
-python3.11 -m pip install -e ./integrations/claude_code
+python3.11 -m pip install -e '.[anthropic-gateway]'
 
-export SMART_ASK_CLAUDE_CODE_TOKEN="local-secret"
-smart-ask-claude-code serve --config claude-code-adapter.example.yaml
+export SMART_ASK_GATEWAY_TOKEN="local-secret"
+smart-ask gateway anthropic serve --config anthropic-gateway.example.yaml
 ```
 
 In another shell:
 
 ```bash
 export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
-export ANTHROPIC_API_KEY="$SMART_ASK_CLAUDE_CODE_TOKEN"
-claude --model claude-smart-ask-local-qwen
+export ANTHROPIC_API_KEY="$SMART_ASK_GATEWAY_TOKEN"
+claude --model smart-ask-local-qwen
 ```
 
-The example adapter configuration uses schema version 1 and lists strategy
+The example gateway configuration uses schema version 1 and lists strategy
 references:
 
 ```yaml
 schema_version: 1
 listen: {host: 127.0.0.1, port: 8787}
 auth:
-  token_env: SMART_ASK_CLAUDE_CODE_TOKEN
+  token_env: SMART_ASK_GATEWAY_TOKEN
 strategies:
   - builtin:local-qwen
 limits:
@@ -93,19 +92,19 @@ security:
   allowed_strategy_roots: []
 ```
 
-Adapter schema version 1 and SmartAsk strategy schema version 3 are independent
+Gateway schema version 1 and SmartAsk strategy schema version 3 are independent
 formats. A custom strategy file must be within an explicitly allowed absolute
 root. Bundled strategies remain available through their installed resource
 names.
 
-The adapter alias is derived from the strategy filename, for example:
+The gateway alias is derived from the strategy filename, for example:
 
 ```text
 builtin:local-qwen
-  → claude-smart-ask-local-qwen
+  → smart-ask-local-qwen
 
 builtin:python-code-generation-codex-cascade
-  → claude-smart-ask-python-code-generation-codex-cascade
+  → smart-ask-python-code-generation-codex-cascade
 ```
 
 The alias does not expose the cheap and expensive physical models. Claude Code
@@ -114,12 +113,12 @@ selects the strategy; the strategy selects trusted target profiles internally.
 ## Context and harness instructions
 
 Claude Code sends its full current conversation, tools, and agent system
-instructions on each request. The adapter preserves them. A strategy profile
+instructions on each request. The gateway preserves them. A strategy profile
 may append a system instruction, but it does not delete harness-owned context.
 This is why a non-Anthropic backend may still describe itself as Claude Code:
 it is following the harness instructions it received.
 
-Reasoning effort is also an incoming request parameter. The adapter preserves
+Reasoning effort is also an incoming request parameter. The gateway preserves
 it, and a strategy profile may apply its own explicit parameter transform. The
 resolved transformed conversation is what the selected target receives.
 
@@ -130,7 +129,7 @@ When `metrics.jsonl_path` is configured, every completed invocation appends:
 - one canonical prompt-free run record;
 - the current aggregate for its session.
 
-The adapter does not recalculate routing facts. It persists the engine's
+The gateway does not recalculate routing facts. It persists the engine's
 decision, logical-call, and provider-request ledgers. Tokens, cost,
 timing, completion, and error summaries derive from those records.
 
@@ -186,9 +185,9 @@ them local and access-restricted.
 
 ## Encapsulation rules
 
-- SmartAsk core never imports this package or implements Anthropic routes.
-- The adapter never interprets difficulty, cheap/hard profiles, or candidate
+- The engine, methods, strategies, and transports never import the gateway.
+- The gateway never interprets difficulty, cheap/hard profiles, or candidate
   markers.
 - Strategy YAML never supplies provider URLs or credential names.
-- The launcher, not this adapter, starts deployment-specific services such as
+- The launcher, not this gateway, starts deployment-specific services such as
   Ollama.

@@ -1,4 +1,4 @@
-"""Authentication at the Claude protocol edge."""
+"""Authentication at the Anthropic protocol edge."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ from collections.abc import Mapping
 import hmac
 
 
-class AdapterAuthenticator:
+class GatewayAuthenticator:
     def __init__(self, token: str | None, *, required: bool):
         if required and (not isinstance(token, str) or not token.strip()):
-            raise ValueError("adapter authentication token is required")
+            raise ValueError("gateway authentication token is required")
         self._token = token or ""
         self._required = required
 
@@ -28,4 +28,3 @@ class AdapterAuthenticator:
             return False
         supplied = bearer if bearer is not None else api_key
         return supplied is not None and hmac.compare_digest(supplied, self._token)
-

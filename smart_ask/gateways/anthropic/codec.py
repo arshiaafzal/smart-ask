@@ -1,4 +1,4 @@
-"""Anthropic wire translation at the external adapter boundary."""
+"""Anthropic wire translation at the protocol gateway boundary."""
 
 from __future__ import annotations
 
@@ -103,7 +103,7 @@ def decode_request(
     body: Mapping[str, Any],
     headers: Mapping[str, str],
 ) -> tuple[Conversation, SessionContext]:
-    """Decode without retaining the adapter model alias in SmartAsk's domain."""
+    """Decode without retaining the gateway model alias in SmartAsk's domain."""
 
     raw_system = body.get("system", [])
     if isinstance(raw_system, str):

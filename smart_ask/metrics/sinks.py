@@ -9,14 +9,14 @@ from threading import Lock
 from typing import Any
 
 
-class JsonlSink:
+class JsonlMetricsSink:
     """Append JSON objects with process-local locking and immediate flushing."""
 
     def __init__(self, path: str):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        # Traces may contain prompts and tool results.  Do not depend on the
-        # caller's umask to keep a newly-created file private.
+        # Metrics can still carry operational identifiers. Do not depend on
+        # the caller's umask to keep a newly-created file private.
         descriptor = os.open(
             self.path,
             os.O_APPEND | os.O_CREAT | os.O_WRONLY,

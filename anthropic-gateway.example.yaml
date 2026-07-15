@@ -5,7 +5,7 @@ listen:
   port: 8787
 
 auth:
-  token_env: SMART_ASK_CLAUDE_CODE_TOKEN
+  token_env: SMART_ASK_GATEWAY_TOKEN
   required_on_loopback: true
 
 strategies:

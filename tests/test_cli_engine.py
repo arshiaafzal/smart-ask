@@ -127,6 +127,22 @@ class _Engine:
 
 
 class ProductCliEngineTests(unittest.TestCase):
+    def test_main_delegates_anthropic_gateway_subcommand(self):
+        with patch("smart_ask.gateways.anthropic.cli.main") as gateway_main:
+            cli.main([
+                "gateway",
+                "anthropic",
+                "serve",
+                "--config",
+                "gateway.yaml",
+            ])
+
+        gateway_main.assert_called_once_with([
+            "serve",
+            "--config",
+            "gateway.yaml",
+        ])
+
     def test_repl_passes_complete_conversation_snapshots_to_engine(self):
         engine = _Engine()
         loaded = SimpleNamespace(

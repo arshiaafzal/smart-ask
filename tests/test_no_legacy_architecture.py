@@ -19,6 +19,7 @@ class NoLegacyArchitectureTests(unittest.TestCase):
             "smart_ask.methods.cascade",
             "smart_ask.metrics.collector",
             "smart_ask.metrics.rollups",
+            "smart_ask_claude_code",
         ):
             with self.subTest(module=module):
                 self.assertIsNone(importlib.util.find_spec(module))
@@ -42,6 +43,10 @@ class NoLegacyArchitectureTests(unittest.TestCase):
     def test_old_provider_module_names_are_deleted(self):
         root = Path(__file__).parents[1] / "smart_ask" / "executors"
         self.assertEqual(list(root.glob("*_conversation.py")), [])
+
+    def test_separate_claude_integration_package_is_deleted(self):
+        root = Path(__file__).parents[1]
+        self.assertFalse((root / "integrations" / "claude_code").exists())
 
 
 if __name__ == "__main__":

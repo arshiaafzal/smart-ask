@@ -16,21 +16,21 @@ from smart_ask.conversation import (
 )
 from smart_ask.methods import FixedStrategyMethod, ModelProfile, RequestTransform
 from smart_ask.strategy import load_strategy
-from smart_ask_claude_code import (
-    AdapterConfig,
-    AdapterConfigError,
-    JsonlSink,
+from smart_ask.gateways.anthropic import (
+    GatewayConfig,
+    GatewayConfigError,
     StrategyCatalog,
-    TraceSessionSink,
     create_app,
 )
-from smart_ask_claude_code.config import MetricsConfig, SecurityConfig
+from smart_ask.gateways.anthropic.config import MetricsConfig, SecurityConfig
+from smart_ask.metrics import JsonlMetricsSink
+from smart_ask.observability import InvocationLogSink
 
 
-MODEL_ID = "claude-smart-ask-local-qwen"
+MODEL_ID = "smart-ask-local-qwen"
 
 
-def text_events(text="adapter-ok", *, actual_model="qwen3:14b"):
+def text_events(text="gateway-ok", *, actual_model="qwen3:14b"):
     return (
         ConversationEvent("message_start", {
             "model": actual_model,
@@ -145,11 +145,11 @@ def engine_for(executor, observer=None):
     )
 
 
-class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
+class AnthropicGatewayContractTests(unittest.IsolatedAsyncioTestCase):
     async def make_client(self, executor=None, *, trace_sink=None):
         loaded = load_strategy("builtin:local-qwen")
         executor = executor or RecordingModelCallExecutor()
-        config = AdapterConfig(
+        config = GatewayConfig(
             schema_version=1,
             strategies=("builtin:local-qwen",),
         )
@@ -162,11 +162,11 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         app = create_app(
             config,
             catalog,
-            env={"SMART_ASK_CLAUDE_CODE_TOKEN": "local-secret"},
+            env={"SMART_ASK_GATEWAY_TOKEN": "local-secret"},
         )
         client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),
-            base_url="http://adapter.test",
+            base_url="http://gateway.test",
         )
         self.addAsyncCleanup(client.aclose)
         return client, app, executor
@@ -225,7 +225,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"adapter-ok", response.content)
+        self.assertIn(b"gateway-ok", response.content)
         self.assertIn(b'"input_tokens":0', response.content)
         submitted = executor.requests[0].conversation
         self.assertEqual(submitted.system[0]["cache_control"]["type"], "ephemeral")
@@ -259,7 +259,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["content"][0]["text"], "adapter-ok")
+        self.assertEqual(response.json()["content"][0]["text"], "gateway-ok")
         self.assertEqual(response.json()["stop_reason"], "end_turn")
         self.assertEqual(len(app.state.strategy_catalog.metrics.records), 1)
 
@@ -380,7 +380,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_trace_records_conversation_once_and_canonical_run_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace"
-            trace = TraceSessionSink(str(path))
+            trace = InvocationLogSink(str(path))
             client, _app, _executor = await self.make_client(
                 trace_sink=trace,
             )
@@ -401,7 +401,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
             index = json.loads(
                 (path / "session.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(index["schema"], "smart-ask.trace-session-index/v3")
+            self.assertEqual(index["schema"], "smart-ask.invocation-log-index/v1")
             self.assertEqual(index["invocation_count"], 1)
             self.assertEqual(len(index["contexts"]), 1)
             self.assertEqual(len(index["inputs"]), 1)
@@ -425,7 +425,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(log.count("started model=qwen3:14b"), 1)
             self.assertIn("context=run_input", log)
             self.assertIn('DEBUG input      user="trace me"', log)
-            output_at = log.index('output="adapter-ok"')
+            output_at = log.index('output="gateway-ok"')
             finished_at = log.index("finished stop=stop tokens_in=12 tokens_out=3")
             self.assertLess(output_at, finished_at)
             self.assertIn("run        completed calls=1 tokens=15", log)
@@ -436,7 +436,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_trace_is_updated_before_a_slow_model_finishes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace"
-            trace = TraceSessionSink(str(path))
+            trace = InvocationLogSink(str(path))
             executor = BlockingModelCallExecutor()
             client, _app, _executor = await self.make_client(
                 executor,
@@ -474,7 +474,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_concurrent_invocations_receive_separate_trace_files(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace"
-            trace = TraceSessionSink(str(path))
+            trace = InvocationLogSink(str(path))
             executor = RecordingModelCallExecutor(responses=[
                 text_events("first"),
                 text_events("second"),
@@ -525,7 +525,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_trace_references_propagated_model_error(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace"
-            trace = TraceSessionSink(str(path))
+            trace = InvocationLogSink(str(path))
             client, _app, _executor = await self.make_client(
                 FailingModelCallExecutor(),
                 trace_sink=trace,
@@ -555,7 +555,7 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_long_output_remains_incremental_in_trace(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace"
-            trace = TraceSessionSink(str(path))
+            trace = InvocationLogSink(str(path))
             client, _app, _executor = await self.make_client(
                 RecordingModelCallExecutor(responses=[text_events("x" * 600)]),
                 trace_sink=trace,
@@ -583,8 +583,13 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("\n  " + "x" * 512, log)
             self.assertIn("writer     output end", log)
 
-    async def test_adapter_source_contains_no_backend_or_routing_policy(self):
-        source_root = Path(__file__).parents[1] / "src" / "smart_ask_claude_code"
+    async def test_gateway_source_contains_no_backend_or_routing_policy(self):
+        source_root = (
+            Path(__file__).parents[1]
+            / "smart_ask"
+            / "gateways"
+            / "anthropic"
+        )
         source = "\n".join(
             path.read_text(encoding="utf-8").lower()
             for path in source_root.glob("*.py")
@@ -605,7 +610,7 @@ class DependencyBoundaryTests(unittest.TestCase):
     def test_trace_call_replaces_only_changed_conversation_components(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace"
-            trace = TraceSessionSink(str(path))
+            trace = InvocationLogSink(str(path))
             conversation = Conversation.from_text(
                 "hello",
                 system="system",
@@ -641,14 +646,18 @@ class DependencyBoundaryTests(unittest.TestCase):
             self.assertIn("max_tokens=50", log)
             self.assertIn("temperature=0.0", log)
 
-    def test_smartask_core_has_no_claude_adapter_or_asgi_dependency(self):
-        root = Path(__file__).parents[3] / "smart_ask"
+    def test_engine_layers_have_no_protocol_dependencies(self):
+        package = Path(__file__).parents[1] / "smart_ask"
+        roots = tuple(
+            package / name
+            for name in ("conversation", "methods", "executors", "strategy")
+        )
         source = "\n".join(
             path.read_text(encoding="utf-8").lower()
+            for root in roots
             for path in root.rglob("*.py")
         )
         for forbidden in (
-            "smart_ask_claude_code",
             "claude code",
             "starlette",
             "uvicorn",
@@ -660,7 +669,7 @@ class DependencyBoundaryTests(unittest.TestCase):
     def test_jsonl_sink_persists_complete_envelopes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "metrics.jsonl"
-            sink = JsonlSink(str(path))
+            sink = JsonlMetricsSink(str(path))
             sink.write({"run": {"run_id": "one"}, "session": {"runs": 1}})
             sink.close()
 
@@ -699,7 +708,7 @@ method:
 """,
                 encoding="utf-8",
             )
-            config = AdapterConfig(
+            config = GatewayConfig(
                 schema_version=1,
                 strategies=(str(strategy),),
                 security=SecurityConfig(
@@ -708,7 +717,7 @@ method:
             )
 
             with self.assertRaisesRegex(
-                AdapterConfigError,
+                GatewayConfigError,
                 r"outside .*allowed roots",
             ):
                 StrategyCatalog.from_config(config, env={})
