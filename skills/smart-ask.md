@@ -38,8 +38,8 @@ python3.11 -m pip install -e .
 # Optional benchmark support.
 python3.11 -m pip install -e '.[bench]'
 
-# Optional Claude Code adapter.
-python3.11 -m pip install -e ./integrations/claude_code
+# Optional Anthropic gateway.
+python3.11 -m pip install -e '.[anthropic-gateway]'
 ```
 
 Set only the key required by the selected trusted target:
@@ -100,11 +100,11 @@ when enabled, the unique session trace directory before Claude Code starts.
 The request path is:
 
 ```text
-Claude Code → external adapter → StrategyEngine → trusted target
+Claude Code → protocol gateway → StrategyEngine → trusted target
 ```
 
 Every advertised Claude Code alias identifies one strategy. Claude Code still
-sends its own system instructions and complete conversation; the adapter
+sends its own system instructions and complete conversation; the gateway
 preserves them. SmartAsk chooses the internal profile and backend.
 
 For local service supervision:
@@ -201,7 +201,7 @@ model would have succeeded more cheaply.
 | Invalid YAML or prompt | Validate the strategy; paths are relative to its file |
 | Missing credential | Inspect the selected target and export its trusted credential variable |
 | Unknown target | Add it to the deployment `TargetRegistry`, not the strategy YAML |
-| Claude Code cannot connect | Check adapter readiness, loopback URL, token, and advertised alias |
+| Claude Code cannot connect | Check gateway readiness, loopback URL, token, and advertised alias |
 | Local Qwen is slow | Check Ollama model load, context size, thinking mode, and hardware throughput |
 | Empty visible output | Inspect stop reason, output status, reasoning tokens, and requested token cap |
 | Benchmark resume mismatch | Use the original manifest identity or start a new output directory |

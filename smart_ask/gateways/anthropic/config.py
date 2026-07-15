@@ -1,4 +1,4 @@
-"""Strict deployment configuration for the external Claude Code adapter."""
+"""Strict deployment configuration for the Anthropic protocol gateway."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ from pydantic import (
 )
 
 
-class AdapterConfigError(ValueError):
-    """Raised when external adapter configuration is invalid."""
+class GatewayConfigError(ValueError):
+    """Raised when Anthropic gateway configuration is invalid."""
 
 
 class _Model(BaseModel):
@@ -40,7 +40,7 @@ class ListenConfig(_Model):
 
 
 class AuthConfig(_Model):
-    token_env: str = "SMART_ASK_CLAUDE_CODE_TOKEN"
+    token_env: str = "SMART_ASK_GATEWAY_TOKEN"
     required_on_loopback: bool = True
 
     @field_validator("token_env")
@@ -102,7 +102,7 @@ class MetricsConfig(_Model):
         return self
 
 
-class AdapterConfig(_Model):
+class GatewayConfig(_Model):
     schema_version: Literal[1]
     listen: ListenConfig = Field(default_factory=ListenConfig)
     auth: AuthConfig = Field(default_factory=AuthConfig)
@@ -139,7 +139,7 @@ def _yaml_loader():
         for key_node, value_node in node.value:
             key = loader.construct_object(key_node, deep=deep)
             if key in mapping:
-                raise AdapterConfigError(f"duplicate adapter YAML key: {key!r}")
+                raise GatewayConfigError(f"duplicate gateway YAML key: {key!r}")
             mapping[key] = loader.construct_object(value_node, deep=deep)
         return mapping
 
@@ -150,26 +150,26 @@ def _yaml_loader():
     return yaml, UniqueKeyLoader
 
 
-def load_adapter_config(path: str | Path) -> AdapterConfig:
+def load_gateway_config(path: str | Path) -> GatewayConfig:
     source = Path(path).expanduser().resolve()
     try:
         text = source.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
-        raise AdapterConfigError(f"cannot read adapter config {source}: {exc}") from exc
+        raise GatewayConfigError(f"cannot read gateway config {source}: {exc}") from exc
     yaml, loader = _yaml_loader()
     try:
         documents = list(yaml.load_all(text, Loader=loader))
-    except AdapterConfigError:
+    except GatewayConfigError:
         raise
     except yaml.YAMLError as exc:
-        raise AdapterConfigError(f"invalid adapter YAML: {exc}") from exc
+        raise GatewayConfigError(f"invalid gateway YAML: {exc}") from exc
     if len(documents) != 1 or not isinstance(documents[0], dict):
-        raise AdapterConfigError("adapter config must contain exactly one mapping")
+        raise GatewayConfigError("gateway config must contain exactly one mapping")
     try:
-        return AdapterConfig.model_validate(documents[0])
+        return GatewayConfig.model_validate(documents[0])
     except ValidationError as exc:
         details = "; ".join(
             f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}"
             for item in exc.errors(include_url=False)
         )
-        raise AdapterConfigError(details) from exc
+        raise GatewayConfigError(details) from exc

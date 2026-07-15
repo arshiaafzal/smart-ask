@@ -1,4 +1,4 @@
-"""External ASGI adapter from Claude Code to SmartAsk's public runtime."""
+"""Anthropic-compatible ASGI gateway to the SmartAsk engine."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
-from .auth import AdapterAuthenticator
+from .auth import GatewayAuthenticator
 from .catalog import StrategyCatalog
 from smart_ask.conversation.model import RunMetadata
 from .codec import (
@@ -23,7 +23,7 @@ from .codec import (
     AnthropicMessageAssembler,
     decode_request,
 )
-from .config import AdapterConfig, AdapterConfigError
+from .config import GatewayConfig, GatewayConfigError
 
 
 def _error(status: int, error_type: str, message: str) -> JSONResponse:
@@ -51,7 +51,7 @@ class _ConcurrencyMiddleware:
             await _error(
                 503,
                 "overloaded_error",
-                "adapter concurrency limit reached",
+                "gateway concurrency limit reached",
             )(scope, receive, send)
             return
         try:
@@ -60,7 +60,7 @@ class _ConcurrencyMiddleware:
             self.semaphore.release()
 
 
-async def _body(request: Request, config: AdapterConfig) -> dict[str, Any] | Response:
+async def _body(request: Request, config: GatewayConfig) -> dict[str, Any] | Response:
     declared = request.headers.get("content-length")
     if declared is not None:
         try:
@@ -98,23 +98,23 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def create_app(
-    config: AdapterConfig,
+    config: GatewayConfig,
     catalog: StrategyCatalog,
     *,
     env: Mapping[str, str] | None = None,
 ) -> Starlette:
-    if not isinstance(config, AdapterConfig):
-        raise TypeError("config must be AdapterConfig")
+    if not isinstance(config, GatewayConfig):
+        raise TypeError("config must be GatewayConfig")
     if not isinstance(catalog, StrategyCatalog):
         raise TypeError("catalog must be StrategyCatalog")
     resolved_env = dict(os.environ if env is None else env)
     auth_required = not config.listen.is_loopback or config.auth.required_on_loopback
     token = resolved_env.get(config.auth.token_env)
     if auth_required and not token:
-        raise AdapterConfigError(
-            f"required adapter credential {config.auth.token_env} is not set"
+        raise GatewayConfigError(
+            f"required gateway credential {config.auth.token_env} is not set"
         )
-    authenticator = AdapterAuthenticator(token, required=auth_required)
+    authenticator = GatewayAuthenticator(token, required=auth_required)
     finalizers: set[asyncio.Task[None]] = set()
     finalizer_errors: list[str] = []
 
@@ -138,12 +138,12 @@ def create_app(
 
     async def models(request: Request) -> Response:
         if not authenticator.authenticate(request.headers):
-            return _error(401, "authentication_error", "invalid adapter credential")
+            return _error(401, "authentication_error", "invalid gateway credential")
         return JSONResponse(catalog.discovery_payload())
 
     async def messages(request: Request) -> Response:
         if not authenticator.authenticate(request.headers):
-            return _error(401, "authentication_error", "invalid adapter credential")
+            return _error(401, "authentication_error", "invalid gateway credential")
         body = await _body(request, config)
         if isinstance(body, Response):
             return body
@@ -177,7 +177,7 @@ def create_app(
             return _error(
                 400,
                 "invalid_request_error",
-                "requested max_tokens exceeds adapter limit",
+                "requested max_tokens exceeds gateway limit",
             )
         try:
             entry = catalog.resolve(model_id)
@@ -249,7 +249,7 @@ def create_app(
 
     async def count_tokens(request: Request) -> Response:
         if not authenticator.authenticate(request.headers):
-            return _error(401, "authentication_error", "invalid adapter credential")
+            return _error(401, "authentication_error", "invalid gateway credential")
         body = await _body(request, config)
         if isinstance(body, Response):
             return body

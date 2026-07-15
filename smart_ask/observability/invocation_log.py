@@ -1,4 +1,4 @@
-"""Incremental content traces for conversation-native engine invocations."""
+"""Incremental human-readable logs for conversation-native invocations."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from smart_ask.conversation.model import (
     RunRecord,
 )
 
-_SESSION_SCHEMA = "smart-ask.trace-session-index/v3"
+_SESSION_SCHEMA = "smart-ask.invocation-log-index/v1"
 _CHUNK_CHARS = 512
 _CONVERSATION_FIELDS = (
     "system",
@@ -174,7 +174,7 @@ class _TextLogSink:
             self._file.close()
 
 
-class TraceSessionSink:
+class InvocationLogSink:
     """Write one indexed, private trace file per method invocation."""
 
     def __init__(self, directory: str):

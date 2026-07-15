@@ -3,7 +3,7 @@
 `smart-ask` runs a configurable model strategy for each conversation turn. A
 strategy may select a fixed model, classify work by difficulty, or try a cheap
 model and escalate. The same engine serves the terminal, benchmarks, and
-external harness adapters.
+protocol gateways.
 
 ```text
 caller
@@ -31,8 +31,8 @@ python3.11 -m pip install -e .
 # Optional benchmark datasets.
 python3.11 -m pip install -e '.[bench]'
 
-# Optional Claude Code protocol adapter.
-python3.11 -m pip install -e ./integrations/claude_code
+# Optional Anthropic protocol gateway.
+python3.11 -m pip install -e '.[anthropic-gateway]'
 ```
 
 Set only the credential required by the selected trusted target:
@@ -200,22 +200,23 @@ addressed as `builtin:NAME` by Python and terminal APIs.
 
 ## Claude Code
 
-The optional adapter lets Claude Code use a strategy as if it were a model:
+The optional gateway lets Claude Code use a strategy as if it were a model:
 
 ```text
 Claude Code
-  → Anthropic Messages adapter
+  → Anthropic Messages gateway
   → StrategyEngine
   → strategy-selected trusted targets
 ```
 
-SmartAsk contains no Claude Code protocol code. The external adapter translates
-messages, tools, images, streaming events, token-count requests, authentication,
-and model discovery. It passes the resulting complete `Conversation` to the
-same engine used everywhere else.
+The optional Anthropic gateway lives under `smart_ask/gateways/anthropic/`.
+It translates messages, tools, images, streaming events, token-count requests,
+authentication, and model discovery, then passes the complete `Conversation`
+to the same engine used everywhere else. The engine and strategy methods do
+not depend on Anthropic or Claude Code.
 
 The easiest launch path searches for a strategy name under the bundled
-strategies directory, creates a private one-strategy adapter configuration,
+strategies directory, creates a private one-strategy gateway configuration,
 starts it on loopback, and launches Claude Code:
 
 ```bash
@@ -237,7 +238,7 @@ removing harness-owned instructions.
 
 For the local Qwen setup, `./scripts/claude-local-qwen` also starts and checks
 Ollama. See [scripts/README.md](scripts/README.md) and the
-[adapter README](integrations/claude_code/README.md).
+[gateway guide](docs/anthropic-gateway.md).
 
 ## Runs, metrics, and traces
 
@@ -315,8 +316,8 @@ official LiveBench score.
 | `smart_ask/executors/` | Structured transports selected through trusted targets |
 | `smart_ask/strategy/` | Schema v3, safe loading, target registry, composition |
 | `smart_ask/metrics/` | Token usage and price estimation |
+| `smart_ask/gateways/anthropic/` | Optional Anthropic Messages HTTP boundary |
 | `smart_ask/benchmarks/` | Suites, matrix runner, artifacts, summaries, counterfactuals |
-| `integrations/claude_code/` | Separately installed Anthropic-compatible adapter |
 | `scripts/` | Local process launchers |
 
 See [DESIGN.md](DESIGN.md) for ownership rules and detailed lifecycle.

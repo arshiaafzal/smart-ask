@@ -1,4 +1,4 @@
-"""One external Claude model alias per compiled SmartAsk strategy."""
+"""One Anthropic model alias per compiled SmartAsk strategy."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from smart_ask.strategy import StrategyBuilder, load_strategy
 from smart_ask.strategy.errors import StrategyConfigError
 from smart_ask.strategy.loader import BUILTIN_STRATEGY_PREFIX, LoadedStrategy
 
-from .config import AdapterConfig, AdapterConfigError
+from .config import GatewayConfig, GatewayConfigError
 
 
 _SLUG = re.compile(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?")
@@ -30,7 +30,7 @@ def _slug(reference: str) -> str:
     if value.endswith(".yaml"):
         value = value[:-5]
     if not _SLUG.fullmatch(value):
-        raise AdapterConfigError(
+        raise GatewayConfigError(
             f"strategy {reference!r} needs a lowercase hyphenated filename"
         )
     return value
@@ -46,7 +46,7 @@ class CatalogEntry:
 
 
 class StrategyCatalog:
-    """Adapter registry containing compiled engines, never routing policy."""
+    """Gateway registry containing compiled engines, never routing policy."""
 
     def __init__(
         self,
@@ -58,10 +58,10 @@ class StrategyCatalog:
         by_model = {}
         for entry in entries:
             if entry.model_id in by_model:
-                raise AdapterConfigError(f"duplicate model alias: {entry.model_id}")
+                raise GatewayConfigError(f"duplicate model alias: {entry.model_id}")
             by_model[entry.model_id] = entry
         if not by_model:
-            raise AdapterConfigError("at least one strategy is required")
+            raise GatewayConfigError("at least one strategy is required")
         self._entries: Mapping[str, CatalogEntry] = MappingProxyType(by_model)
         self.metrics = metrics or RunMetricsStore()
         self._resource_owners = resource_owners
@@ -69,7 +69,7 @@ class StrategyCatalog:
     @classmethod
     def from_config(
         cls,
-        config: AdapterConfig,
+        config: GatewayConfig,
         *,
         env: Mapping[str, str],
         loader: Callable[..., LoadedStrategy] = load_strategy,
@@ -94,18 +94,18 @@ class StrategyCatalog:
             ):
                 roots = config.security.allowed_strategy_roots
                 if not roots:
-                    raise AdapterConfigError(
+                    raise GatewayConfigError(
                         f"custom strategy {reference!r} is not allowed"
                     )
                 try:
                     loaded = loader(reference, allowed_roots=roots)
                 except StrategyConfigError as exc:
-                    raise AdapterConfigError(str(exc)) from exc
+                    raise GatewayConfigError(str(exc)) from exc
             else:
                 loaded = loader(reference)
             slug = _slug(reference)
             entries.append(CatalogEntry(
-                model_id=f"claude-smart-ask-{slug}",
+                model_id=f"smart-ask-{slug}",
                 display_name="SmartAsk: " + " ".join(
                     part.capitalize() for part in slug.split("-")
                 ),

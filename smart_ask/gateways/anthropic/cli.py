@@ -1,4 +1,4 @@
-"""Command-line entry point for the external Claude Code adapter."""
+"""Command-line entry point for the Anthropic protocol gateway."""
 
 from __future__ import annotations
 
@@ -7,22 +7,22 @@ import os
 import sys
 
 from smart_ask.conversation import RunMetricsStore
+from smart_ask.metrics import JsonlMetricsSink
+from smart_ask.observability import InvocationLogSink
 
 from .app import create_app
 from .catalog import StrategyCatalog
-from .config import AdapterConfigError, load_adapter_config
-from .metrics import JsonlSink
-from .trace import TraceSessionSink
+from .config import GatewayConfigError, load_gateway_config
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        prog="smart-ask-claude-code",
-        description="Run the external Claude Code adapter for SmartAsk",
+        prog="smart-ask gateway anthropic",
+        description="Run SmartAsk's Anthropic-compatible protocol gateway",
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
     serve = subcommands.add_parser("serve")
-    serve.add_argument("--config", required=True, metavar="ADAPTER.yaml")
+    serve.add_argument("--config", required=True, metavar="GATEWAY.yaml")
     args = parser.parse_args(argv)
     if args.command != "serve":
         parser.error("unknown command")
@@ -31,12 +31,12 @@ def main(argv: list[str] | None = None) -> None:
     try:
         import uvicorn
 
-        config = load_adapter_config(args.config)
+        config = load_gateway_config(args.config)
         env = dict(os.environ)
         if config.metrics.jsonl_path is not None:
-            metrics_sink = JsonlSink(config.metrics.jsonl_path)
+            metrics_sink = JsonlMetricsSink(config.metrics.jsonl_path)
         if config.metrics.trace_directory is not None:
-            trace_sink = TraceSessionSink(config.metrics.trace_directory)
+            trace_sink = InvocationLogSink(config.metrics.trace_directory)
         metrics = RunMetricsStore(
             sink=None if metrics_sink is None else metrics_sink.write,
         )
@@ -47,7 +47,18 @@ def main(argv: list[str] | None = None) -> None:
             trace_observer=trace_sink,
         )
         app = create_app(config, catalog, env=env)
-    except (AdapterConfigError, OSError, ValueError) as exc:
+    except ModuleNotFoundError as exc:
+        if exc.name != "uvicorn":
+            raise
+        if metrics_sink is not None:
+            metrics_sink.close()
+        if trace_sink is not None:
+            trace_sink.close()
+        sys.exit(
+            "error: Anthropic gateway dependencies are missing; "
+            "install smart-ask[anthropic-gateway]"
+        )
+    except (GatewayConfigError, OSError, ValueError) as exc:
         if metrics_sink is not None:
             metrics_sink.close()
         if trace_sink is not None:

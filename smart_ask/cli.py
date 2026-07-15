@@ -310,7 +310,23 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
-    args = _parser().parse_args(sys.argv[1:] if argv is None else argv)
+    arguments = sys.argv[1:] if argv is None else argv
+    if arguments and arguments[0] == "gateway":
+        if len(arguments) < 2 or arguments[1] != "anthropic":
+            sys.exit("usage: smart-ask gateway anthropic serve --config FILE")
+        try:
+            from .gateways.anthropic.cli import main as gateway_main
+        except ModuleNotFoundError as exc:
+            if exc.name not in {"anyio", "starlette"}:
+                raise
+            raise SystemExit(
+                "error: Anthropic gateway dependencies are missing; "
+                "install smart-ask[anthropic-gateway]"
+            ) from exc
+        gateway_main(arguments[2:])
+        return
+
+    args = _parser().parse_args(arguments)
 
     try:
         loaded_strategy = load_strategy(args.strategy)

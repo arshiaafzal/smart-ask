@@ -19,6 +19,11 @@ dependencies = [
 bench = [
   "datasets>=2",
 ]
+anthropic-gateway = [
+  "anyio>=4,<5",
+  "starlette>=0.37,<1",
+  "uvicorn>=0.30,<1",
+]
 
 [project.scripts]
 smart-ask = "smart_ask.cli:main"

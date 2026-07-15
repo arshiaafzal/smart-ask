@@ -29,9 +29,9 @@ class ClaudeLocalQwenLauncherTests(unittest.TestCase):
             temporary = Path(directory)
             state = temporary / "state"
             ollama_port = unused_port()
-            adapter_port = unused_port()
+            gateway_port = unused_port()
             ollama = temporary / "fake-ollama"
-            adapter = temporary / "fake-adapter"
+            gateway = temporary / "fake-gateway"
             claude = temporary / "fake-claude"
             executable(ollama, f"""
                 #!/usr/bin/env python3
@@ -52,7 +52,7 @@ class ClaudeLocalQwenLauncherTests(unittest.TestCase):
 
                 ThreadingHTTPServer(("127.0.0.1", {ollama_port}), Handler).serve_forever()
             """)
-            executable(adapter, f"""
+            executable(gateway, f"""
                 #!/usr/bin/env python3
                 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -65,7 +65,7 @@ class ClaudeLocalQwenLauncherTests(unittest.TestCase):
                             self.send_response(200)
                             self.end_headers()
                             self.wfile.write(
-                                b'{{"data":[{{"id":"claude-smart-ask-local-qwen"}}]}}'
+                                b'{{"data":[{{"id":"smart-ask-local-qwen"}}]}}'
                             )
                         else:
                             self.send_response(404)
@@ -74,7 +74,7 @@ class ClaudeLocalQwenLauncherTests(unittest.TestCase):
                     def log_message(self, *_args):
                         pass
 
-                ThreadingHTTPServer(("127.0.0.1", {adapter_port}), Handler).serve_forever()
+                ThreadingHTTPServer(("127.0.0.1", {gateway_port}), Handler).serve_forever()
             """)
             executable(claude, """
                 #!/usr/bin/env python3
@@ -93,11 +93,11 @@ class ClaudeLocalQwenLauncherTests(unittest.TestCase):
                 **os.environ,
                 "SMART_ASK_LAUNCHER_STATE_DIR": str(state),
                 "SMART_ASK_OLLAMA_BIN": str(ollama),
-                "SMART_ASK_ADAPTER_BIN": str(adapter),
+                "SMART_ASK_GATEWAY_BIN": str(gateway),
                 "CLAUDE_BIN": str(claude),
                 "SMART_ASK_OLLAMA_URL": f"http://127.0.0.1:{ollama_port}",
-                "SMART_ASK_ADAPTER_URL": f"http://127.0.0.1:{adapter_port}",
-                "SMART_ASK_CLAUDE_CODE_TOKEN": "test-token",
+                "SMART_ASK_GATEWAY_URL": f"http://127.0.0.1:{gateway_port}",
+                "SMART_ASK_GATEWAY_TOKEN": "test-token",
                 "SMART_ASK_START_ATTEMPTS": "40",
                 "OPENROUTER_API_KEY": "must-not-reach-children",
             }
@@ -115,13 +115,13 @@ class ClaudeLocalQwenLauncherTests(unittest.TestCase):
                 payload = json.loads(run.stdout.strip().splitlines()[-1])
                 self.assertEqual(payload["argv"], [
                     "--model",
-                    "claude-smart-ask-local-qwen",
+                    "smart-ask-local-qwen",
                     "-p",
                     "hello",
                 ])
                 self.assertEqual(
                     payload["base_url"],
-                    f"http://127.0.0.1:{adapter_port}",
+                    f"http://127.0.0.1:{gateway_port}",
                 )
                 self.assertEqual(payload["api_key"], "test-token")
                 self.assertIsNone(payload["openrouter_key"])
@@ -136,7 +136,7 @@ class ClaudeLocalQwenLauncherTests(unittest.TestCase):
                     timeout=10,
                 )
                 self.assertIn("Ollama: ready (started here", status.stdout)
-                self.assertIn("Adapter: ready (started here", status.stdout)
+                self.assertIn("Gateway: ready (started here", status.stdout)
 
                 stopped = subprocess.run(
                     [str(LAUNCHER), "stop"],
@@ -147,10 +147,10 @@ class ClaudeLocalQwenLauncherTests(unittest.TestCase):
                     check=True,
                     timeout=15,
                 )
-                self.assertIn("Adapter: stopped", stopped.stdout)
+                self.assertIn("Gateway: stopped", stopped.stdout)
                 self.assertIn("Ollama: stopped", stopped.stdout)
             finally:
-                for name in ("adapter.pid", "ollama.pid"):
+                for name in ("gateway.pid", "ollama.pid"):
                     path = state / name
                     if not path.exists():
                         continue
