@@ -153,17 +153,24 @@ cleanup() {
 }
 
 case "${1:-}" in
-    help|-h|--help|'')
+    help|-h|--help)
         usage
-        [ -n "${1:-}" ] && exit 0 || exit 2
+        exit 0
         ;;
 esac
 
-[ "${1:-}" = "--strategy" ] || fail \
-    "expected --strategy NAME; run with --help for usage"
-[ -n "${2:-}" ] || fail "--strategy requires a strategy name"
-STRATEGY_NAME=$2
-shift 2
+# Default strategy for Claude Code agentic sessions.
+# agentic-coding-v1 routes tool-result turns to Gemini (cheap) and
+# code-writing turns to Claude Opus (accurate), cutting cost ~94%.
+DEFAULT_STRATEGY=${SMART_ASK_DEFAULT_STRATEGY:-agentic-coding-v1}
+
+if [ "${1:-}" = "--strategy" ]; then
+    [ -n "${2:-}" ] || fail "--strategy requires a strategy name"
+    STRATEGY_NAME=$2
+    shift 2
+else
+    STRATEGY_NAME=$DEFAULT_STRATEGY
+fi
 [ "${1:-}" = "--" ] && shift
 TRACE_DIR=${SMART_ASK_TRACE_DIR:-}
 GENERATE_TRACE_DIR=0
