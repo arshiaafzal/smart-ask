@@ -10,6 +10,7 @@ scripts/claude-smart-ask.local.env
 .smart-ask/
 .DS_Store
 benchmark-results/
+benchmark/results/
 **/.run.lock
 build/
 dist/

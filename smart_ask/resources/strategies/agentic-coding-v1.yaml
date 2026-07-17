@@ -12,6 +12,9 @@ name: agentic-coding-v1
 profiles:
   easy:
     target: openrouter-gemini-flash-lite
+    parameters:
+      max_tokens: 8192
+    context_messages: 8
   hard:
     target: openrouter-claude-opus-4-8
 
@@ -24,7 +27,7 @@ method:
       type: file
       path: ../prompts/agentic-difficulty-v1.txt
     fallback: easy
-    missing_input: easy
+    missing_input: classify-tool-result
     max_prompt_chars: 2000
     parameters:
       max_tokens: 20

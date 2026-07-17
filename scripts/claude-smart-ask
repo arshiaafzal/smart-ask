@@ -161,7 +161,8 @@ esac
 
 # Default strategy for Claude Code agentic sessions.
 # agentic-coding-v1 routes tool-result turns to Gemini (cheap) and
-# code-writing turns to Claude Opus (accurate), cutting cost ~94%.
+# code-writing turns to Claude Opus (accurate).
+# Savings: ~15% for coding tasks; up to ~94% for exploration-heavy tasks.
 DEFAULT_STRATEGY=${SMART_ASK_DEFAULT_STRATEGY:-agentic-coding-v1}
 
 if [ "${1:-}" = "--strategy" ]; then

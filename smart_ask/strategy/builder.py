@@ -229,6 +229,7 @@ class StrategyBuilder:
             "easy": "route_easy",
             "hard": "route_hard",
             "raise": "raise",
+            "classify-tool-result": "classify_tool_result",
         }[config.missing_input]
         parameters = {
             "max_tokens": config.parameters.max_tokens,
@@ -267,6 +268,7 @@ class StrategyBuilder:
             RequestTransform(
                 system_suffix=system,
                 parameters=self._parameters(config.parameters),
+                keep_last_messages=config.context_messages,
             ),
         )
 

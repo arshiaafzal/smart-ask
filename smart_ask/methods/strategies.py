@@ -38,6 +38,7 @@ ContinuationPolicy = Literal[
     "route_hard",
     "classify_latest_human_instruction",
     "classify_full_conversation",
+    "classify_tool_result",
 ]
 ToolCallPolicy = Literal["accept_and_pin", "escalate", "raise"]
 
@@ -60,6 +61,7 @@ class RequestTransform:
     parameters: Mapping[str, Any] = field(
         default_factory=lambda: MappingProxyType({})
     )
+    keep_last_messages: int | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.system_suffix, (str, bytes, bytearray)):
@@ -78,6 +80,13 @@ class RequestTransform:
         if not isinstance(frozen, Mapping):
             raise TypeError("parameters must be a mapping")
         object.__setattr__(self, "parameters", frozen)
+        klm = self.keep_last_messages
+        if klm is not None and (
+            isinstance(klm, bool)
+            or not isinstance(klm, int)
+            or klm < 1
+        ):
+            raise ValueError("keep_last_messages must be a positive integer or None")
 
     def apply(self, conversation: Conversation) -> Conversation:
         """Apply transforms without flattening unrelated structured content."""
@@ -85,6 +94,26 @@ class RequestTransform:
         if not isinstance(conversation, Conversation):
             raise TypeError("conversation must be a Conversation")
         transformed = conversation
+        # Context truncation: keep first message (original task) + last N-1.
+        # Applied before text transforms so prefixes/suffixes attach correctly.
+        if self.keep_last_messages is not None:
+            msgs = list(transformed.messages)
+            n = self.keep_last_messages
+            if len(msgs) > n:
+                head = msgs[:1]
+                tail = msgs[-(n - 1):] if n > 1 else []
+                # avoid duplicating the anchor if it is already inside the tail
+                if tail and msgs[0] is tail[0]:
+                    msgs = tail
+                else:
+                    msgs = head + tail
+                transformed = Conversation(
+                    system=transformed.system,
+                    messages=tuple(msgs),
+                    tools=transformed.tools,
+                    parameters=transformed.parameters,
+                    extensions=transformed.extensions,
+                )
         for text in self.system_suffix:
             transformed = transformed.with_system_text(text)
         if self.latest_user_prefix:
@@ -108,6 +137,12 @@ class RequestTransform:
             raise TypeError("other must be a RequestTransform")
         parameters = dict(thaw_value(self.parameters))
         parameters.update(thaw_value(other.parameters))
+        # keep_last_messages: other overrides self when both are set
+        keep = (
+            other.keep_last_messages
+            if other.keep_last_messages is not None
+            else self.keep_last_messages
+        )
         return RequestTransform(
             system_suffix=self.system_suffix + other.system_suffix,
             latest_user_prefix=(
@@ -117,6 +152,7 @@ class RequestTransform:
                 self.latest_user_suffix + other.latest_user_suffix
             ),
             parameters=parameters,
+            keep_last_messages=keep,
         )
 
 
@@ -217,6 +253,7 @@ class StructuredDifficultyClassifier:
             "route_hard",
             "classify_latest_human_instruction",
             "classify_full_conversation",
+            "classify_tool_result",
         ):
             raise ValueError("unknown continuation policy")
         if fallback not in ("easy", "hard", "raise"):
@@ -269,6 +306,8 @@ class StructuredDifficultyClassifier:
                 )
             if continuation == "classify_latest_human_instruction":
                 projected = self._project_latest_human_instruction(conversation)
+            elif continuation == "classify_tool_result":
+                projected = self._project_tool_result(conversation)
             else:
                 projected = self._project(conversation, "full_conversation")
 
@@ -336,6 +375,11 @@ class StructuredDifficultyClassifier:
             if block.get("type") == "text"
             and isinstance(block.get("text"), str)
             and block.get("text").strip()
+            # Skip injected framework context blocks (e.g. Claude Code
+            # <system-reminder> injections for skills, CLAUDE.md, dates).
+            # These are metadata, not the human's actual instruction, and would
+            # confuse the difficulty classifier.
+            and not block.get("text", "").lstrip().startswith("<system-reminder>")
         ]
         if not texts:
             raise RoutingInputError(
@@ -356,6 +400,52 @@ class StructuredDifficultyClassifier:
         text = projected[0]
         if self._max_prompt_chars is not None:
             text = text[: self._max_prompt_chars]
+        return _text_conversation(text)
+
+    def _project_tool_result(
+        self,
+        conversation: Conversation,
+    ) -> Conversation:
+        """Extract tool_result text from the last two user messages.
+
+        Looking at two messages instead of one preserves failure context when
+        the most recent turn was a diagnostic read (pure source code) that
+        follows a turn with test failures.  The tail is taken so that pytest
+        summaries and error lines — which appear at the end — are always
+        included within the character budget.
+        """
+        user_messages = [
+            m for m in conversation.messages if m.role == "user"
+        ]
+        recent = user_messages[-2:] if len(user_messages) >= 2 else user_messages
+        if not recent:
+            raise RoutingInputError("no user message to classify")
+        has_any_tool_result = any(
+            b.get("type") == "tool_result"
+            for m in recent
+            for b in m.content
+        )
+        if not has_any_tool_result:
+            raise RoutingInputError("no tool_result blocks in recent messages")
+        texts = []
+        for msg in recent:
+            for block in msg.content:
+                if block.get("type") != "tool_result":
+                    continue
+                content = block.get("content", "")
+                if isinstance(content, str):
+                    if content.strip():
+                        texts.append(content)
+                elif isinstance(content, (list, tuple)):
+                    for item in content:
+                        if isinstance(item, Mapping) and item.get("type") == "text":
+                            t = item.get("text", "")
+                            if isinstance(t, str) and t.strip():
+                                texts.append(t)
+        text = "\n\n---\n\n".join(texts)
+        if self._max_prompt_chars is not None:
+            # Take the tail: test summaries and errors appear at the end
+            text = text[-self._max_prompt_chars :]
         return _text_conversation(text)
 
     @staticmethod

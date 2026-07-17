@@ -1,0 +1,16 @@
+schema_version: 3
+name: agentic-coding-fixed-opus
+
+# Opus-only baseline strategy — every turn goes to Claude Opus 4.8.
+# Use this to establish a cost/accuracy baseline before enabling smart routing.
+
+profiles:
+  model:
+    target: openrouter-claude-opus-4-8
+    parameters:
+      max_tokens: 8192
+
+method:
+  type: fixed
+  role: writer
+  profile: model

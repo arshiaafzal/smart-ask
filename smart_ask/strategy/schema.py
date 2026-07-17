@@ -71,6 +71,7 @@ class ModelProfileConfig(ConfigModel):
     target: str
     system_prompt: PromptConfig | None = None
     parameters: ModelParametersConfig = Field(default_factory=ModelParametersConfig)
+    context_messages: int | None = Field(default=None, gt=0)
 
     @field_validator("target")
     @classmethod
@@ -91,7 +92,7 @@ class LLMClassifierConfig(ConfigModel):
     target: str
     prompt: PromptConfig
     fallback: Literal["easy", "hard", "raise"]
-    missing_input: Literal["easy", "hard", "raise"] = "hard"
+    missing_input: Literal["easy", "hard", "raise", "classify-tool-result"] = "hard"
     projection: Literal["latest-user-text", "full-conversation"] = (
         "latest-user-text"
     )

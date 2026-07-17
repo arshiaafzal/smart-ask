@@ -32,3 +32,8 @@ smart_ask = [
 
 [tool.setuptools.packages.find]
 include = ["smart_ask*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
