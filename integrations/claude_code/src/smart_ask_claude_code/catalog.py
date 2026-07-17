@@ -43,6 +43,10 @@ class CatalogEntry:
     reference: str
     loaded: LoadedStrategy
     engine: StrategyEngine
+    # Forced-hard engine used when the request contains tool definitions.
+    # Prevents easy models (e.g. Gemini) from hallucinating invalid tool calls
+    # against Claude Code's rich tool schema.
+    engine_hard: StrategyEngine | None = None
 
 
 class StrategyCatalog:
@@ -80,11 +84,19 @@ class StrategyCatalog:
         trace_observer: RunObserver | None = None,
     ) -> "StrategyCatalog":
         resource_owners: tuple[object, ...] = ()
+        hard_engine_builder: Callable[
+            [LoadedStrategy, RunObserver | None], StrategyEngine
+        ] | None = None
         if engine_builder is None:
             builder = StrategyBuilder(env=env)
             resource_owners = (builder,)
             engine_builder = lambda loaded, observer: builder.build_engine(
                 loaded,
+                observer=observer,
+            )
+            hard_engine_builder = lambda loaded, observer: builder.build_engine(
+                loaded,
+                force="hard",
                 observer=observer,
             )
         entries = []
@@ -104,6 +116,14 @@ class StrategyCatalog:
             else:
                 loaded = loader(reference)
             slug = _slug(reference)
+            # Build forced-hard engine; some fixed strategies don't support
+            # force overrides, so fall back gracefully.
+            engine_hard: StrategyEngine | None = None
+            if hard_engine_builder is not None:
+                try:
+                    engine_hard = hard_engine_builder(loaded, trace_observer)
+                except Exception:
+                    engine_hard = None
             entries.append(CatalogEntry(
                 model_id=f"claude-smart-ask-{slug}",
                 display_name="SmartAsk: " + " ".join(
@@ -112,6 +132,7 @@ class StrategyCatalog:
                 reference=reference,
                 loaded=loaded,
                 engine=engine_builder(loaded, trace_observer),
+                engine_hard=engine_hard,
             ))
         return cls(
             tuple(entries),
@@ -135,10 +156,11 @@ class StrategyCatalog:
     async def aclose(self) -> None:
         seen = set()
         for entry in self:
-            if id(entry.engine) in seen:
-                continue
-            seen.add(id(entry.engine))
-            await entry.engine.aclose()
+            for engine in (entry.engine, entry.engine_hard):
+                if engine is None or id(engine) in seen:
+                    continue
+                seen.add(id(engine))
+                await engine.aclose()
         for owner in self._resource_owners:
             closer = getattr(owner, "aclose", None)
             if callable(closer):

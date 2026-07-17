@@ -309,7 +309,11 @@ print(model)
 PY
 )
 
-CLAUDE_ENV=(env -u OPENAI_API_KEY -u OPENROUTER_API_KEY)
+CLAUDE_ENV=(env -u OPENAI_API_KEY -u OPENROUTER_API_KEY
+    -u CLAUDE_CODE_USE_FOUNDRY
+    -u ANTHROPIC_FOUNDRY_BASE_URL
+    -u ANTHROPIC_FOUNDRY_API_KEY
+)
 while IFS= read -r credential; do
     [ -n "$credential" ] && CLAUDE_ENV+=(-u "$credential")
 done <"$PROVIDER_ENVS"

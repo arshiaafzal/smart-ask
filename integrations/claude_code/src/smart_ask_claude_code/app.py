@@ -15,8 +15,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
+import sys
+
 from .auth import AdapterAuthenticator
 from .catalog import StrategyCatalog
+from smart_ask.conversation.domain import ConversationEvent, freeze_value, thaw_value
 from smart_ask.conversation.model import RunMetadata
 from .codec import (
     AnthropicEventEncoder,
@@ -197,20 +200,103 @@ def create_app(
             extensions={"principal_id": "authenticated"},
         )
 
+        print(f"[SA] stream_requested={stream_requested}", file=sys.stderr, flush=True)
         if stream_requested:
             # Do not perform a second tokenizer request before opening the
             # stream. The dedicated count endpoint remains available, while
             # generation usage is authoritative for this response.
+            active_engine = entry.engine
             encoder = AnthropicEventEncoder(model_id, input_tokens=0)
-            handle = entry.engine.start(conversation, metadata)
+            handle = active_engine.start(conversation, metadata)
             events = handle.events()
 
+            def _raw_sse(event_name: str, value: dict[str, Any]) -> bytes:
+                return f"event: {event_name}\ndata: {json.dumps(value, separators=(',', ':'))}\n\n".encode()
+
             async def stream():
+                actual_model: str | None = None
+                cost_usd: float | None = None
+                input_tokens: int | None = None
+                output_tokens: int | None = None
+                last_text_block_index: int | None = None
+                pending_end: list[bytes] = []
                 try:
                     async for event in events:
+                        # Capture the real model name and update Claude Code's
+                        # model bar to show it instead of the strategy alias.
+                        if event.kind == "message_start":
+                            raw = event.data.get("model") if hasattr(event.data, "get") else None
+                            if isinstance(raw, str) and raw:
+                                actual_model = raw
+                                encoder.requested_model = raw.split("/")[-1]
+
+                        # Track the last text content block so we can
+                        # append the routing footer to it before it closes.
+                        if event.kind == "content_start" and hasattr(event.data, "get"):
+                            block = event.data.get("block", {})
+                            if hasattr(block, "get") and block.get("type") == "text":
+                                idx = event.data.get("index")
+                                if isinstance(idx, int):
+                                    last_text_block_index = idx
+
+                        # Capture cost and token counts from the usage event
+                        # emitted at the end of the generator stream.
+                        if event.kind == "usage" and hasattr(event.data, "get"):
+                            d = event.data
+                            c = d.get("provider_cost_usd")
+                            if isinstance(c, (int, float)) and not isinstance(c, bool):
+                                cost_usd = float(c)
+                            for attr, key in (
+                                ("input_tokens", "input_tokens"),
+                                ("output_tokens", "output_tokens"),
+                            ):
+                                v = d.get(key)
+                                if isinstance(v, int) and not isinstance(v, bool):
+                                    if attr == "input_tokens":
+                                        input_tokens = v
+                                    else:
+                                        output_tokens = v
+
+                        # Buffer content_stop, message_delta, and message_stop
+                        # so we can inject the footer before the block closes.
+                        if event.kind in ("content_stop", "message_delta", "message_stop"):
+                            encoded = encoder.encode(event)
+                            if encoded is not None:
+                                pending_end.append(encoded)
+                            continue
+
                         encoded = encoder.encode(event)
                         if encoded is not None:
                             yield encoded
+
+                    print(f"[SA] stream done. model={actual_model} cost={cost_usd} out_tok={output_tokens} last_text_block={last_text_block_index}", file=sys.stderr, flush=True)
+                    # Append routing footer as a final delta to the last text
+                    # block before it is closed.  Staying in the same block
+                    # guarantees Claude Code renders it without special cases.
+                    if last_text_block_index is not None and (
+                        actual_model is not None
+                        or cost_usd is not None
+                        or output_tokens is not None
+                    ):
+                        total_tok = (input_tokens or 0) + (output_tokens or 0)
+                        parts: list[str] = []
+                        if actual_model is not None:
+                            parts.append(f"via {actual_model.split('/')[-1]}")
+                        if cost_usd is not None:
+                            parts.append(f"${cost_usd:.6f}")
+                        if total_tok:
+                            parts.append(f"{total_tok:,} tok")
+                        footer = "\n\n---\n*" + " · ".join(parts) + "*"
+                        print(f"[SA] injecting footer to block {last_text_block_index}: {footer!r}", file=sys.stderr, flush=True)
+                        yield _raw_sse("content_block_delta", {
+                            "type": "content_block_delta",
+                            "index": last_text_block_index,
+                            "delta": {"type": "text_delta", "text": footer},
+                        })
+
+                    for chunk in pending_end:
+                        yield chunk
+
                 except anyio.get_cancelled_exc_class():
                     raise
                 except Exception as exc:
@@ -237,15 +323,52 @@ def create_app(
             )
 
         assembler = AnthropicMessageAssembler(model_id)
-        handle = entry.engine.start(conversation, metadata)
+        active_engine_nb = entry.engine
+        handle = active_engine_nb.start(conversation, metadata)
+        nb_actual_model: str | None = None
+        nb_cost_usd: float | None = None
+        nb_input_tokens: int | None = None
+        nb_output_tokens: int | None = None
         try:
             async for event in handle.events():
                 assembler.observe(event)
+                if event.kind == "message_start" and hasattr(event.data, "get"):
+                    raw = event.data.get("model")
+                    if isinstance(raw, str) and raw:
+                        nb_actual_model = raw
+                if event.kind == "usage" and hasattr(event.data, "get"):
+                    d = event.data
+                    c = d.get("provider_cost_usd")
+                    if isinstance(c, (int, float)) and not isinstance(c, bool):
+                        nb_cost_usd = float(c)
+                    v_in = d.get("input_tokens")
+                    if isinstance(v_in, int) and not isinstance(v_in, bool):
+                        nb_input_tokens = v_in
+                    v_out = d.get("output_tokens")
+                    if isinstance(v_out, int) and not isinstance(v_out, bool):
+                        nb_output_tokens = v_out
         except Exception as exc:
             catalog.record(await handle.result())
             return _error(500, "api_error", str(exc))
         catalog.record(await handle.result())
-        return JSONResponse(assembler.message())
+        msg = assembler.message()
+        print(f"[SA] non-stream done. model={nb_actual_model} cost={nb_cost_usd} out_tok={nb_output_tokens}", file=sys.stderr, flush=True)
+        if nb_actual_model is not None or nb_cost_usd is not None or nb_output_tokens is not None:
+            total_tok = (nb_input_tokens or 0) + (nb_output_tokens or 0)
+            parts: list[str] = []
+            if nb_actual_model is not None:
+                parts.append(f"via {nb_actual_model.split('/')[-1]}")
+            if nb_cost_usd is not None:
+                parts.append(f"${nb_cost_usd:.6f}")
+            if total_tok:
+                parts.append(f"{total_tok:,} tok")
+            footer = "\n\n---\n*" + " · ".join(parts) + "*"
+            for block in msg.get("content", []):
+                if isinstance(block, dict) and block.get("type") == "text":
+                    block["text"] = block["text"] + footer
+                    print(f"[SA] non-stream footer injected: {footer!r}", file=sys.stderr, flush=True)
+                    break
+        return JSONResponse(msg)
 
     async def count_tokens(request: Request) -> Response:
         if not authenticator.authenticate(request.headers):
