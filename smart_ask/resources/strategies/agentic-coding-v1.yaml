@@ -1,0 +1,33 @@
+schema_version: 3
+name: agentic-coding-v1
+
+# Strategy for Claude Code agentic sessions.
+# Routes file-read / test-run turns to Gemini Flash Lite (cheap) and
+# code-writing / complex-reasoning turns to Claude Opus 4.8 (accurate).
+#
+# Key difference from "product": the classifier prompt is tuned for
+# agentic tool-use loops, where most turns are "read/explore/verify"
+# (easy) and only a small fraction actually write code (hard).
+
+profiles:
+  easy:
+    target: openrouter-gemini-flash-lite
+  hard:
+    target: openrouter-claude-opus-4-8
+
+method:
+  type: difficulty
+  classifier:
+    type: llm
+    target: openrouter-gemini-flash-lite
+    prompt:
+      type: file
+      path: ../prompts/agentic-difficulty-v1.txt
+    fallback: easy
+    missing_input: easy
+    max_prompt_chars: 2000
+    parameters:
+      max_tokens: 20
+      temperature: 0.0
+  easy: easy
+  hard: hard

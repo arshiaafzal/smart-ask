@@ -203,6 +203,7 @@ class OllamaTransport:
         parameters = conversation.parameters
         max_tokens = parameters.get("max_tokens", self._default_max_tokens)
         temperature = parameters.get("temperature", self._temperature)
+        num_ctx = parameters.get("num_ctx", 32768)
         payload: dict[str, Any] = {
             "model": request.model,
             "messages": _ollama_messages(conversation),
@@ -211,6 +212,7 @@ class OllamaTransport:
             "options": {
                 "num_predict": max_tokens,
                 "temperature": temperature,
+                "num_ctx": num_ctx,
             },
         }
         stop = parameters.get("stop")

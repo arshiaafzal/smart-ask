@@ -1,0 +1,36 @@
+schema_version: 3
+name: agentic-coding-v2-local
+
+# Strategy for Claude Code agentic sessions — local Ollama backend.
+# Used for routing validation when OpenRouter credits are exhausted.
+# In production, replace targets with openrouter-gemini-flash-lite (easy)
+# and openrouter-claude-opus-4-8 (hard).
+#
+# Key fix vs v1: missing_input=easy routes tool-result-only turns (the
+# majority in an agentic loop) directly to the easy profile without
+# calling the classifier.
+
+profiles:
+  easy:
+    target: local-qwen3-14b
+    parameters: {max_tokens: 4096}
+  hard:
+    target: local-qwen3-14b
+    parameters: {max_tokens: 8192}
+
+method:
+  type: difficulty
+  classifier:
+    type: llm
+    target: local-qwen3-14b
+    prompt:
+      type: file
+      path: ../prompts/agentic-difficulty-v1.txt
+    fallback: easy
+    missing_input: easy
+    max_prompt_chars: 2000
+    parameters:
+      max_tokens: 20
+      temperature: 0.0
+  easy: easy
+  hard: hard
