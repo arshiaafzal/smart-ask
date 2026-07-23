@@ -1,234 +1,50 @@
 #!/usr/bin/env bash
-# eval-smart-code — automated evaluation runner for the smart-code adapter
-#
-# Starts the adapter, fires a curated batch of easy/hard prompts, prints
-# routing decisions and costs, then shows a summary.
-#
-# Usage:
-#   scripts/eval-smart-code [--strategy NAME] [--port PORT]
-#
-# Examples:
-#   scripts/eval-smart-code
-#   scripts/eval-smart-code --strategy product
-#   scripts/eval-smart-code --strategy python-code-generation-cascade --port 49800
+
+# Run one real Claude Code prompt through SmartAsk and print its routing/cost
+# summary. Process setup, authentication, and model selection stay in the main
+# launcher so this evaluator cannot drift from the product path.
 
 set -euo pipefail
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-SECRETS_FILE=${SMART_ASK_SECRETS_FILE:-$ROOT_DIR/scripts/claude-smart-ask.local.env}
-if [ -f "$SECRETS_FILE" ]; then
-    set -a
-    # shellcheck disable=SC1090
-    source "$SECRETS_FILE"
-    set +a
-fi
-
-STRATEGY=${STRATEGY:-product}
-PORT=${PORT:-49775}
-TOKEN=evaltoken-$$
-ADAPTER_LOG=/tmp/sa-eval-adapter.log
-METRICS_LOG=/tmp/sa-eval-metrics.jsonl
+STRATEGY=${SMART_ASK_DEFAULT_STRATEGY:-agentic-coding-v1}
 
 usage() {
     cat <<'EOF'
 Usage:
-  scripts/eval-smart-code [--strategy NAME] [--port PORT]
+  scripts/eval-smart-code [--strategy NAME] "prompt"
 
-Options:
-  --strategy NAME   builtin strategy name (default: product)
-  --port PORT       adapter port (default: 49775)
-
-Environment overrides:
-  STRATEGY, PORT, SMART_ASK_SECRETS_FILE, SMART_ASK_ADAPTER_BIN, SMART_ASK_PYTHON
+The normal Sonnet/Opus strategy is used by default. Set
+SMART_ASK_METRICS_PATH to keep appending to a specific metrics file.
 EOF
 }
 
-fail() { echo "error: $*" >&2; exit 1; }
+case "${1:-}" in
+    help|-h|--help)
+        usage
+        exit 0
+        ;;
+esac
 
-case "${1:-}" in help|-h|--help) usage; exit 0;; esac
+if [ "${1:-}" = "--strategy" ]; then
+    [ -n "${2:-}" ] || { echo "error: --strategy requires a name" >&2; exit 1; }
+    STRATEGY=$2
+    shift 2
+fi
+[ "$#" -gt 0 ] || { usage >&2; exit 1; }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --strategy) STRATEGY="${2:-}"; shift 2;;
-        --port)     PORT="${2:-}"; shift 2;;
-        *)          fail "unknown argument: $1";;
-    esac
-done
+if [ -z "${SMART_ASK_METRICS_PATH:-}" ]; then
+    SMART_ASK_METRICS_PATH=$(mktemp "${TMPDIR:-/tmp}/smart-ask-eval.XXXXXX.jsonl")
+fi
+export SMART_ASK_METRICS_PATH
 
-resolve_python() {
-    for candidate in "${SMART_ASK_PYTHON:-}" python3.13 python3.12 python3.11 python3; do
-        [ -n "$candidate" ] || continue
-        if command -v "$candidate" >/dev/null 2>&1 && \
-            "$candidate" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))' \
-            >/dev/null 2>&1; then
-            command -v "$candidate"
-            return
-        fi
-    done
-    return 1
-}
+"$ROOT_DIR/scripts/claude-smart-ask" \
+    --strategy "$STRATEGY" \
+    -p "$*" --print
 
-resolve_adapter() {
-    if [ -n "${SMART_ASK_ADAPTER_BIN:-}" ]; then
-        printf '%s\n' "$SMART_ASK_ADAPTER_BIN"
-    elif command -v smart-ask-claude-code >/dev/null 2>&1; then
-        command -v smart-ask-claude-code
-    elif [ -x "$ROOT_DIR/.venv/bin/smart-ask-claude-code" ]; then
-        printf '%s\n' "$ROOT_DIR/.venv/bin/smart-ask-claude-code"
-    else
-        return 1
-    fi
-}
-
-PYTHON=$(resolve_python) || fail "Python 3.11+ not found"
-ADAPTER=$(resolve_adapter) || fail "smart-ask-claude-code not found"
-
-# Write adapter config
-CONFIG=/tmp/sa-eval-config.json
-"$PYTHON" - "$STRATEGY" "$CONFIG" "$PORT" "$METRICS_LOG" <<'PY'
-import json, sys
-strategy, config_path, port, metrics_path = sys.argv[1:]
-config = {
-    "schema_version": 1,
-    "listen": {"host": "127.0.0.1", "port": int(port)},
-    "auth": {"token_env": "SMART_ASK_CLAUDE_CODE_TOKEN", "required_on_loopback": True},
-    "strategies": ["builtin:" + strategy],
-    "limits": {
-        "max_request_bytes": 33554432,
-        "max_concurrent_requests": 8,
-        "max_output_tokens": 2048,
-    },
-    "metrics": {"jsonl_path": metrics_path, "trace_directory": None},
-    "security": {"allowed_strategy_roots": []},
-}
-import pathlib
-pathlib.Path(config_path).write_text(json.dumps(config), encoding="utf-8")
-PY
-
-MODEL_ID="claude-smart-ask-${STRATEGY}"
-
-# Start adapter
-(
-    cd "$ROOT_DIR"
-    exec env SMART_ASK_CLAUDE_CODE_TOKEN="$TOKEN" "$ADAPTER" serve --config "$CONFIG"
-) >"$ADAPTER_LOG" 2>&1 &
-ADAPTER_PID=$!
-
-cleanup() {
-    kill "$ADAPTER_PID" 2>/dev/null || true
-    wait "$ADAPTER_PID" 2>/dev/null || true
-}
-trap cleanup EXIT INT TERM
-
-# Wait for adapter ready
-ADAPTER_URL="http://127.0.0.1:$PORT"
-for i in $(seq 60); do
-    if curl -sf -H "x-api-key: $TOKEN" "$ADAPTER_URL/v1/models" >/dev/null 2>&1; then
-        break
-    fi
-    if ! kill -0 "$ADAPTER_PID" 2>/dev/null; then
-        cat "$ADAPTER_LOG" >&2
-        fail "adapter exited before becoming ready"
-    fi
-    sleep 0.25
-done
-curl -sf -H "x-api-key: $TOKEN" "$ADAPTER_URL/v1/models" >/dev/null \
-    || { cat "$ADAPTER_LOG" >&2; fail "adapter not ready"; }
-
-echo ""
-echo "  strategy : builtin:$STRATEGY  →  model alias $MODEL_ID"
-echo "  adapter  : $ADAPTER_URL"
-echo ""
-
-# Eval prompt runner
-call_prompt() {
-    local label="$1"
-    local prompt="$2"
-    local expected_tier="${3:-?}"   # "easy" or "hard" — just for display
-
-    printf '  %-12s  %-6s  ' "$label" "[$expected_tier]"
-
-    result=$(curl -s \
-        -H "x-api-key: $TOKEN" \
-        -H "content-type: application/json" \
-        "$ADAPTER_URL/v1/messages" \
-        -d "$(printf '{"model":"%s","max_tokens":512,"stream":false,"messages":[{"role":"user","content":"%s"}]}' \
-            "$MODEL_ID" "$(echo "$prompt" | sed 's/"/\\"/g')")" \
-    )
-
-    # Extract text from content[0].text (strip footer after ---)
-    text=$(echo "$result" | "$PYTHON" -c "
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    t = d['content'][0]['text']
-    # strip footer
-    t = t.split('\n\n---\n')[0].strip()
-    print(t[:80].replace('\n', ' '))
-except Exception as e:
-    print('ERROR:', e)
-" 2>/dev/null)
-
-    # Extract footer (model + cost)
-    footer=$(echo "$result" | "$PYTHON" -c "
-import json, sys, re
-try:
-    d = json.load(sys.stdin)
-    t = d['content'][0]['text']
-    m = re.search(r'\*([^*]+)\*$', t)
-    print(m.group(1) if m else '')
-except:
-    print('')
-" 2>/dev/null)
-
-    printf '%s\n' "$text"
-    [ -n "$footer" ] && printf '  %-12s  %-6s  %s\n' "" "" "  → $footer"
-}
-
-# ── EVAL PROMPTS ──────────────────────────────────────────────────────────────
-echo "  ── Easy prompts (expect Gemini) ───────────────────────────────────────"
-call_prompt "greeting"       "say hi in one sentence"                            easy
-call_prompt "simple-math"    "what is 17 times 13"                               easy
-call_prompt "explain"        "explain what a linked list is in one sentence"      easy
-call_prompt "string-op"      "reverse the string 'hello world' in Python"        easy
-call_prompt "definition"     "what does the word 'recursion' mean briefly"       easy
-
-echo ""
-echo "  ── Hard prompts (expect Opus) ──────────────────────────────────────────"
-call_prompt "dp-task"        "write a Python function for 0/1 knapsack using dynamic programming" hard
-call_prompt "graph-algo"     "implement Dijkstra shortest path in Python"        hard
-call_prompt "red-black"      "write a red-black tree insertion with rebalancing in Python" hard
-call_prompt "concurrency"    "explain the differences between locks, semaphores, and monitors" hard
-call_prompt "design"         "design a rate limiter supporting sliding window and token bucket algorithms" hard
-
-echo ""
-echo "  ── Metrics summary ─────────────────────────────────────────────────────"
-"$PYTHON" - "$METRICS_LOG" <<'PY'
-import json, sys, pathlib
-path = pathlib.Path(sys.argv[1])
-if not path.exists():
-    print("  (no metrics recorded)")
-    sys.exit(0)
-
-records = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
-if not records:
-    print("  (no records)")
-    sys.exit(0)
-
-total_cost = sum(r.get("cost_usd", 0) for r in records)
-by_model = {}
-for r in records:
-    m = (r.get("model") or "unknown").split("/")[-1]
-    entry = by_model.setdefault(m, {"count": 0, "cost": 0.0, "decisions": []})
-    entry["count"] += 1
-    entry["cost"] += r.get("cost_usd", 0)
-    for d in r.get("decisions", []):
-        entry["decisions"].append(d.get("outcome", "?"))
-
-for model, e in sorted(by_model.items(), key=lambda x: -x[1]["cost"]):
-    outcomes = ", ".join(sorted(set(e["decisions"])))
-    print(f"  {model:40s} {e['count']:2d} calls  ${e['cost']:.6f}  [{outcomes}]")
-
-print(f"  {'TOTAL':40s}           ${total_cost:.6f}")
-PY
-echo ""
+if [ -x "$ROOT_DIR/.venv/bin/python" ]; then
+    PYTHON=$ROOT_DIR/.venv/bin/python
+else
+    PYTHON=python3
+fi
+"$PYTHON" "$ROOT_DIR/benchmark/analyze.py" "$SMART_ASK_METRICS_PATH"

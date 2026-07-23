@@ -1,6 +1,28 @@
 # smart-ask
 
-`smart-ask` runs a configurable model strategy for each conversation turn. A
+SmartAsk is a Claude Code cost router. Its default strategy uses Claude Sonnet
+for straightforward agent turns and Claude Opus for difficult coding and
+reasoning turns, through the native Anthropic Messages API.
+
+With Claude Code already installed, the normal workflow is one command:
+
+```bash
+cp scripts/claude-smart-ask.local.env.example scripts/claude-smart-ask.local.env
+# Put ANTHROPIC_API_KEY in the ignored local file, then:
+./scripts/claude-smart-ask
+```
+
+All ordinary Claude Code arguments still work, for example
+`./scripts/claude-smart-ask -p "fix the tests" --print`. Claude Code keeps its
+normal UI and status information. Each response ends with a colored footer
+showing the answering model, full turn cost (classifier plus generation), and
+cumulative Claude Code session cost. SmartAsk removes this display-only footer
+before the next model call, so it cannot influence routing or answers.
+Prompt-free detailed metrics are also written to
+`.smart-ask/claude-code/metrics.jsonl`. Costs are direct Anthropic list-price
+estimates unless a provider reports billed cost.
+
+Under the hood, `smart-ask` runs a configurable model strategy for each turn. A
 strategy may select a fixed model, classify work by difficulty, or try a cheap
 model and escalate. The same engine serves the terminal, benchmarks, and
 external harness adapters.
@@ -38,6 +60,7 @@ python3.11 -m pip install -e ./integrations/claude_code
 Set only the credential required by the selected trusted target:
 
 ```bash
+export ANTHROPIC_API_KEY="sk-ant-..."  # default Claude Code strategy
 export OPENROUTER_API_KEY="sk-or-..."
 export OPENAI_API_KEY="sk-..."
 export GROQ_API_KEY="gsk_..."
@@ -214,21 +237,69 @@ messages, tools, images, streaming events, token-count requests, authentication,
 and model discovery. It passes the resulting complete `Conversation` to the
 same engine used everywhere else.
 
-The easiest launch path searches for a strategy name under the bundled
-strategies directory, creates a private one-strategy adapter configuration,
-starts it on loopback, and launches Claude Code:
+The launcher defaults to `agentic-coding-v1`, creates a private adapter on a
+random loopback port, and opens Claude Code:
 
 ```bash
 cp scripts/claude-smart-ask.local.env.example \
   scripts/claude-smart-ask.local.env
-# Add the provider key required by the selected target.
+# Add ANTHROPIC_API_KEY.
 
-./scripts/claude-smart-ask --strategy claude-code-groq-difficulty
-./scripts/claude-smart-ask --strategy local-qwen -p "hello"
-./scripts/claude-smart-ask \
-  --strategy python-code-generation-codex-cascade \
-  --trace
+./scripts/claude-smart-ask
+./scripts/claude-smart-ask -p "fix the failing tests" --print
+./scripts/claude-smart-ask --trace
 ```
+
+The default sends every substantive user message—including prompts containing
+words such as `fix`—to a small Sonnet classifier. It returns `sonnet`, `opus`,
+or `uncertain` plus confidence. Only an explicit exact-reply instruction skips
+classification. Clear local and mechanical work goes to Sonnet; architecture,
+subtle debugging, concurrency, algorithms, and uncertainty go to Opus. A
+Sonnet tool loop is reclassified after each tool result, so new failure or
+complexity evidence can escalate the same user turn. Once Opus owns a difficult
+tool loop, it remains in control to preserve reasoning continuity.
+
+When a route changes models, the warm source model creates a bounded factual
+handoff. The destination receives the original request, summary, latest tool
+output, and core coding tools instead of blindly rereading the full harness
+context. That compact state persists for later tool calls. Empty, unsafe,
+truncated, tool-calling, or failed summaries fall back to full context. This
+reduces cold payload; it does not pretend that Anthropic prompt caches can be
+shared across different models. After an edit and an unambiguous multi-test
+pass, the same conservative mechanism can let Sonnet produce the final summary.
+
+The confidence threshold is the coding-agent version of calibrated threshold
+routing used by RouteLLM-style routers; post-exploration escalation follows the
+same cheap-first principle as FrugalGPT-style cascades. The important addition
+for an interactive coding harness is persistent, evidence-bounded handoff state
+across the destination model's subsequent tool calls.
+
+The shared efficiency guidance asks both models to reuse facts already gathered
+and avoid duplicate orchestration. It does not ban source exploration,
+subagents, environment discovery, reproduction, or broader tests when those add
+evidence needed for correctness.
+
+The launcher also stops one instruction after 30 model
+responses or $2.00 of known spend by default; the full interactive session has
+no fixed cumulative cap.
+
+To reproduce the canonical real-repository evaluation on macOS:
+
+```bash
+.venv/bin/python benchmark/real_swebench.py \
+  --label my-routed-run --strategy agentic-coding-v1
+.venv/bin/python benchmark/real_swebench.py \
+  --label my-opus-control --strategy agentic-coding-fixed-opus
+```
+
+This creates fresh checkouts of `pytest-dev/pytest` at the SWE-bench base
+commit, gives the issue to Claude Code, applies the official hidden test patch
+afterward, and records patch quality, model routes, cache tokens, and cost. See
+[benchmark/REAL_SWEBENCH.md](benchmark/REAL_SWEBENCH.md) for the exact task and
+latest measured results.
+
+Use `--strategy NAME` only for an optional non-default strategy such as
+`local-qwen`.
 
 Each advertised Claude Code model name maps to exactly one strategy YAML. Claude
 Code still supplies its own agent instructions and full conversation context;

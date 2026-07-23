@@ -15,6 +15,7 @@ from ..conversation.model import InputTokenCount, ModelCallSpec
 from ..strategy.errors import StrategyBuildError
 from ..strategy.targets import TargetDefinition, TargetRegistry
 from ._protocol import ProviderCall
+from .anthropic import AnthropicTransport
 from .groq import GroqTransport
 from .ollama import OllamaTransport
 from .openai import OpenAITransport
@@ -93,7 +94,12 @@ class TargetExecutorRegistry:
             )
         else:
             client = self._client(target)
-            if target.transport == "openrouter":
+            if target.transport == "anthropic":
+                executor = AnthropicTransport(
+                    client,
+                    default_max_tokens=min(8192, target.limits.max_output_tokens),
+                )
+            elif target.transport == "openrouter":
                 executor = OpenRouterTransport(
                     client,
                     default_max_tokens=min(1024, target.limits.max_output_tokens),
@@ -132,9 +138,16 @@ class TargetExecutorRegistry:
         key = (target.transport, base_url, api_key)
         client = self._clients.get(key)
         if client is None:
+            headers = {"Authorization": f"Bearer {api_key}"}
+            if target.transport == "anthropic":
+                headers.update({
+                    "x-api-key": api_key,
+                    "api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                })
             client = self._http_client_factory(
                 base_url=base_url.rstrip("/"),
-                headers={"Authorization": f"Bearer {api_key}"},
+                headers=headers,
                 timeout=httpx.Timeout(target.limits.timeout_seconds),
                 follow_redirects=False,
             )

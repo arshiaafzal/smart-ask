@@ -149,9 +149,9 @@ class StrategyCatalog:
     def __iter__(self):
         return iter(self._entries.values())
 
-    def record(self, record: RunRecord) -> None:
+    def record(self, record: RunRecord) -> dict[str, object]:
         """Persist content-free metrics for one completed invocation."""
-        self.metrics.record(record)
+        return self.metrics.record(record)
 
     async def aclose(self) -> None:
         seen = set()

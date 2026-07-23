@@ -2,35 +2,72 @@ schema_version: 3
 name: agentic-coding-v1
 
 # Strategy for Claude Code agentic sessions.
-# Routes file-read / test-run turns to Gemini Flash Lite (cheap) and
-# code-writing / complex-reasoning turns to Claude Opus 4.8 (accurate).
-#
-# Key difference from "product": the classifier prompt is tuned for
-# agentic tool-use loops, where most turns are "read/explore/verify"
-# (easy) and only a small fraction actually write code (hard).
+# Uses confidence routing: Sonnet handles clear local/mechanical work and Opus
+# handles deep or uncertain work. Both models use the native Anthropic API.
 
 profiles:
   easy:
-    target: openrouter-gemini-flash-lite
+    target: anthropic-claude-sonnet
+    system_prompt:
+      type: file
+      path: ../prompts/agentic-efficiency-v1.txt
     parameters:
       max_tokens: 8192
-    context_messages: 8
   hard:
-    target: openrouter-claude-opus-4-8
+    target: anthropic-claude-opus
+    system_prompt:
+      type: file
+      path: ../prompts/agentic-efficiency-v1.txt
+    parameters:
+      max_tokens: 8192
 
 method:
   type: difficulty
+  # Re-evaluate every real human message. Sonnet tool results are also checked
+  # so new failure/complexity evidence can escalate the same turn to Opus;
+  # an Opus investigation remains pinned for quality and cache locality.
+  route_memory:
+    enabled: true
+    ttl_seconds: 3600
+    session_ttl_seconds: 300
+    max_entries: 10000
+  # A warm source model summarizes state before a cross-model switch. The
+  # compact state persists through the destination model's tool loop.
+  compact_handoff:
+    enabled: true
+    prompt:
+      type: file
+      path: ../prompts/agentic-compact-handoff-v1.txt
+    marker: HANDOFF_UNSAFE
+    max_summary_chars: 5000
+    max_tool_result_chars: 3000
+    max_tokens: 512
+    tool_names: [Bash, Read, Edit, Write, NotebookEdit, Grep, Glob]
+  # Once an edit is followed by an unambiguous multi-test pass, Sonnet receives
+  # only bounded completion evidence. Any uncertainty falls back to full-context
+  # Opus, so this cannot hand an unfinished coding loop to the cheaper model.
+  terminal_handoff:
+    enabled: true
+    prompt:
+      type: file
+      path: ../prompts/agentic-terminal-handoff-v1.txt
+    marker: NEEDS_OPUS
+    min_passed_tests: 2
+    max_prompt_chars: 6000
+    max_tokens: 512
   classifier:
     type: llm
-    target: openrouter-gemini-flash-lite
+    target: anthropic-claude-sonnet
     prompt:
       type: file
       path: ../prompts/agentic-difficulty-v1.txt
-    fallback: easy
+    fallback: opus
     missing_input: classify-tool-result
+    prefilter: exact-replies
+    sonnet_min_confidence: 0.75
     max_prompt_chars: 2000
     parameters:
-      max_tokens: 20
+      max_tokens: 80
       temperature: 0.0
   easy: easy
   hard: hard

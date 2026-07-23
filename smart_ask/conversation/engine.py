@@ -442,6 +442,7 @@ class RunScope:
             selected_profile_id=draft.selected_profile_id,
             evidence_call_ids=draft.evidence_call_ids,
             sequence=self._next_event_sequence(),
+            confidence=draft.confidence,
         )
         self._decisions.append(record)
         self._decision_ids.add(decision_id)

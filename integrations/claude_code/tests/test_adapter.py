@@ -24,7 +24,7 @@ from smart_ask_claude_code import (
     TraceSessionSink,
     create_app,
 )
-from smart_ask_claude_code.config import MetricsConfig, SecurityConfig
+from smart_ask_claude_code.config import LimitsConfig, MetricsConfig, SecurityConfig
 
 
 MODEL_ID = "claude-smart-ask-local-qwen"
@@ -48,6 +48,7 @@ def text_events(text="adapter-ok", *, actual_model="qwen3:14b"):
         ConversationEvent("usage", {
             "input_tokens": 12,
             "output_tokens": 3,
+            "provider_cost_usd": 0.001,
         }),
         ConversationEvent("message_delta", {"stop_reason": "stop"}),
         ConversationEvent("message_stop"),
@@ -75,6 +76,7 @@ def tool_events():
         ConversationEvent("usage", {
             "input_tokens": 14,
             "output_tokens": 5,
+            "provider_cost_usd": 0.002,
         }),
         ConversationEvent("message_delta", {"stop_reason": "tool_call"}),
         ConversationEvent("message_stop"),
@@ -146,12 +148,13 @@ def engine_for(executor, observer=None):
 
 
 class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
-    async def make_client(self, executor=None, *, trace_sink=None):
+    async def make_client(self, executor=None, *, trace_sink=None, limits=None):
         loaded = load_strategy("builtin:local-qwen")
         executor = executor or RecordingModelCallExecutor()
         config = AdapterConfig(
             schema_version=1,
             strategies=("builtin:local-qwen",),
+            limits=limits or LimitsConfig(),
         )
         catalog = StrategyCatalog.from_config(
             config,
@@ -226,6 +229,12 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"adapter-ok", response.content)
+        self.assertIn(
+            b"\\u001b[33mvia qwen3:14b\\u001b[0m \\u00b7 "
+            b"\\u001b[92m$0.0010 this turn\\u001b[0m \\u00b7 "
+            b"\\u001b[32m$0.0010 total\\u001b[0m",
+            response.content,
+        )
         self.assertIn(b'"input_tokens":0', response.content)
         submitted = executor.requests[0].conversation
         self.assertEqual(submitted.system[0]["cache_control"]["type"], "ephemeral")
@@ -259,7 +268,15 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["content"][0]["text"], "adapter-ok")
+        self.assertTrue(
+            response.json()["content"][0]["text"].startswith("adapter-ok")
+        )
+        self.assertEqual(
+            response.json()["content"][0]["text"],
+            "adapter-ok\n\n---\n\x1b[33mvia qwen3:14b\x1b[0m · "
+            "\x1b[92m$0.0010 this turn\x1b[0m · "
+            "\x1b[32m$0.0010 total\x1b[0m",
+        )
         self.assertEqual(response.json()["stop_reason"], "end_turn")
         self.assertEqual(len(app.state.strategy_catalog.metrics.records), 1)
 
@@ -286,8 +303,138 @@ class AdapterContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b'"type":"tool_use"', response.content)
         self.assertIn(b'"type":"input_json_delta"', response.content)
         self.assertIn(b'\\"path\\":\\"a.py\\"', response.content)
+        self.assertIn(
+            b"\\u001b[33mvia qwen3:14b\\u001b[0m \\u00b7 "
+            b"\\u001b[92m$0.0020 this turn\\u001b[0m \\u00b7 "
+            b"\\u001b[32m$0.0020 total\\u001b[0m",
+            response.content,
+        )
         run = app.state.strategy_catalog.metrics.records[0]
         self.assertEqual(run["provider_requests"][0]["tool_call_count"], 1)
+
+    async def test_visible_footer_is_removed_from_followup_model_context(self):
+        executor = RecordingModelCallExecutor([
+            text_events("first"),
+            text_events("second"),
+        ])
+        client, _app, _executor = await self.make_client(executor)
+        headers = {"x-api-key": "local-secret"}
+        first = await client.post(
+            "/v1/messages",
+            headers=headers,
+            json={
+                "model": MODEL_ID,
+                "stream": False,
+                "max_tokens": 100,
+                "messages": [{"role": "user", "content": "first"}],
+            },
+        )
+        await client.post(
+            "/v1/messages",
+            headers=headers,
+            json={
+                "model": MODEL_ID,
+                "stream": False,
+                "max_tokens": 100,
+                "messages": [
+                    {"role": "user", "content": "first"},
+                    {"role": "assistant", "content": first.json()["content"]},
+                    {"role": "user", "content": "continue"},
+                ],
+            },
+        )
+
+        submitted = executor.requests[-1].conversation
+        assistant = submitted.messages[1]
+        self.assertEqual(len(assistant.content), 1)
+        self.assertEqual(assistant.content[0]["text"], "first")
+
+    async def test_footer_accumulates_session_cost(self):
+        executor = RecordingModelCallExecutor([
+            text_events("first"),
+            text_events("second"),
+        ])
+        client, _app, _executor = await self.make_client(executor)
+        headers = {
+            "x-api-key": "local-secret",
+            "x-claude-code-session-id": "session-cost",
+        }
+        body = {
+            "model": MODEL_ID,
+            "stream": False,
+            "max_tokens": 100,
+            "messages": [{"role": "user", "content": "hello"}],
+        }
+
+        await client.post("/v1/messages", headers=headers, json=body)
+        second = await client.post("/v1/messages", headers=headers, json=body)
+
+        footer = second.json()["content"][-1]["text"]
+        self.assertIn("\x1b[92m$0.0010 this turn\x1b[0m", footer)
+        self.assertIn("\x1b[32m$0.0020 total\x1b[0m", footer)
+
+    async def test_runaway_limit_stops_only_the_current_human_turn(self):
+        executor = RecordingModelCallExecutor([
+            text_events("first"),
+            text_events("new turn"),
+        ])
+        client, _app, _executor = await self.make_client(
+            executor,
+            limits=LimitsConfig(max_requests_per_turn=1),
+        )
+        headers = {
+            "x-api-key": "local-secret",
+            "x-claude-code-session-id": "budget-session",
+        }
+
+        first = await client.post("/v1/messages", headers=headers, json={
+            "model": MODEL_ID,
+            "stream": False,
+            "max_tokens": 100,
+            "messages": [{"role": "user", "content": "first task"}],
+        })
+        blocked = await client.post("/v1/messages", headers=headers, json={
+            "model": MODEL_ID,
+            "stream": False,
+            "max_tokens": 100,
+            "messages": [{"role": "user", "content": "first task"}],
+        })
+        next_turn = await client.post("/v1/messages", headers=headers, json={
+            "model": MODEL_ID,
+            "stream": False,
+            "max_tokens": 100,
+            "messages": [{"role": "user", "content": "second task"}],
+        })
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(blocked.status_code, 400)
+        self.assertIn("runaway loop", blocked.json()["error"]["message"])
+        self.assertEqual(next_turn.status_code, 200)
+        self.assertEqual(len(executor.requests), 2)
+
+    async def test_runaway_cost_limit_uses_recorded_provider_cost(self):
+        executor = RecordingModelCallExecutor([text_events("first")])
+        client, _app, _executor = await self.make_client(
+            executor,
+            limits=LimitsConfig(max_cost_per_turn_usd=0.0005),
+        )
+        headers = {
+            "x-api-key": "local-secret",
+            "x-claude-code-session-id": "cost-budget-session",
+        }
+        body = {
+            "model": MODEL_ID,
+            "stream": False,
+            "max_tokens": 100,
+            "messages": [{"role": "user", "content": "same task"}],
+        }
+
+        await client.post("/v1/messages", headers=headers, json=body)
+        blocked = await client.post("/v1/messages", headers=headers, json=body)
+
+        self.assertEqual(blocked.status_code, 400)
+        self.assertIn("$0.0010", blocked.json()["error"]["message"])
+        self.assertEqual(len(executor.requests), 1)
 
     async def test_discovery_and_token_count_use_compiled_engine(self):
         client, _app, executor = await self.make_client()
@@ -653,7 +800,6 @@ class DependencyBoundaryTests(unittest.TestCase):
             "starlette",
             "uvicorn",
             "text/event-stream",
-            '"/v1/messages"',
         ):
             self.assertNotIn(forbidden, source)
 

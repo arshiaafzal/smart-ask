@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 from .._numeric import is_finite_real
 
 
-TransportKind = Literal["openrouter", "openai", "groq", "ollama"]
+TransportKind = Literal["anthropic", "openrouter", "openai", "groq", "ollama"]
 _TARGET_ID = re.compile(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?")
 
 
@@ -78,6 +78,7 @@ class TargetDefinition:
         if not _TARGET_ID.fullmatch(self.target_id):
             raise ValueError("target_id must be a lowercase hyphenated identifier")
         if self.transport not in (
+            "anthropic",
             "openrouter",
             "openai",
             "groq",
@@ -197,6 +198,7 @@ class TargetRegistry(Mapping[str, TargetDefinition]):
 
 
 _OPENROUTER = "https://openrouter.ai/api/v1"
+_ANTHROPIC = "https://api.anthropic.com"
 _OPENAI = "https://api.openai.com/v1"
 _GROQ = "https://api.groq.com/openai/v1"
 _OLLAMA = "http://127.0.0.1:11434/api"
@@ -204,6 +206,22 @@ _STRUCTURED = frozenset({"text", "streaming", "tools", "images", "reasoning"})
 
 
 DEFAULT_TARGET_REGISTRY = TargetRegistry((
+    TargetDefinition(
+        "anthropic-claude-sonnet",
+        "anthropic",
+        "claude-sonnet-4-6",
+        base_url=_ANTHROPIC,
+        credential_env="ANTHROPIC_API_KEY",
+        capabilities=_STRUCTURED,
+    ),
+    TargetDefinition(
+        "anthropic-claude-opus",
+        "anthropic",
+        "claude-opus-4-6",
+        base_url=_ANTHROPIC,
+        credential_env="ANTHROPIC_API_KEY",
+        capabilities=_STRUCTURED,
+    ),
     TargetDefinition(
         "openrouter-gemini-flash-lite",
         "openrouter",
@@ -269,9 +287,33 @@ def default_target_registry(
 
     values = os.environ if env is None else env
     ollama_url = values.get("SMART_ASK_OLLAMA_URL")
+    foundry_url = values.get("ANTHROPIC_FOUNDRY_BASE_URL")
+    use_foundry = bool(foundry_url and values.get("ANTHROPIC_FOUNDRY_API_KEY"))
     targets = []
     for target in DEFAULT_TARGET_REGISTRY.values():
         if target.target_id == "local-qwen3-14b" and ollama_url:
             target = replace(target, base_url=ollama_url)
+        elif target.target_id == "anthropic-claude-sonnet":
+            target = replace(
+                target,
+                model=values.get("ANTHROPIC_DEFAULT_SONNET_MODEL", target.model),
+                base_url=foundry_url if use_foundry else target.base_url,
+                credential_env=(
+                    "ANTHROPIC_FOUNDRY_API_KEY"
+                    if use_foundry
+                    else target.credential_env
+                ),
+            )
+        elif target.target_id == "anthropic-claude-opus":
+            target = replace(
+                target,
+                model=values.get("ANTHROPIC_DEFAULT_OPUS_MODEL", target.model),
+                base_url=foundry_url if use_foundry else target.base_url,
+                credential_env=(
+                    "ANTHROPIC_FOUNDRY_API_KEY"
+                    if use_foundry
+                    else target.credential_env
+                ),
+            )
         targets.append(target)
     return TargetRegistry(targets)

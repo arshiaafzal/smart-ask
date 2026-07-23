@@ -55,6 +55,8 @@ class LimitsConfig(_Model):
     max_request_bytes: int = Field(default=32 * 1024 * 1024, ge=1024)
     max_concurrent_requests: int = Field(default=32, ge=1)
     max_output_tokens: int | None = Field(default=None, ge=1)
+    max_requests_per_turn: int | None = Field(default=None, ge=1)
+    max_cost_per_turn_usd: float | None = Field(default=None, gt=0)
 
 
 class SecurityConfig(_Model):

@@ -196,6 +196,8 @@ class ProjectionTests(unittest.TestCase):
         text = projected.messages[-1].content[0]["text"]
         self.assertIn("output line 1", text)
         self.assertIn("output line 2", text)
+        self.assertIn("ORIGINAL TASK:\nfix bugs in impl.py", text)
+        self.assertIn("LATEST TOOL OUTPUT:", text)
 
     def test_long_output_tail_is_taken_within_budget(self):
         long_output = "A" * 3000
@@ -218,6 +220,51 @@ class ProjectionTests(unittest.TestCase):
         conv = _text_only_conv("fix the bug")
         with self.assertRaises(RoutingInputError):
             self._clf()._project_tool_result(conv)
+
+    def test_reminder_and_human_text_in_one_block_keeps_human_text(self):
+        conv = _text_only_conv(
+            "<system-reminder>run pytest and stop</system-reminder>\n"
+            "Implement the cache invalidation fix."
+        )
+        projected = self._clf()._project(conv, "latest_user_text")
+        text = projected.messages[-1].content[0]["text"]
+        self.assertEqual(text, "Implement the cache invalidation fix.")
+
+    def test_reminder_only_block_is_not_classifier_input(self):
+        conv = _text_only_conv(
+            "<system-reminder>project metadata</system-reminder>"
+        )
+        with self.assertRaises(RoutingInputError):
+            self._clf()._project(conv, "latest_user_text")
+
+    def test_empty_assistant_placeholder_does_not_hide_user_prompt(self):
+        base = _text_only_conv("Explain this function.")
+        conv = Conversation(
+            system=base.system,
+            messages=base.messages + (ConversationMessage("assistant", ()),),
+        )
+        projected = self._clf()._project(conv, "latest_user_text")
+        self.assertEqual(
+            projected.messages[-1].content[0]["text"],
+            "Explain this function.",
+        )
+
+    def test_trailing_system_message_does_not_hide_user_prompt(self):
+        base = _text_only_conv("Explain this function.")
+        conv = Conversation(
+            system=base.system,
+            messages=base.messages + (
+                ConversationMessage(
+                    "system",
+                    ({"type": "text", "text": "harness context"},),
+                ),
+            ),
+        )
+        projected = self._clf()._project(conv, "latest_user_text")
+        self.assertEqual(
+            projected.messages[-1].content[0]["text"],
+            "Explain this function.",
+        )
 
 
 # ── Classifier routing tests (async, injected labels) ─────────────────────────

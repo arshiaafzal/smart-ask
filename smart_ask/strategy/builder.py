@@ -16,12 +16,14 @@ from ..executors.target_registry import TargetExecutorRegistry
 from ..methods.memory import InMemoryRouteMemory, RouteMemory
 from ..methods.strategies import (
     CascadeStrategyMethod,
+    CompactHandoffPolicy,
     DifficultyStrategyMethod,
     FixedStrategyMethod,
     MarkerCandidatePolicy,
     ModelProfile,
     RequestTransform,
     StructuredDifficultyClassifier,
+    TerminalHandoffPolicy,
 )
 from .errors import StrategyBuildError
 from .loader import LoadedStrategy
@@ -150,16 +152,40 @@ class StrategyBuilder:
             memory = InMemoryRouteMemory(
                 ttl_seconds=memory_config.ttl_seconds,
                 max_entries=memory_config.max_entries,
+                session_ttl_seconds=memory_config.session_ttl_seconds,
             )
         classifier = self._classifier(loaded, method.classifier)
         easy = profiles[method.easy]
         hard = profiles[method.hard]
         if isinstance(method, DifficultyMethodConfig):
+            terminal_handoff = None
+            if method.terminal_handoff is not None and method.terminal_handoff.enabled:
+                handoff = method.terminal_handoff
+                terminal_handoff = TerminalHandoffPolicy(
+                    prompt=loaded.resolve_prompt(handoff.prompt),
+                    marker=handoff.marker,
+                    min_passed_tests=handoff.min_passed_tests,
+                    max_prompt_chars=handoff.max_prompt_chars,
+                    max_tokens=handoff.max_tokens,
+                )
+            compact_handoff = None
+            if method.compact_handoff is not None and method.compact_handoff.enabled:
+                handoff = method.compact_handoff
+                compact_handoff = CompactHandoffPolicy(
+                    prompt=loaded.resolve_prompt(handoff.prompt),
+                    marker=handoff.marker,
+                    max_summary_chars=handoff.max_summary_chars,
+                    max_tool_result_chars=handoff.max_tool_result_chars,
+                    max_tokens=handoff.max_tokens,
+                    tool_names=tuple(handoff.tool_names),
+                )
             return DifficultyStrategyMethod(
                 classifier=classifier,
                 easy=easy,
                 hard=hard,
                 route_memory=memory,
+                terminal_handoff=terminal_handoff,
+                compact_handoff=compact_handoff,
             )
         if isinstance(method, CascadeMethodConfig):
             escalation = method.escalation
@@ -248,6 +274,8 @@ class StrategyBuilder:
                 if config.projection == "full-conversation"
                 else config.max_prompt_chars
             ),
+            prefilter=config.prefilter.replace("-", "_"),
+            sonnet_min_confidence=config.sonnet_min_confidence,
             parameters=parameters,
         )
 

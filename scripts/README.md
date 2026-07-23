@@ -6,28 +6,43 @@ interfaces; they do not contain routing, provider translation, or model policy.
 ## `claude-smart-ask`
 
 The general launcher accepts a bundled strategy name and normal Claude Code
-arguments:
+arguments. The default strategy needs no strategy flag:
 
 ```bash
 cp scripts/claude-smart-ask.local.env.example \
   scripts/claude-smart-ask.local.env
-# Add OPENAI_API_KEY, OPENROUTER_API_KEY, or GROQ_API_KEY as needed.
+# Add ANTHROPIC_API_KEY.
 
-./scripts/claude-smart-ask \
-  --strategy python-code-generation-codex-cascade
+./scripts/claude-smart-ask
 
-./scripts/claude-smart-ask \
-  --strategy claude-code-groq-difficulty \
-  --trace
+./scripts/claude-smart-ask -p "fix the failing tests" --print
 
-./scripts/claude-smart-ask \
-  --strategy local-qwen \
-  -p "hello"
+./scripts/claude-smart-ask --trace
 ```
 
-`--strategy NAME` searches
+The default `agentic-coding-v1` strategy routes straightforward turns to
+Claude Sonnet and difficult turns to Claude Opus through the native Anthropic
+API. `--strategy NAME` optionally selects another bundled strategy under
 `smart_ask/resources/strategies/NAME.yaml`. The launcher intentionally does not
 accept provider configuration in place of a strategy.
+
+Routing is reconsidered for each real user message. Once a message starts an
+agentic read/edit/test loop, its selected model remains stable for that loop so
+Anthropic prompt-cache reuse and reasoning continuity are preserved. Generated
+system reminders and moving cache annotations do not create false new turns.
+After a real edit and a clear multi-test pass, the default policy can hand only
+the bounded final-summary evidence to Sonnet. Sonnet cannot use tools in that
+handoff, and ambiguity or failure returns to Opus with the complete context.
+Obvious code actions and exact-reply requests bypass the LLM classifier. A
+five-minute hard-model lease also keeps a warmed Opus context across new human
+messages, because one cached Opus request can be cheaper than rebuilding the
+same large prefix for Sonnet. Recent user/tool boundaries use spare Anthropic
+cache breakpoints to improve prefix reuse.
+
+Both profiles also receive correctness-first efficiency guidance: reuse known
+facts, avoid duplicate reads and bookkeeping, and follow an explicitly supplied
+environment before probing. Exploration and environment discovery remain
+available whenever they provide information needed for a correct result.
 
 For each invocation it:
 
@@ -73,16 +88,26 @@ default it is:
 .smart-ask/claude-code/metrics.jsonl
 ```
 
+Metrics include the selected and actual model, input/output/cache tokens,
+routing decisions, timing, and cost. Anthropic costs are direct list-price
+estimates unless the provider supplies billed cost. Every Claude Code response
+also displays a colored footer with the answering model, this-turn cost, and
+cumulative session cost. The adapter strips that footer from subsequent model
+context.
+
 This file is prompt-free. Each completed method invocation appends its
 canonical record and current session aggregate.
+
+The launcher also limits one human instruction to 30 model responses or $2.00
+of known provider cost by default. A new user message gets a fresh budget. Set
+`SMART_ASK_MAX_REQUESTS_PER_TURN` or
+`SMART_ASK_MAX_COST_PER_TURN_USD` to choose different positive limits.
 
 Add `--trace` immediately after the strategy name to create one unique trace
 directory for this launcher session:
 
 ```bash
-./scripts/claude-smart-ask \
-  --strategy claude-code-groq-difficulty \
-  --trace
+./scripts/claude-smart-ask --trace
 ```
 
 Use `--trace-dir DIR` or `SMART_ASK_TRACE_DIR` for an explicit destination.

@@ -1,3 +1,4 @@
+from dataclasses import replace
 import unittest
 
 from smart_ask import Conversation, InputTokenCount, RunMetadata, RunMetricsStore
@@ -49,6 +50,15 @@ async def completed_run(session="session-1"):
 
 
 class RunMetricsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_serializes_routing_confidence(self):
+        completed = await completed_run()
+        decision = replace(completed.record.decisions[0], confidence=0.83)
+        record = replace(completed.record, decisions=(decision,))
+
+        serialized = RunMetricsStore().record(record)["run"]
+
+        self.assertEqual(serialized["decisions"][0]["confidence"], 0.83)
+
     def test_requested_model_fallback_remains_priceable(self):
         resources = aggregate_resources(
             [{

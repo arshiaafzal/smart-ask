@@ -265,6 +265,7 @@ class DecisionDraft:
     reason_code: str | None = None
     selected_profile_id: str | None = None
     evidence_call_ids: tuple[str, ...] = ()
+    confidence: float | None = None
 
     def __post_init__(self) -> None:
         _trimmed(self.gate, "gate")
@@ -281,6 +282,14 @@ class DecisionDraft:
         for call_id in ids:
             _trimmed(call_id, "evidence call id")
         object.__setattr__(self, "evidence_call_ids", ids)
+        if self.confidence is not None and (
+            isinstance(self.confidence, bool)
+            or not isinstance(self.confidence, (int, float))
+            or not 0 <= self.confidence <= 1
+        ):
+            raise ValueError("confidence must be between 0 and 1 or None")
+        if self.confidence is not None:
+            object.__setattr__(self, "confidence", float(self.confidence))
 
 
 @dataclass(frozen=True)
@@ -294,6 +303,7 @@ class DecisionRecord:
     selected_profile_id: str | None
     evidence_call_ids: tuple[str, ...]
     sequence: int
+    confidence: float | None = None
 
 
 @dataclass(frozen=True)

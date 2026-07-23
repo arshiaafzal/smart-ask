@@ -1,12 +1,9 @@
 schema_version: 3
-name: agentic-coding-fixed-opus
-
-# Opus-only baseline strategy through the native Anthropic API.
-# Use this to establish a cost/accuracy baseline before enabling smart routing.
+name: agentic-coding-fixed-sonnet
 
 profiles:
   model:
-    target: anthropic-claude-opus
+    target: anthropic-claude-sonnet
     system_prompt:
       type: file
       path: ../prompts/agentic-efficiency-v1.txt

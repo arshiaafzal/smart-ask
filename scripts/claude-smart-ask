@@ -21,16 +21,17 @@ LAUNCHER_VENV=$STATE_PARENT/smart-ask-claude-launcher-venv
 usage() {
     cat <<'EOF'
 Usage:
-  scripts/claude-smart-ask --strategy NAME [--trace | --trace-dir DIR] [CLAUDE_ARGS...]
+  scripts/claude-smart-ask [--strategy NAME] [--trace | --trace-dir DIR] [CLAUDE_ARGS...]
 
 Examples:
-  scripts/claude-smart-ask --strategy python-code-generation-codex-cascade
-  scripts/claude-smart-ask --strategy claude-code-groq-difficulty --trace
+  scripts/claude-smart-ask
+  scripts/claude-smart-ask -p "fix the failing tests" --print
+  scripts/claude-smart-ask --trace
   scripts/claude-smart-ask --strategy local-qwen -p "hello"
 
-The selected strategy determines its backend and required credentials. This
-launcher starts only the external adapter and Claude Code; provider services
-such as Ollama must already be running.
+The default routes straightforward turns to Claude Sonnet and difficult turns
+to Claude Opus through the native Anthropic API. A selected custom strategy
+determines its own backend and credentials.
 
 Environment overrides:
   SMART_ASK_SECRETS_FILE
@@ -38,6 +39,7 @@ Environment overrides:
   SMART_ASK_ADAPTER_BIN, SMART_ASK_PYTHON, SMART_ASK_AUTO_INSTALL
   SMART_ASK_ADAPTER_HOST, SMART_ASK_ADAPTER_PORT
   SMART_ASK_LAUNCHER_STATE_DIR, SMART_ASK_START_ATTEMPTS
+  SMART_ASK_MAX_REQUESTS_PER_TURN, SMART_ASK_MAX_COST_PER_TURN_USD
   SMART_ASK_METRICS_PATH, CLAUDE_BIN
   SMART_ASK_TRACE_DIR
 EOF
@@ -87,13 +89,18 @@ bootstrap_adapter() {
 }
 
 resolve_adapter() {
+    local candidate
     if [ -n "${SMART_ASK_ADAPTER_BIN:-}" ]; then
         printf '%s\n' "$SMART_ASK_ADAPTER_BIN"
-    elif command -v smart-ask-claude-code >/dev/null 2>&1; then
-        command -v smart-ask-claude-code
-    elif [ -x "$ROOT_DIR/.venv/bin/smart-ask-claude-code" ]; then
+    elif command -v smart-ask-claude-code >/dev/null 2>&1 && \
+        candidate=$(command -v smart-ask-claude-code) && \
+        "$candidate" --help >/dev/null 2>&1; then
+        printf '%s\n' "$candidate"
+    elif [ -x "$ROOT_DIR/.venv/bin/smart-ask-claude-code" ] && \
+        "$ROOT_DIR/.venv/bin/smart-ask-claude-code" --help >/dev/null 2>&1; then
         printf '%s\n' "$ROOT_DIR/.venv/bin/smart-ask-claude-code"
-    elif [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ]; then
+    elif [ -x "$LAUNCHER_VENV/bin/smart-ask-claude-code" ] && \
+        "$LAUNCHER_VENV/bin/smart-ask-claude-code" --help >/dev/null 2>&1; then
         printf '%s\n' "$LAUNCHER_VENV/bin/smart-ask-claude-code"
     elif [ "${SMART_ASK_AUTO_INSTALL:-1}" != "0" ]; then
         bootstrap_adapter
@@ -160,9 +167,8 @@ case "${1:-}" in
 esac
 
 # Default strategy for Claude Code agentic sessions.
-# agentic-coding-v1 routes tool-result turns to Gemini (cheap) and
-# code-writing turns to Claude Opus (accurate).
-# Savings: ~15% for coding tasks; up to ~94% for exploration-heavy tasks.
+# agentic-coding-v1 routes straightforward turns to Sonnet and difficult
+# coding/reasoning turns to Opus through the native Anthropic API.
 DEFAULT_STRATEGY=${SMART_ASK_DEFAULT_STRATEGY:-agentic-coding-v1}
 
 if [ "${1:-}" = "--strategy" ]; then
@@ -226,10 +232,11 @@ trap cleanup EXIT INT TERM
 METRICS_PATH=$(
 "$PYTHON" - "$STRATEGY_NAME" "$CONFIG" "$PROVIDER_ENVS" "$ADAPTER_HOST" "$PORT" "$METRICS_PATH" "$TRACE_DIR" <<'PY'
 import json
+import os
 from pathlib import Path
 import sys
 
-from smart_ask.strategy import DEFAULT_TARGET_REGISTRY, load_strategy
+from smart_ask.strategy import default_target_registry, load_strategy
 
 name, config_path, env_path, host, raw_port, metrics_path, trace_directory = sys.argv[1:]
 if not name or name != name.strip():
@@ -244,7 +251,8 @@ reference = "builtin:" + name
 loaded = load_strategy(reference)
 resolved_metrics_path = str(Path(metrics_path).expanduser().resolve())
 
-credential_names = DEFAULT_TARGET_REGISTRY.required_secret_envs(
+registry = default_target_registry()
+credential_names = registry.required_secret_envs(
     loaded.config.target_ids
 )
 
@@ -259,7 +267,17 @@ config = {
     "limits": {
         "max_request_bytes": 33554432,
         "max_concurrent_requests": 32,
-        "max_output_tokens": 65536,
+        # Claude Code may advertise a larger client-side ceiling. Strategy and
+        # deployment target limits still constrain the actual provider call.
+        "max_output_tokens": None,
+        # Bound one human instruction, not the full interactive session. A new
+        # user message gets a fresh budget.
+        "max_requests_per_turn": int(
+            os.environ.get("SMART_ASK_MAX_REQUESTS_PER_TURN", "30")
+        ),
+        "max_cost_per_turn_usd": float(
+            os.environ.get("SMART_ASK_MAX_COST_PER_TURN_USD", "2.0")
+        ),
     },
     "metrics": {
         "jsonl_path": resolved_metrics_path,

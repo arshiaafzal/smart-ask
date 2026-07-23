@@ -167,16 +167,29 @@ class PriceQuote:
         }
 
 
-# Per-token prices captured from the named providers on 2026-07-10.
+# Per-token prices captured from the named providers on 2026-07-23.
 DEFAULT_PRICE_CATALOG = PriceCatalog(
-    catalog_id="provider-pricing-2026-07-10",
-    effective_date="2026-07-10",
+    catalog_id="provider-pricing-2026-07-23",
+    effective_date="2026-07-23",
     source=(
+        "https://docs.anthropic.com/en/docs/about-claude/pricing; "
         "https://openrouter.ai/api/v1/models; "
         "https://developers.openai.com/api/docs/models/all; "
         "https://groq.com/pricing"
     ),
     prices={
+        "claude-sonnet-4-6": {
+            "input": 0.000003,
+            "output": 0.000015,
+            "input_cache_read": 0.0000003,
+            "input_cache_write": 0.00000375,
+        },
+        "claude-opus-4-6": {
+            "input": 0.000005,
+            "output": 0.000025,
+            "input_cache_read": 0.0000005,
+            "input_cache_write": 0.00000625,
+        },
         "google/gemini-2.5-flash-lite": {
             "input": 0.0000001,
             "output": 0.0000004,

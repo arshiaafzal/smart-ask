@@ -1,9 +1,10 @@
 """Conversation-native strategy methods and explicit collaborators."""
 
-from .memory import InMemoryRouteMemory, RouteAffinity, RouteMemory
+from .memory import CompactRouteState, InMemoryRouteMemory, RouteAffinity, RouteMemory
 from .strategies import (
     CandidateToolCallError,
     CascadeStrategyMethod,
+    CompactHandoffPolicy,
     DifficultyAssessment,
     DifficultyStrategyMethod,
     FixedStrategyMethod,
@@ -12,11 +13,14 @@ from .strategies import (
     RequestTransform,
     RoutingInputError,
     StructuredDifficultyClassifier,
+    TerminalHandoffPolicy,
 )
 
 __all__ = [
     "CandidateToolCallError",
     "CascadeStrategyMethod",
+    "CompactRouteState",
+    "CompactHandoffPolicy",
     "DifficultyAssessment",
     "DifficultyStrategyMethod",
     "FixedStrategyMethod",
@@ -28,4 +32,5 @@ __all__ = [
     "RouteMemory",
     "RoutingInputError",
     "StructuredDifficultyClassifier",
+    "TerminalHandoffPolicy",
 ]

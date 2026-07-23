@@ -41,6 +41,7 @@ def run_record_dict(record: RunRecord) -> dict[str, Any]:
                 "reason_code": decision.reason_code,
                 "selected_profile_id": decision.selected_profile_id,
                 "evidence_call_ids": list(decision.evidence_call_ids),
+                "confidence": decision.confidence,
             }
             for decision in record.decisions
         ],

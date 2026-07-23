@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Per-task cost/routing/pass report comparing Opus-baseline vs smart-routing runs.
+Per-task cost/routing/pass report comparing Opus-only vs Sonnet/Opus routing.
 
 Usage:
     python3 report.py results/opus-baseline/ results/smart-routing/
@@ -36,14 +36,23 @@ TASK_ORDER = [
 def _load_results(run_dir: Path) -> dict[str, dict]:
     """Return {task_name: analyze_file_result} for all *.jsonl in a directory."""
     results: dict[str, dict] = {}
-    for p in run_dir.glob("*.jsonl"):
-        task = p.stem  # e.g. "django_file_upload"
+    paths = list(run_dir.glob("*.jsonl")) + list(run_dir.glob("*/metrics.jsonl"))
+    for p in paths:
+        task = p.parent.name if p.name == "metrics.jsonl" else p.stem
         results[task] = analyze_file(p)
     return results
 
 
 def _pass_status(run_dir: Path, task: str) -> str:
     """Check the *.test.txt file in the run directory for pass/fail."""
+    result_json = run_dir / task / "result.json"
+    if result_json.exists():
+        try:
+            return "PASS" if json.loads(
+                result_json.read_text(encoding="utf-8")
+            ).get("passed") else "FAIL"
+        except (json.JSONDecodeError, OSError):
+            return "?"
     test_file = run_dir / f"{task}.test.txt"
     if not test_file.exists():
         return "?"
@@ -101,7 +110,9 @@ def report(opus_dir: Path, smart_dir: Path) -> None:
     comparable_smart = 0.0
     comparable_count = 0
 
-    for task in TASK_ORDER:
+    tasks = [task for task in TASK_ORDER if task in opus_results or task in smart_results]
+    tasks.extend(sorted((set(opus_results) | set(smart_results)) - set(tasks)))
+    for task in tasks:
         opus_s  = opus_results.get(task, {})
         smart_s = smart_results.get(task, {})
 
@@ -159,7 +170,7 @@ def report(opus_dir: Path, smart_dir: Path) -> None:
         if comparable_opus else 0.0
     )
     total_row = (
-        f"{'TOTAL (' + str(len(TASK_ORDER)) + ' tasks)':<{col_task}}  "
+        f"{'TOTAL (' + str(len(tasks)) + ' tasks)':<{col_task}}  "
         f"{'($' + f'{total_opus:.2f}' + ')':>{col_cost}}  "
         f"${total_smart:>{col_cost - 1}.4f}  "
         f"{'(' + f'{comp_save_pct:.1f}' + '%)':>{col_save}}  "
@@ -169,8 +180,8 @@ def report(opus_dir: Path, smart_dir: Path) -> None:
     )
     print("  " + total_row)
     print("  " + sep)
-    if comparable_count < len(TASK_ORDER):
-        skipped = len(TASK_ORDER) - comparable_count
+    if comparable_count < len(tasks):
+        skipped = len(tasks) - comparable_count
         print(f"  Note: {skipped} task(s) skipped from Save% (credit exhaustion during opus run).")
         print(f"        Save% shown is for {comparable_count} tasks with valid opus data.")
     print()

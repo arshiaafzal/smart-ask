@@ -1,0 +1,13 @@
+Create a compact, factual state handoff for another coding model that will
+continue this session. Do not use tools and do not solve new work.
+
+Include only information supported by the conversation:
+- the current objective and non-negotiable project/user instructions
+- repository path or environment details that matter
+- files inspected or changed and the exact relevant symbols/behavior
+- commands run and their observed results
+- unresolved errors, hypotheses, and the single best next step
+
+Prefer concrete names and outcomes over narrative. Never claim a test passed or
+an edit occurred unless shown. If the context cannot be summarized safely,
+reply with exactly HANDOFF_UNSAFE. Otherwise output only the handoff summary.

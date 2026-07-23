@@ -15,13 +15,14 @@ from collections import defaultdict
 from pathlib import Path
 
 
-# Price per 1M tokens (USD) — OpenRouter pricing.
+# Direct API list prices per 1M tokens (USD), effective 2026-07-23.
 PRICES = {
     # model fragment → (input_per_1M, output_per_1M)
+    "claude-sonnet-4":     (3.0, 15.0),
+    "claude-opus-4":       (5.0, 25.0),
     "gemini-flash-lite":  (0.075, 0.30),
     "gemini-2.5-flash":   (0.075, 0.30),
-    "claude-opus-4":      (15.0, 75.0),
-    "claude-opus":        (15.0, 75.0),
+    "claude-opus":         (5.0, 25.0),
 }
 
 
@@ -34,9 +35,22 @@ def model_price(model: str) -> tuple[float, float]:
     return (1.0, 3.0)  # conservative default
 
 
-def compute_cost(input_tokens: int, output_tokens: int, model: str) -> float:
+def compute_cost(
+    input_tokens: int,
+    output_tokens: int,
+    model: str,
+    *,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
+) -> float:
     inp_p, out_p = model_price(model)
-    return (input_tokens * inp_p + output_tokens * out_p) / 1_000_000
+    ordinary = max(0, input_tokens - cache_read_tokens - cache_write_tokens)
+    return (
+        ordinary * inp_p
+        + cache_read_tokens * inp_p * 0.1
+        + cache_write_tokens * inp_p * 1.25
+        + output_tokens * out_p
+    ) / 1_000_000
 
 
 def analyze_file(path: Path) -> dict:
@@ -69,6 +83,9 @@ def analyze_file(path: Path) -> dict:
     model_costs: dict[str, float] = defaultdict(float)
     model_in_tokens: dict[str, int] = defaultdict(int)
     model_out_tokens: dict[str, int] = defaultdict(int)
+    model_cache_read: dict[str, int] = defaultdict(int)
+    model_cache_write: dict[str, int] = defaultdict(int)
+    model_requests: dict[str, int] = defaultdict(int)
     easy_turns = 0
     hard_turns = 0
     total_turns = 0
@@ -76,32 +93,70 @@ def analyze_file(path: Path) -> dict:
     for run in runs:
         provider_requests = run.get("provider_requests", [])
         decisions = run.get("decisions", [])
+        calls = {
+            call.get("call_id"): call
+            for call in run.get("model_calls", [])
+            if isinstance(call, dict)
+        }
 
-        # Count routing decisions.
-        for decision in decisions:
-            gate = decision.get("gate", "")
-            profile = decision.get("selected_profile_id", "")
-            if gate in ("difficulty", "route-memory"):
-                total_turns += 1
-                if profile == "easy":
-                    easy_turns += 1
-                elif profile == "hard":
-                    hard_turns += 1
+        # Count the profile that produced the visible response. This includes
+        # replayed terminal handoffs and avoids double-counting their attempt
+        # and acceptance decisions.
+        final_call = calls.get(run.get("final_call_id"), {})
+        final_profile = (
+            final_call.get("profile_id")
+            if isinstance(final_call, dict)
+            else None
+        )
+        if final_profile in ("easy", "hard"):
+            total_turns += 1
+            if final_profile == "easy":
+                easy_turns += 1
+            else:
+                hard_turns += 1
+        else:
+            # Compatibility with older records that lack final_call_id.
+            for decision in reversed(decisions):
+                gate = decision.get("gate", "")
+                profile = decision.get("selected_profile_id", "")
+                if gate in ("difficulty", "route-memory") and profile in (
+                    "easy",
+                    "hard",
+                ):
+                    total_turns += 1
+                    if profile == "easy":
+                        easy_turns += 1
+                    else:
+                        hard_turns += 1
+                    break
 
         for req in provider_requests:
             model = req.get("selected_model") or req.get("actual_model") or ""
             inp = req.get("input_tokens") or 0
             out = req.get("output_tokens") or 0
+            cache_read = req.get("cache_read_tokens") or 0
+            cache_write = req.get("cache_write_tokens") or 0
             provider_cost = req.get("provider_cost_usd")
             if provider_cost is not None:
                 cost = float(provider_cost)
             else:
-                cost = compute_cost(inp, out, model)
+                cost = compute_cost(
+                    inp,
+                    out,
+                    model,
+                    cache_read_tokens=cache_read,
+                    cache_write_tokens=cache_write,
+                )
             total_cost += cost
-            model_key = _model_key(model)
+            call = calls.get(req.get("call_id"), {})
+            role = call.get("role") if isinstance(call, dict) else None
+            model_key = _model_key(model, role)
             model_costs[model_key] += cost
             model_in_tokens[model_key] += inp
             model_out_tokens[model_key] += out
+            model_cache_read[model_key] += cache_read
+            model_cache_write[model_key] += cache_write
+            model_requests[model_key] += 1
 
     return {
         "file": path.name,
@@ -112,6 +167,9 @@ def analyze_file(path: Path) -> dict:
                 "cost_usd": model_costs[k],
                 "input_tokens": model_in_tokens[k],
                 "output_tokens": model_out_tokens[k],
+                "cache_read_tokens": model_cache_read[k],
+                "cache_write_tokens": model_cache_write[k],
+                "requests": model_requests[k],
             }
             for k in sorted(model_costs)
         },
@@ -126,12 +184,17 @@ def analyze_file(path: Path) -> dict:
     }
 
 
-def _model_key(model: str) -> str:
+def _model_key(model: str, role: str | None = None) -> str:
     m = model.lower()
+    suffix = f" ({role})" if role else ""
+    if "sonnet" in m:
+        return "claude-sonnet" + suffix
+    if "opus" in m:
+        return "claude-opus" + suffix
     if "gemini" in m:
-        return "gemini (easy)"
-    if "opus" in m or "claude" in m:
-        return "claude-opus (hard)"
+        return "gemini" + suffix
+    if "claude" in m:
+        return "claude" + suffix
     if "classifier" in m:
         return "classifier"
     return model or "unknown"
@@ -152,13 +215,16 @@ def print_summary(summary: dict) -> None:
     print(
         f"  Route: {routing['easy_turns']}✓ easy  "
         f"{routing['hard_turns']}✗ hard  "
-        f"({routing['easy_pct']}% Gemini)"
+        f"({routing['easy_pct']}% Sonnet generation)"
     )
     print(f"  Model breakdown:")
     for model, stats in summary["model_breakdown"].items():
         print(
             f"    {model:<30}  ${stats['cost_usd']:.6f}  "
-            f"({stats['input_tokens']:,} in / {stats['output_tokens']:,} out tokens)"
+            f"({stats['requests']} req; {stats['input_tokens']:,} in / "
+            f"{stats['output_tokens']:,} out / "
+            f"{stats['cache_read_tokens']:,} cache-read / "
+            f"{stats['cache_write_tokens']:,} cache-write)"
         )
 
 

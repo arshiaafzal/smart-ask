@@ -31,19 +31,25 @@ python3.11 -m pip install -e ./integrations/claude_code
 
 cp scripts/claude-smart-ask.local.env.example \
   scripts/claude-smart-ask.local.env
-# Add the key required by the strategy's trusted targets.
+# Add ANTHROPIC_API_KEY.
 
-./scripts/claude-smart-ask \
-  --strategy python-code-generation-codex-cascade
-
-./scripts/claude-smart-ask \
-  --strategy claude-code-groq-difficulty \
-  --trace
+./scripts/claude-smart-ask
+./scripts/claude-smart-ask -p "fix the failing tests" --print
+./scripts/claude-smart-ask --trace
 ```
 
 The launcher searches the bundled strategies directory, generates a private
 adapter configuration, starts the server on loopback, selects its advertised
 alias, launches Claude Code, and cleans up the owned server afterward.
+The default strategy uses native Sonnet for straightforward turns and native
+Opus for difficult turns. Use `--strategy NAME` only to select another policy.
+It uses Sonnet to classify every substantive real user message as Sonnet,
+Opus, or uncertain with confidence; only explicit exact replies bypass the
+classifier. Sonnet tool results are checked again so failures or newly exposed
+complexity can escalate the same turn to Opus. Opus remains pinned during a
+difficult tool loop. Cross-model switches use a bounded warm-model summary
+that persists through later destination tool calls; unsafe or failed summaries
+fall back to full context. Provider prompt caches remain model-specific.
 
 For local Qwen:
 
@@ -87,6 +93,8 @@ strategies:
 limits:
   max_request_bytes: 33554432
   max_concurrent_requests: 32
+  max_requests_per_turn: 30
+  max_cost_per_turn_usd: 2.0
 metrics:
   jsonl_path: .smart-ask/claude-code/metrics.jsonl
 security:
@@ -108,8 +116,16 @@ builtin:python-code-generation-codex-cascade
   → claude-smart-ask-python-code-generation-codex-cascade
 ```
 
-The alias does not expose the cheap and expensive physical models. Claude Code
-selects the strategy; the strategy selects trusted target profiles internally.
+The alias selects the strategy; the strategy selects trusted target profiles
+internally. Each response ends with a terminal-colored footer: answering model
+in yellow, full turn cost in bright green, and cumulative session cost in
+green. It is display-only and removed when Claude Code sends the history back,
+so models never see it. Full token, cache, routing, timing, and cost details
+remain in the prompt-free metrics file.
+
+The optional per-turn request and cost limits stop a runaway tool loop without
+limiting the cumulative interactive session. Both counters reset when the
+semantic human instruction changes.
 
 ## Context and harness instructions
 

@@ -1,0 +1,13 @@
+Work efficiently without sacrificing correctness.
+
+- Gather every piece of evidence needed to understand and verify the task.
+- Reuse repository and environment facts already present in the conversation; do not repeat a search, read, or probe unless the state changed or the earlier evidence was insufficient.
+- Use task bookkeeping only for work that is genuinely long or has multiple independent parts.
+- Use subagents when broad parallel exploration is useful. Incorporate their findings instead of repeating the same exploration yourself.
+- When the user or repository gives an environment or test command, try it before probing alternatives. Discover the environment when it is not known or the specified command fails.
+- Prefer targeted searches and reads, and batch independent reads when practical.
+- Locate a named symbol before reading by line range; avoid overlapping reads of the same unchanged file unless the earlier range omitted necessary context.
+- After editing, run the focused regression first, then the smallest relevant broader suite needed for confidence.
+- Stop when the requested change is complete and relevant verification passes.
+
+Never skip source inspection, reproduction, environment discovery, broader exploration, or tests when they are necessary for a correct result.

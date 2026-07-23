@@ -28,6 +28,26 @@ _ROOT_FIELDS = frozenset({
     "tool_choice",
     "stream",
 })
+_SMARTASK_FOOTER_PREFIX = "\n\n---\n\x1b[33mvia "
+
+
+def without_smartask_footer(
+    block: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Remove displayed adapter metadata before rebuilding model context."""
+
+    value = dict(block)
+    text = block.get("text")
+    if block.get("type") != "text" or not isinstance(text, str):
+        return value
+    marker = text.rfind(_SMARTASK_FOOTER_PREFIX)
+    if marker < 0 or not text.endswith("\x1b[0m"):
+        return value
+    visible = text[:marker]
+    if not visible:
+        return None
+    value["text"] = visible
+    return value
 
 
 def _decode_block(block: Mapping[str, Any]) -> dict[str, Any]:
@@ -124,9 +144,17 @@ def decode_request(
         role = raw.get("role")
         if not isinstance(role, str) or not role:
             raise ValueError("every message requires a role")
+        content = _decode_content(raw.get("content"))
+        if role == "assistant":
+            content = tuple(
+                cleaned
+                for block in content
+                for cleaned in (without_smartask_footer(block),)
+                if cleaned is not None
+            )
         messages.append(ConversationMessage(
             role=role,
-            content=_decode_content(raw.get("content")),
+            content=content,
             extensions={
                 key: value
                 for key, value in raw.items()
@@ -268,6 +296,11 @@ class AnthropicEventEncoder:
                     "type": "thinking_delta",
                     "thinking": delta.get("text", ""),
                 }
+            elif delta_type == "signature":
+                encoded_delta = {
+                    "type": "signature_delta",
+                    "signature": delta.get("signature", ""),
+                }
             elif delta_type == "tool_arguments":
                 encoded_delta = {
                     "type": "input_json_delta",
@@ -357,6 +390,8 @@ class AnthropicMessageAssembler:
                 block["text"] += delta.get("text", "")
             elif delta.get("type") == "thinking":
                 block["thinking"] += delta.get("text", "")
+            elif delta.get("type") == "signature":
+                block["signature"] += delta.get("signature", "")
             elif delta.get("type") == "tool_arguments":
                 block["input"] = delta.get("arguments", {})
             elif delta.get("type") == "tool_arguments_json":

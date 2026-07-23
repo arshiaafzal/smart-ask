@@ -13,6 +13,7 @@ from smart_ask.strategy import (
     StrategyConfig,
     StrategyConfigError,
     load_strategy,
+    default_target_registry,
 )
 
 
@@ -104,6 +105,44 @@ class StrategySchemaV3Tests(unittest.IsolatedAsyncioTestCase):
             DEFAULT_TARGET_REGISTRY.required_secret_envs(("openai-codex",)),
             frozenset({"OPENAI_API_KEY"}),
         )
+
+    def test_direct_claude_targets_follow_local_foundry_configuration(self):
+        registry = default_target_registry({
+            "ANTHROPIC_FOUNDRY_BASE_URL": "https://foundry.test/anthropic",
+            "ANTHROPIC_FOUNDRY_API_KEY": "secret",
+            "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-local",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-local",
+        })
+
+        sonnet = registry.resolve("anthropic-claude-sonnet")
+        opus = registry.resolve("anthropic-claude-opus")
+        self.assertEqual(sonnet.transport, "anthropic")
+        self.assertEqual(sonnet.model, "claude-sonnet-local")
+        self.assertEqual(opus.model, "claude-opus-local")
+        self.assertEqual(sonnet.base_url, "https://foundry.test/anthropic")
+        self.assertEqual(sonnet.credential_env, "ANTHROPIC_FOUNDRY_API_KEY")
+
+    def test_agentic_sonnet_keeps_full_conversation_context(self):
+        loaded = load_strategy("builtin:agentic-coding-v1")
+
+        self.assertIsNone(loaded.config.profiles["easy"].context_messages)
+        self.assertTrue(loaded.config.method.route_memory.enabled)
+        self.assertTrue(loaded.config.method.terminal_handoff.enabled)
+        self.assertTrue(loaded.config.method.compact_handoff.enabled)
+        self.assertEqual(
+            loaded.config.method.classifier.prefilter,
+            "exact-replies",
+        )
+        self.assertEqual(
+            loaded.config.method.classifier.sonnet_min_confidence,
+            0.75,
+        )
+        self.assertEqual(
+            loaded.config.method.terminal_handoff.max_tokens,
+            512,
+        )
+        self.assertIsNotNone(loaded.config.profiles["easy"].system_prompt)
+        self.assertIsNotNone(loaded.config.profiles["hard"].system_prompt)
 
     def test_unknown_target_is_rejected_before_execution(self):
         with tempfile.TemporaryDirectory() as temporary:

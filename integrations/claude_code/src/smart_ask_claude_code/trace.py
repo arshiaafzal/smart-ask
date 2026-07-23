@@ -350,6 +350,8 @@ class TraceSessionSink:
             component,
             "context",
             messages=len(messages),
+            roles=[message.get("role", "unknown") for message in messages],
+            content_blocks=[len(message.get("content", [])) for message in messages],
             system_blocks=len(system),
             tools=len(tools),
         )

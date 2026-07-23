@@ -91,12 +91,16 @@ class LLMClassifierConfig(ConfigModel):
     type: Literal["llm"]
     target: str
     prompt: PromptConfig
-    fallback: Literal["easy", "hard", "raise"]
+    fallback: Literal[
+        "easy", "hard", "sonnet", "opus", "uncertain", "raise"
+    ]
     missing_input: Literal["easy", "hard", "raise", "classify-tool-result"] = "hard"
     projection: Literal["latest-user-text", "full-conversation"] = (
         "latest-user-text"
     )
     max_prompt_chars: int = Field(default=1200, gt=0)
+    prefilter: Literal["none", "exact-replies"] = "none"
+    sonnet_min_confidence: float = Field(default=0.75, ge=0, le=1)
     parameters: ClassifierParametersConfig = Field(
         default_factory=ClassifierParametersConfig
     )
@@ -143,7 +147,66 @@ EscalationConfig = Annotated[
 class RouteMemoryConfig(ConfigModel):
     enabled: bool = False
     ttl_seconds: float = Field(default=3600.0, gt=0)
+    session_ttl_seconds: float = Field(default=300.0, gt=0)
     max_entries: int = Field(default=10000, gt=0)
+
+
+class TerminalHandoffConfig(ConfigModel):
+    """Conservative cheap-model finalization after verified implementation."""
+
+    enabled: bool = False
+    prompt: PromptConfig
+    marker: str = "NEEDS_OPUS"
+    min_passed_tests: int = Field(default=2, gt=0)
+    max_prompt_chars: int = Field(default=6000, gt=0)
+    max_tokens: int = Field(default=512, gt=0)
+
+    @field_validator("marker")
+    @classmethod
+    def marker_must_be_one_line(cls, value: str) -> str:
+        if (
+            not value.strip()
+            or value != value.strip()
+            or "\n" in value
+            or "\r" in value
+        ):
+            raise ValueError("marker must be nonempty, trimmed, and single-line")
+        return value
+
+
+class CompactHandoffConfig(ConfigModel):
+    """Warm-model summarization before a cross-model context switch."""
+
+    enabled: bool = False
+    prompt: PromptConfig
+    marker: str = "HANDOFF_UNSAFE"
+    max_summary_chars: int = Field(default=5000, gt=0)
+    max_tool_result_chars: int = Field(default=3000, gt=0)
+    max_tokens: int = Field(default=512, gt=0)
+    tool_names: list[str] = Field(default_factory=lambda: [
+        "Bash", "Read", "Edit", "Write", "NotebookEdit", "Grep", "Glob"
+    ])
+
+    @field_validator("marker")
+    @classmethod
+    def marker_must_be_one_line(cls, value: str) -> str:
+        if (
+            not value.strip()
+            or value != value.strip()
+            or "\n" in value
+            or "\r" in value
+        ):
+            raise ValueError("marker must be nonempty, trimmed, and single-line")
+        return value
+
+    @field_validator("tool_names")
+    @classmethod
+    def tool_names_must_be_unique(cls, value: list[str]) -> list[str]:
+        if not value or any(not name.strip() for name in value):
+            raise ValueError("tool_names must contain non-empty names")
+        if len({name.lower() for name in value}) != len(value):
+            raise ValueError("tool_names must be unique ignoring case")
+        return value
 
 
 class DifficultyMethodConfig(ConfigModel):
@@ -152,6 +215,8 @@ class DifficultyMethodConfig(ConfigModel):
     easy: str
     hard: str
     route_memory: RouteMemoryConfig = Field(default_factory=RouteMemoryConfig)
+    terminal_handoff: TerminalHandoffConfig | None = None
+    compact_handoff: CompactHandoffConfig | None = None
 
 
 class CascadeMethodConfig(ConfigModel):
